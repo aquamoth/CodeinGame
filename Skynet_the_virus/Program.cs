@@ -59,6 +59,7 @@ class Player
 			if (shortestPath == null)
 			{
 				Console.Error.WriteLine("No path left. I won!");
+				Console.ReadLine();
 				break;
 			}
 
@@ -76,10 +77,16 @@ class Player
 	{
 		class Node
 		{
-			public string Name { get; set; }
+			public Node(string name)
+			{
+				Name = name;
+				Distance = int.MaxValue;
+			}
+
+			public string Name { get; private set; }
 			public Node[] Neighbours { get; set; }
 			public string ShortestPath { get; set; }
-			public int? LowestCost { get; set; }
+			public int Distance { get; set; }
 			public bool Visited { get; set; }
 		}
 
@@ -90,8 +97,8 @@ class Player
 			_nodes = links
 				.SelectMany(x => new[] { x.Item1, x.Item2 })
 				.Distinct()
-				.Select(name => new Node { Name = name })
-				.ToDictionary(x=>x.Name);
+				.Select(name => new Node(name))
+				.ToDictionary(x => x.Name);
 
 			foreach (var node in _nodes.Values)
 			{
@@ -100,43 +107,52 @@ class Player
 						.Select(name => _nodes[name])
 						.ToArray();
 			}
-
 		}
 
 		public string[] Path(string from, string to)
 		{
+			if (!_nodes.ContainsKey(to))
+				return null;//No paths to the destination at all
+
+			if (!_nodes.ContainsKey(from))
+				return null;//No paths from the source at all
+
+
+			//Initialize the traversal
 			var currentNode = _nodes[from];
-			currentNode.LowestCost = 0;
+			currentNode.Distance = 0;
+			var unvisitedNodes = new List<Node>(_nodes.Values);
 
-			bool isDebug = from == "7";
-
-			while (currentNode.Name != to)
+			do
 			{
-				var nextCost = currentNode.LowestCost + 1;
-				var neighbours = currentNode.Neighbours.Where(x => !x.Visited);
+				var tentativeDistance = currentNode.Distance + 1;
+				var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
 
-				if (isDebug)
+				foreach (var neighbour in unvisitedNeighbours)
 				{
-					Console.Error.WriteLine("Node: " + currentNode.Name);
-					Console.Error.WriteLine("Neighbours: " + string.Join(", ", neighbours.Select(x => x.Name).ToArray()));
-				}
-
-				foreach (var neighbour in neighbours)
-				{
-					if (!neighbour.LowestCost.HasValue || neighbour.LowestCost.Value > nextCost)
+					if (neighbour.Distance > tentativeDistance)
 					{
-						neighbour.LowestCost = nextCost;
+						neighbour.Distance = tentativeDistance;
 						neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Name;
 					}
 				}
+
 				currentNode.Visited = true;
+				unvisitedNodes.Remove(currentNode);
 
-				currentNode = neighbours.OrderBy(x => x.LowestCost).FirstOrDefault();
-				if (currentNode == null)
-					return null;//No path to this gateway exists
+				if (currentNode.Name == to)
+					break;
+
+				currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
 			}
+			while (currentNode != null && currentNode.Distance != int.MaxValue);
 
-			return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
+			//Determine output
+			var toNode = _nodes[to];
+			if (toNode.Distance == int.MaxValue)
+				return null; // No path to this gateway exists
+			else
+				return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
 		}
 	}
 }
