@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChuckNorris", "ChuckNorris\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MimeType", "MimeType\MimeType.csproj", "{F14E6CD4-FF93-471F-8BAF-30715AB5AB1F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Defibrillators", "Defibrillators\Defibrillators.csproj", "{34F6DDF0-91AD-4644-A533-A5E65FDBA6B6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{F14E6CD4-FF93-471F-8BAF-30715AB5AB1F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F14E6CD4-FF93-471F-8BAF-30715AB5AB1F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F14E6CD4-FF93-471F-8BAF-30715AB5AB1F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{34F6DDF0-91AD-4644-A533-A5E65FDBA6B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{34F6DDF0-91AD-4644-A533-A5E65FDBA6B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{34F6DDF0-91AD-4644-A533-A5E65FDBA6B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{34F6DDF0-91AD-4644-A533-A5E65FDBA6B6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
