@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skynet_the_virus", "Skynet_the_virus.csproj", "{4BBB8914-0789-4724-B7EC-2844D03FB9F8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Skynet_the_virus", "Skynet_the_virus\Skynet_the_virus.csproj", "{4BBB8914-0789-4724-B7EC-2844D03FB9F8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Marslander_level1", "..\Marslander_level1\Marslander_level1.csproj", "{D8F1914D-A615-482F-9F9E-0D75EF697B5D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Marslander_level1", "Marslander_level1\Marslander_level1.csproj", "{D8F1914D-A615-482F-9F9E-0D75EF697B5D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Temperatures", "..\Temperatures\Temperatures.csproj", "{E0A1EE6F-203A-4726-BD2B-9686E449E6E9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Temperatures", "Temperatures\Temperatures.csproj", "{E0A1EE6F-203A-4726-BD2B-9686E449E6E9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
