@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Temperatures", "Temperature
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsciiArt", "AsciiArt\AsciiArt.csproj", "{30BA6CB0-C674-4750-9B67-052CEF0B466C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChuckNorris", "ChuckNorris\ChuckNorris.csproj", "{EC08DAB8-4858-451A-A3AB-FE176F2F5815}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{30BA6CB0-C674-4750-9B67-052CEF0B466C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{30BA6CB0-C674-4750-9B67-052CEF0B466C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{30BA6CB0-C674-4750-9B67-052CEF0B466C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC08DAB8-4858-451A-A3AB-FE176F2F5815}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC08DAB8-4858-451A-A3AB-FE176F2F5815}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC08DAB8-4858-451A-A3AB-FE176F2F5815}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC08DAB8-4858-451A-A3AB-FE176F2F5815}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
