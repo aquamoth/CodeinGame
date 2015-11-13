@@ -56,12 +56,12 @@ class Player
 
 
 			var angle = 0;
-			if (X > lzX2)
+			if (X > lzX2 && hSpeed >= -CRITICAL_HORIZONTAL_SPEED)
 			{
 				Console.Error.WriteLine("We need to go left");
 				angle = 90;
 			}
-			else if (X < lzX1)
+			else if (X < lzX1 && hSpeed <= CRITICAL_HORIZONTAL_SPEED)
 			{
 				Console.Error.WriteLine("We need to go right");
 				angle = -90;
