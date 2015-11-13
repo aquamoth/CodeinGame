@@ -104,37 +104,12 @@ class Player
 		//Do we need to go horizontally to get to the next waypoint?
 		var needToGoLeft = position.X > waypoint.Item2.X;
 		if (needToGoLeft)
-		{
-			//TODO: What if we are already decending? Need to stop decent first?
-			Console.Error.Write("Going to the left");
-			if (speed.X < -CRITICAL_HORIZONTAL_SPEED)
-			{
-				Console.Error.WriteLine(" with good speed.");
-				return new Tuple<int, int>(0, 4);//TODO: Should vary speed to maintain height?!
-			}
-			else
-			{
-				Console.Error.WriteLine(", accelerating.");
-				return new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
-			}
-		}
+			return buildCommand_GoLeft(position, speed, waypoint);
 
 		var needToGoRight = position.X < waypoint.Item1.X;
 		if (needToGoRight)
-		{
-			//TODO: What if we are already decending? Need to stop decent first?
-			Console.Error.Write("Going to the right");
-			if (speed.X > CRITICAL_HORIZONTAL_SPEED)
-			{
-				Console.Error.WriteLine(" with good speed.");
-				return new Tuple<int, int>(0, 4);//TODO: Should vary speed to maintain height?!
-			}
-			else
-			{
-				Console.Error.WriteLine(", accelerating.");
-				return new Tuple<int, int>(-MAX_ANGLE_KEEP_VSPEED, 4);
-			}
-		}
+			return buildCommand_GoRight(position, speed, waypoint);
+
 
 
 
@@ -202,5 +177,55 @@ class Player
 		//	Console.WriteLine(angle.ToString() + " 4");
 		//}
 
+	}
+
+	private static Tuple<int, int> buildCommand_GoRight(Point position, Point speed, Tuple<Point, Point> waypoint)
+	{
+		//TODO: What if we are already decending? Need to stop decent first?
+		Console.Error.Write("Going to the right");
+
+		var desiredFinalSpeed = CRITICAL_HORIZONTAL_SPEED; // Determine based on the next waypoint on the way
+		var possibleAcceleration = Math.Sin(Math.PI * MAX_ANGLE_KEEP_VSPEED / 180);
+		var breakingDistance = distanceFor(speed.X, desiredFinalSpeed, possibleAcceleration);
+
+		var centerOfWaypoint = (waypoint.Item1.X + waypoint.Item2.X) / 2;
+	
+		if (position.X + breakingDistance > centerOfWaypoint)
+		{
+			Console.Error.WriteLine(", breaking.");
+			return new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
+		}
+		else if (position.X + breakingDistance > waypoint.Item1.X)
+		{
+			Console.Error.WriteLine(" with good speed.");
+			return new Tuple<int, int>(0, speed.Y > 0 ? 3 : 4);
+		}
+		else
+		{
+			Console.Error.WriteLine(", accelerating.");
+			return new Tuple<int, int>(-MAX_ANGLE_KEEP_VSPEED, 4);
+		}
+	}
+
+	private static Tuple<int, int> buildCommand_GoLeft(Point position, Point speed, Tuple<Point, Point> waypoint)
+	{
+		throw new NotImplementedException();
+		////TODO: What if we are already decending? Need to stop decent first?
+		//Console.Error.Write("Going to the left");
+		//if (speed.X < -CRITICAL_HORIZONTAL_SPEED)
+		//{
+		//	Console.Error.WriteLine(" with good speed.");
+		//	return new Tuple<int, int>(0, 4);//TODO: Should vary speed to maintain height?!
+		//}
+		//else
+		//{
+		//	Console.Error.WriteLine(", accelerating.");
+		//	return new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
+		//}
+	}
+
+	private static double distanceFor(int initialSpeed, int finalSpeed, double acceleration)
+	{
+		return (initialSpeed * initialSpeed - finalSpeed * finalSpeed) / 2 / acceleration;
 	}
 }
