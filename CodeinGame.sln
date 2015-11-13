@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Defibrillators", "Defibrill
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HorseRacingDuals", "HorseRacingDuals\HorseRacingDuals.csproj", "{A5BB1723-4419-416B-9EC2-ADE806E03DCD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Marslander_level2", "Marslander_level2\Marslander_level2.csproj", "{7DCF390D-99DC-4DCB-911F-EF80D74E389D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,6 +59,10 @@ Global
 		{A5BB1723-4419-416B-9EC2-ADE806E03DCD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5BB1723-4419-416B-9EC2-ADE806E03DCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A5BB1723-4419-416B-9EC2-ADE806E03DCD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DCF390D-99DC-4DCB-911F-EF80D74E389D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DCF390D-99DC-4DCB-911F-EF80D74E389D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DCF390D-99DC-4DCB-911F-EF80D74E389D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DCF390D-99DC-4DCB-911F-EF80D74E389D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
