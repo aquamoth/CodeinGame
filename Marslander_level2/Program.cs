@@ -52,19 +52,20 @@ class Player
 			int power = int.Parse(inputs[6]); // the thrust power (0 to 4).
 
 			//var lzY = topology.Where(x => x.Item1 < X).Last().Item2;
-
+			var needToGoLeft = X > lzX2;
+			var needToGoRight = X < lzX1;
 
 
 			var angle = 0;
-			if (X > lzX2)
+			if (needToGoLeft)
 			{
 				Console.Error.WriteLine("We need to go left");
-				angle = (hSpeed >= -CRITICAL_HORIZONTAL_SPEED * 1.25) ? 60 : 0;
+				angle = (hSpeed >= -CRITICAL_HORIZONTAL_SPEED * 1.25) ? 90 : 0;
 			}
-			else if (X < lzX1)
+			else if (needToGoRight)
 			{
 				Console.Error.WriteLine("We need to go right");
-				angle = (hSpeed <= CRITICAL_HORIZONTAL_SPEED * 1.25) ? -60 : 0;
+				angle = (hSpeed <= CRITICAL_HORIZONTAL_SPEED * 1.25) ? -90 : 0;
 			}
 			else if (hSpeed > CRITICAL_HORIZONTAL_SPEED)
 			{
@@ -98,7 +99,7 @@ class Player
 				{
 					Console.WriteLine("0 3");
 				}
-				else if (breakingDistance >= distance * 0.25)
+				else if (breakingDistance >= distance * 0.25 || needToGoLeft || needToGoRight)
 				{
 					Console.WriteLine("0 2");
 				}
