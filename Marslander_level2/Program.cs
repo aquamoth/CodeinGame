@@ -56,15 +56,15 @@ class Player
 
 
 			var angle = 0;
-			if (X > lzX2 && hSpeed >= -CRITICAL_HORIZONTAL_SPEED)
+			if (X > lzX2)
 			{
 				Console.Error.WriteLine("We need to go left");
-				angle = 90;
+				angle = (hSpeed >= -CRITICAL_HORIZONTAL_SPEED * 1.25) ? 60 : 0;
 			}
-			else if (X < lzX1 && hSpeed <= CRITICAL_HORIZONTAL_SPEED)
+			else if (X < lzX1)
 			{
 				Console.Error.WriteLine("We need to go right");
-				angle = -90;
+				angle = (hSpeed <= CRITICAL_HORIZONTAL_SPEED * 1.25) ? -60 : 0;
 			}
 			else if (hSpeed > CRITICAL_HORIZONTAL_SPEED)
 			{
@@ -109,7 +109,10 @@ class Player
 			}
 			else
 			{
-				angle /= 2;
+				if (breakingDistance >= distance * 0.5)
+				{
+					angle /= 2;
+				}
 				Console.WriteLine(angle.ToString() + " 4");
 			}
 		}
