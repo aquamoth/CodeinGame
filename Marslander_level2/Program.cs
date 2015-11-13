@@ -112,71 +112,7 @@ class Player
 
 
 
-
-		Console.Error.WriteLine("Not sure what command to send..");
-		return new Tuple<int, int>(0, 0);
-
-		//var angle = 0;
-		//if (needToGoLeft)
-		//{
-		//	Console.Error.WriteLine("We need to go left");
-		//	angle = (hSpeed >= -CRITICAL_HORIZONTAL_SPEED * 1.25) ? 90 : 0;
-		//}
-		//else if (needToGoRight)
-		//{
-		//	Console.Error.WriteLine("We need to go right");
-		//	angle = (hSpeed <= CRITICAL_HORIZONTAL_SPEED * 1.25) ? -90 : 0;
-		//}
-		//else if (hSpeed > CRITICAL_HORIZONTAL_SPEED)
-		//{
-		//	Console.Error.WriteLine("We are going too fast to the right");
-		//	angle = 90;
-		//}
-		//else if (hSpeed < -CRITICAL_HORIZONTAL_SPEED)
-		//{
-		//	Console.Error.WriteLine("We are going too fast to the left");
-		//	angle = -90;
-		//}
-		//else
-		//{
-		//	Console.Error.WriteLine("We are good horizontally");
-		//	angle = 0;
-		//}
-
-		//var distance = Y - lzY;
-		//Console.Error.WriteLine("Vertical distance to LZ: " + distance.ToString());
-
-		//var breakingDistance = (vSpeed * vSpeed - CRITICAL_VERTICAL_SPEED * CRITICAL_VERTICAL_SPEED) / 2 / (4 - GRAVITY);
-		//Console.Error.WriteLine("Min breaking distance: " + breakingDistance.ToString());
-		//if (breakingDistance >= distance * 0.75)
-		//{
-		//	angle /= 6; //Max 15 degrees angle, so we get enough vertical breaking
-		//	Console.WriteLine(angle.ToString() + " 4");
-		//}
-		//else if (angle == 0)
-		//{
-		//	if (breakingDistance >= distance * 0.5)
-		//	{
-		//		Console.WriteLine("0 3");
-		//	}
-		//	else if (breakingDistance >= distance * 0.25 || needToGoLeft || needToGoRight)
-		//	{
-		//		Console.WriteLine("0 2");
-		//	}
-		//	else
-		//	{
-		//		Console.WriteLine("0 0");
-		//	}
-		//}
-		//else
-		//{
-		//	if (breakingDistance >= distance * 0.5)
-		//	{
-		//		angle /= 2;
-		//	}
-		//	Console.WriteLine(angle.ToString() + " 4");
-		//}
-
+		return buildCommand_VerticalLanding(position, speed, waypoint);
 	}
 
 	private static Tuple<int, int> buildCommand_GoRight(Point position, Point speed, Tuple<Point, Point> waypoint)
@@ -189,10 +125,16 @@ class Player
 		var breakingDistance = distanceFor(speed.X, desiredFinalSpeed, possibleAcceleration);
 
 		var centerOfWaypoint = (waypoint.Item1.X + waypoint.Item2.X) / 2;
+		var leftAreaOfWaypoint = (3 * waypoint.Item1.X + waypoint.Item2.X) / 4;
 	
 		if (position.X + breakingDistance > centerOfWaypoint)
 		{
-			Console.Error.WriteLine(", breaking.");
+			Console.Error.WriteLine(", breaking for center.");
+			return new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
+		}
+		else if (position.X + breakingDistance > leftAreaOfWaypoint && speed.X>desiredFinalSpeed)
+		{
+			Console.Error.WriteLine(", breaking for desired speed.");
 			return new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
 		}
 		else if (position.X + breakingDistance > waypoint.Item1.X)
@@ -223,6 +165,71 @@ class Player
 		//	return new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
 		//}
 	}
+
+	private static Tuple<int, int> buildCommand_VerticalLanding(Point position, Point speed, Tuple<Point, Point> waypoint)
+	{
+		var angle = 0;
+
+		if (speed.X > CRITICAL_HORIZONTAL_SPEED)
+		{
+			Console.Error.WriteLine("We are going too fast to the right");
+			angle = 90;
+		}
+		else if (speed.X < -CRITICAL_HORIZONTAL_SPEED)
+		{
+			Console.Error.WriteLine("We are going too fast to the left");
+			angle = -90;
+		}
+		else
+		{
+			Console.Error.WriteLine("We are good horizontally");
+			angle = 0;
+		}
+
+		var distance = position.Y - waypoint.Item1.Y;
+		Console.Error.WriteLine("Vertical distance to LZ: " + distance.ToString());
+
+		var breakingDistance = distanceFor(speed.Y, CRITICAL_VERTICAL_SPEED, 4 - GRAVITY);
+		Console.Error.WriteLine("Min breaking distance: " + breakingDistance.ToString());
+
+		if (breakingDistance >= distance * 0.75)
+		{
+			angle /= 6; //Max 15 degrees angle, so we get enough vertical breaking
+			return new Tuple<int, int>(angle, 4);
+		}
+		else if (angle == 0)
+		{
+			if (breakingDistance >= distance * 0.5)
+			{
+				return new Tuple<int, int>(0, 3);
+			}
+			else if (breakingDistance >= distance * 0.25)
+			{
+				return new Tuple<int, int>(0, 2);
+			}
+			else
+			{
+				return new Tuple<int, int>(0, 0);
+			}
+		}
+		else
+		{
+			if (breakingDistance >= distance * 0.5)
+			{
+				angle /= 2;
+			}
+			return new Tuple<int, int>(angle, 4);
+		}
+	}
+
+
+
+
+
+
+
+
+
 
 	private static double distanceFor(int initialSpeed, int finalSpeed, double acceleration)
 	{
