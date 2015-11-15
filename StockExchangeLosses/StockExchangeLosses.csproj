@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{F21A6218-ED62-4B22-9B78-2EFCDB79B93F}</ProjectGuid>
+    <ProjectGuid>{C9CF268B-FFA6-4BE0-AA0C-C60E253B1B12}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>HeatDetector</RootNamespace>
-    <AssemblyName>HeatDetector</AssemblyName>
+    <RootNamespace>StockExchangeLosses</RootNamespace>
+    <AssemblyName>StockExchangeLosses</AssemblyName>
     <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

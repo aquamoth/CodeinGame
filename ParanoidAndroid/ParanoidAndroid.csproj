@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>7ed53dfe-f8dd-4313-85d9-eff9f8498895</ProjectGuid>
+    <ProjectGuid>{3EF13E3F-559B-4C7B-B770-A74090C24F8E}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ParanoidAndroid</RootNamespace>
