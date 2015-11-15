@@ -26,19 +26,16 @@ class Solution
 		var tree = buildTree(links);
 		var dijkstra = new Dijkstra(tree);
 
-		//foreach (var node in tree.Values)
-		//	Console.Error.WriteLine(node);
-
-		//var persons = links.SelectMany(x => new[] { x.Item1, x.Item2 }).Distinct().ToArray();
 		var persons = tree.Keys.ToArray();
-		//Console.Error.WriteLine("All persons: " + string.Join(", ", persons));
 
 		var longestPath = 0;
 		var firstPerson = "";
+		var tempStart = persons[0];
 		for (int i = 1; i < persons.Length; i++)
 		{
-			var l = dijkstra.Path(persons[0], persons[i]).Length;
-			Console.Error.WriteLine(string.Format("{0}->{1} : {2} steps", persons[0], persons[i], l));
+			var testNode = persons[i];
+			var l = tree[testNode].Distance;
+			if (l == int.MaxValue) l = dijkstra.Path(tempStart, testNode).Length;
 			if (l > longestPath)
 			{
 				longestPath = l;
@@ -46,22 +43,19 @@ class Solution
 			}
 		}
 
-
-		var secondPerson = "";
+		dijkstra.Reset();
+		//var secondPerson = "";
 		for (int i = 0; i < persons.Length; i++)
 		{
-			if (persons[i] == firstPerson)
-				continue;
-
 			var l = dijkstra.Path(firstPerson, persons[i]).Length;
 			if (l > longestPath)
 			{
 				longestPath = l;
-				secondPerson = persons[i];
+				//secondPerson = persons[i];
 			}
 		}
 
-		Console.WriteLine((longestPath/2).ToString()); // The minimal amount of steps required to completely propagate the advertisement
+		Console.WriteLine((longestPath / 2).ToString()); // The minimal amount of steps required to completely propagate the advertisement
 		Console.ReadLine();
 	}
 
@@ -105,13 +99,6 @@ class Solution
 	}
 
 
-
-	//class BreadthFirstSearch
-	//{
-
-	//}
-
-
 	class Dijkstra
 	{
 		IDictionary<string, Node> _nodes;
@@ -121,7 +108,7 @@ class Solution
 			_nodes = nodes;
 		}
 
-		void clearTree()
+		public void Reset()
 		{
 			foreach (var node in _nodes.Values)
 			{
@@ -138,8 +125,6 @@ class Solution
 
 			if (!_nodes.ContainsKey(from))
 				return null;//No paths from the source at all
-
-			clearTree();
 
 			//Initialize the traversal
 			var currentNode = _nodes[from];
