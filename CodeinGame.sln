@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HeatDetector", "HeatDetecto
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StockExchangeLosses", "StockExchangeLosses\StockExchangeLosses.csproj", "{C9CF268B-FFA6-4BE0-AA0C-C60E253B1B12}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Teads", "Teads\Teads.csproj", "{3D7F4F6A-41C4-4146-AAE8-E1EB3BAFFC42}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,10 @@ Global
 		{C9CF268B-FFA6-4BE0-AA0C-C60E253B1B12}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C9CF268B-FFA6-4BE0-AA0C-C60E253B1B12}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C9CF268B-FFA6-4BE0-AA0C-C60E253B1B12}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D7F4F6A-41C4-4146-AAE8-E1EB3BAFFC42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D7F4F6A-41C4-4146-AAE8-E1EB3BAFFC42}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D7F4F6A-41C4-4146-AAE8-E1EB3BAFFC42}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D7F4F6A-41C4-4146-AAE8-E1EB3BAFFC42}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
