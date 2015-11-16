@@ -18,16 +18,16 @@ class Point
 
 	//            ****
 	//        ****   *
-	//    ****       * Y
+	//    ****       * X
 	//****   )a      *
 	//****************
-	//       X
+	//       Y
 	// a = atan(Y/X)
 	public int Angle 
 	{ 
 		get
 		{
-			return (int)Math.Round(Math.Atan((double)Y / X) * 180 / Math.PI);
+			return (int)Math.Round(Math.Atan((double)X / Y) * 180 / Math.PI);
 		}
 	}
 
@@ -85,10 +85,11 @@ class Player
 
 			var expectedLandingPoint = plotTrajectory(position, speed, lz.Item1.Y);
 			Console.Error.WriteLine("If we initiate landing now, we end up at " + expectedLandingPoint);
+			var lzCenter = new Point((lz.Item1.X + lz.Item2.X) / 2, lz.Item1.Y);
 			if (expectedLandingPoint.X < lz.Item1.X)
 			{
 				Console.Error.WriteLine("Need to go more RIGHT");
-				var waypoint = findWaypointToRight(position, speed, lz.Item1);
+				var waypoint = findWaypoint(position, speed, lzCenter);
 				var foundObstacleInTrajectory = false;//TODO:
 				if (foundObstacleInTrajectory)
 				{
@@ -101,7 +102,17 @@ class Player
 			}
 			else if (expectedLandingPoint.X > lz.Item2.X)
 			{
-				throw new NotImplementedException("Need to go more left");
+				Console.Error.WriteLine("Need to go more LEFT");
+				var waypoint = findWaypoint(position, speed, lzCenter);
+				var foundObstacleInTrajectory = false;//TODO:
+				if (foundObstacleInTrajectory)
+				{
+					throw new NotImplementedException("Plot course to the right that avoids the obstactle");
+				}
+				else
+				{
+					command = buildCommand_Waypoint(position, speed, waypoint);
+				}
 			}
 			else
 			{
@@ -133,14 +144,12 @@ class Player
 		}
 	}
 
-	private static Point findWaypointToRight(Point startPosition, Point startSpeed, Point nextWaypoint)
+	private static Point findWaypoint(Point startPosition, Point startSpeed, Point nextWaypoint)
 	{
 		var halfwayX = (nextWaypoint.X + startPosition.X) / 2;
 		var halfwayY = (nextWaypoint.Y + startPosition.Y) / 2;
 		var waypoint = new Point(halfwayX, halfwayY);
 		return waypoint;
-		//throw new NotImplementedException("Finding waypoint to right not implemented");
-		//var reverseTrajectory = plotReverseTrajectory(lz.Item1, new Point(CRITICAL_HORIZONTAL_SPEED, -CRITICAL_VERTICAL_SPEED), position.Y);
 	}
 
 	/// <summary>
@@ -481,7 +490,8 @@ class Player
 			var sqrt = Math.Abs(Math.Sqrt(v * v + 2 * a * d) / a);
 			var result1 = -v / a + sqrt;
 			var result2 = -v / a - sqrt;
-			var shortest_time = new[] { result1, result2 }.Where(x => x >= 0).Min();
+			var validTimes = new[] { result1, result2 }.Where(x => x >= 0);
+			var shortest_time = validTimes.Any() ? validTimes.Min() : 0;
 			return shortest_time;
 		}
 	}
