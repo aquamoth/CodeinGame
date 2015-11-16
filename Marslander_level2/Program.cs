@@ -63,7 +63,7 @@ class Player
 		}
 
 		var lz = findLandingZone(topology);
-		Console.Error.WriteLine(string.Format("LZ at {0} - {1}", lz.Item1, lz.Item2));
+		Console.Error.WriteLine(string.Format("LZ at {0} - {1}", lz.Item1, lz.Item2)); 
 
 
 		// game loop
@@ -83,40 +83,38 @@ class Player
 
 			Tuple<int, int> command;
 
-			var expectedLandingPoint = plotTrajectory(position, speed, lz.Item1.Y);
+			double time, verticalAcceleration;
+			var expectedLandingPoint = plotTrajectory(position, speed, lz.Item1.Y, out time, out verticalAcceleration);
 			Console.Error.WriteLine("If we initiate landing now, we end up at " + expectedLandingPoint);
+	
 			var lzCenter = new Point((lz.Item1.X + lz.Item2.X) / 2, lz.Item1.Y);
-			if (expectedLandingPoint.X < lz.Item1.X)
+
+			if (expectedLandingPoint.X > lz.Item1.X && expectedLandingPoint.X < lz.Item2.X && position.Y - lzCenter.Y < 200)
 			{
-				Console.Error.WriteLine("Need to go more RIGHT");
-				var waypoint = findWaypoint(position, speed, lzCenter);
-				var foundObstacleInTrajectory = false;//TODO:
-				if (foundObstacleInTrajectory)
-				{
-					throw new NotImplementedException("Plot course to the right that avoids the obstactle");
-				}
-				else
-				{
-					command = buildCommand_Waypoint(position, speed, waypoint);
-				}
+				Console.Error.WriteLine("Just above LZ. Brace for impact!");
+				command = buildCommand_LAND(position, speed, lz.Item1.Y);
 			}
-			else if (expectedLandingPoint.X > lz.Item2.X)
+			else if (expectedLandingPoint.X < lz.Item1.X + 200 || expectedLandingPoint.X > lz.Item2.X - 200)
 			{
-				Console.Error.WriteLine("Need to go more LEFT");
+				Console.Error.WriteLine("Need to go more " + (expectedLandingPoint.X < lz.Item1.X ? "RIGHT" : "LEFT"));
 				var waypoint = findWaypoint(position, speed, lzCenter);
-				var foundObstacleInTrajectory = false;//TODO:
-				if (foundObstacleInTrajectory)
+				Console.Error.WriteLine("Heading for WAYPOINT " + waypoint);
+
+
+
+				var obstacle = findObstacleIn(topology, position, waypoint);
+				if (obstacle != null)
 				{
-					throw new NotImplementedException("Plot course to the right that avoids the obstactle");
+					Console.Error.WriteLine("Avoid CRASHING into " + obstacle);
+					waypoint = avoid(topology, obstacle, position, waypoint);
+					Console.Error.WriteLine("Switched to WAYPOINT " + waypoint);
 				}
-				else
-				{
-					command = buildCommand_Waypoint(position, speed, waypoint);
-				}
+
+				command = buildCommand_Waypoint(position, speed, waypoint);
 			}
 			else
 			{
-				if (speed.X>CRITICAL_HORIZONTAL_SPEED)
+				if (speed.X > CRITICAL_HORIZONTAL_SPEED)
 				{
 					Console.Error.WriteLine("Reduce speed to right in a safe manner, avoiding obstacles");
 					command = new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
@@ -124,7 +122,7 @@ class Player
 				else if (speed.X < -CRITICAL_HORIZONTAL_SPEED)
 				{
 					Console.Error.WriteLine("Reduce speed to left in a safe manner, avoiding obstacles");
-					command = new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
+					command = new Tuple<int, int>(-MAX_ANGLE_KEEP_VSPEED, 4);
 				}
 				else
 				{
@@ -144,6 +142,81 @@ class Player
 		}
 	}
 
+	private static Point avoid(List<Point> topology, Point obstacle, Point position, Point waypoint)
+	{
+		var orderedTopology = topology.OrderBy(p => p.X).ToList();
+		var point = orderedTopology.Where(p => p.X < obstacle.X).Last();
+		var index = topology.IndexOf(point);
+
+		while (topology[index + 1].Y > topology[index].Y) index++;
+		while (topology[index - 1].Y > topology[index].Y) index--;
+
+		var newWaypoint = topology[index];
+		return new Point(newWaypoint.X, newWaypoint.Y + 100);
+	}
+
+	private static Point findObstacleIn(List<Point> topology, Point position, Point waypoint)
+	{
+		var orderedTopology = topology.OrderBy(p => p.X);
+
+		Point start, end;
+		if (position.X < waypoint.X)
+		{
+			start = position;
+			end = waypoint;
+		}
+		else
+		{
+			start = waypoint;
+			end = position;
+		}
+		var k = (end.Y-start.Y) / (double)(end.X-start.X);
+		for (int dx = start.X; dx <= end.X; dx++)
+		{
+			if (dx < orderedTopology.First().X || dx > orderedTopology.Last().X)
+				continue;
+			var dy = start.Y + k * (dx - start.X);
+
+
+			var leftGround = orderedTopology.Where(p => p.X < dx).Last();
+			var rightGround = orderedTopology.Where(p => p.X >= dx).First();
+			var widthGround = (double)rightGround.X - leftGround.X;
+			var heightGround = (double)rightGround.Y - leftGround.Y;
+			var yGround = leftGround.Y + (int)Math.Ceiling((dx - leftGround.X) / widthGround * heightGround);
+
+			if (dy <= yGround)
+			{
+				return new Point(dx, yGround);
+			}
+		}
+		return null;
+	}
+
+	//private static Point findObstacleInTrajectory(List<Point> topology, Point position, Point speed, double time, double verticalAcceleration)
+	//{
+	//	for (int t = 0; t < time; t++)
+	//	{
+	//		var pX = position.X + (int)Math.Round(trajectoryDistance(speed.X, 0, t));
+	//		var pY = position.Y + (int)Math.Floor(trajectoryDistance(speed.Y, verticalAcceleration, t));
+
+	//		var orderedTopology = topology.OrderBy(p => p.X);
+	//		if (pX < orderedTopology.First().X || pX > orderedTopology.Last().X)
+	//			continue;
+
+	//		var leftGround = orderedTopology.Where(p => p.X < pX).Last();
+	//		var rightGround = orderedTopology.Where(p => p.X >= pX).First();
+	//		var width = (double)rightGround.X - leftGround.X;
+	//		var height = (double)rightGround.Y - leftGround.Y;
+
+	//		var y = leftGround.Y + (int)Math.Ceiling((pX - leftGround.X) / width * height);
+	//		if (pY < y)
+	//		{
+	//			return new Point(pX, y);
+	//		}
+	//	}
+	//	return null;
+	//}
+
 	private static Point findWaypoint(Point startPosition, Point startSpeed, Point nextWaypoint)
 	{
 		var halfwayX = (nextWaypoint.X + startPosition.X) / 2;
@@ -159,11 +232,11 @@ class Player
 	/// <param name="startSpeed"></param>
 	/// <param name="endY"></param>
 	/// <returns></returns>
-	private static Point plotTrajectory(Point startPosition, Point startSpeed, int endY)
+	private static Point plotTrajectory(Point startPosition, Point startSpeed, int endY, out double time, out double verticalAcceleration)
 	{
 		var distanceY = endY - startPosition.Y;
-		var verticalAcceleration = accelerationFor(startSpeed.Y, -CRITICAL_VERTICAL_SPEED, distanceY);
-		var time = trajectoryTime(distanceY, startSpeed.Y, verticalAcceleration);
+		verticalAcceleration = accelerationFor(startSpeed.Y, -CRITICAL_VERTICAL_SPEED, distanceY);
+		time = trajectoryTime(distanceY, startSpeed.Y, verticalAcceleration);
 		var horizontalMovement = trajectoryDistance(startSpeed.X, 0, time);
 		var endX = startPosition.X + (int)Math.Round(horizontalMovement);
 		Console.Error.WriteLine("Trajectory: Vertical:{0}m, {1}m/s2, {2}s => {3}m to RIGHT.", distanceY, verticalAcceleration, time, horizontalMovement);
@@ -346,31 +419,49 @@ class Player
 			return new Tuple<int, int>(0, 4);
 		}
 
-		var distance = position.Y - lzY;
-		Console.Error.WriteLine("Vertical distance to LZ: " + distance.ToString());
-
-		var breakingDistance = distanceFor(speed.Y, CRITICAL_VERTICAL_SPEED, 4 - GRAVITY);
-		Console.Error.WriteLine(string.Format("Min breaking distance: {0}m ({1:P}%)", breakingDistance, distance/breakingDistance));
-
-		if (distance >= breakingDistance * 0.95)
+		var distanceToGo = position.Y - lzY;
+		var minBreakingDistance = distanceFor(speed.Y, CRITICAL_VERTICAL_SPEED, 4 - GRAVITY);
+		if (minBreakingDistance == 0)
 		{
-			return new Tuple<int, int>(0, 4);
-		}
-		else if (distance >= breakingDistance * 0.9)
-		{
-			return new Tuple<int, int>(0, 3);
-		}
-		else if (distance >= breakingDistance * 0.7)
-		{
-			return new Tuple<int, int>(0, 2);
-		}
-		else if (distance >= breakingDistance * 0.6)
-		{
-			return new Tuple<int, int>(0, 1);
+			if (distanceToGo < 200)
+			{
+				return new Tuple<int, int>(0, 3);
+			}
+			else if (distanceToGo < 500)
+			{
+				return new Tuple<int, int>(0, 2);
+			}
+			else
+			{
+				return new Tuple<int, int>(0, 0);
+			}
 		}
 		else
 		{
-			return new Tuple<int, int>(0, 0);
+			//Console.Error.WriteLine(string.Format("At {0}m/s, reaching {1}m/s by acceleration of {2}m/s2 will require {3}m", speed.Y, CRITICAL_VERTICAL_SPEED, 4 - GRAVITY, minBreakingDistance));
+			//Console.Error.WriteLine(string.Format("Min breaking distance: {0}m", minBreakingDistance));
+			//Console.Error.WriteLine(string.Format("Vertical distance to LZ: {0}m ({1:P}%)", distanceToGo, distanceToGo / minBreakingDistance));
+
+			if (distanceToGo <= minBreakingDistance * 0.95)
+			{
+				return new Tuple<int, int>(0, 4);
+			}
+			else if (distanceToGo <= minBreakingDistance * 0.9)
+			{
+				return new Tuple<int, int>(0, 3);
+			}
+			else if (distanceToGo <= minBreakingDistance * 0.7)
+			{
+				return new Tuple<int, int>(0, 2);
+			}
+			else if (distanceToGo <= minBreakingDistance * 0.6)
+			{
+				return new Tuple<int, int>(0, 1);
+			}
+			else
+			{
+				return new Tuple<int, int>(0, 0);
+			}
 		}
 	}
 
@@ -503,6 +594,12 @@ class Player
 
 	private static double distanceFor(int vStart, int vEnd, double a)
 	{
+		if (vStart > vEnd && a > 0)
+			return 0;
+
+		if (vStart < vEnd && a < 0)
+			return 0;
+
 		// vEnd^2 = vStart^2 + 2*a*d
 		return (vEnd * vEnd - vStart * vStart) / 2 / a;
 	}
