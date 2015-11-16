@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -13,6 +14,9 @@ class Solution
 {
 	static void Main(string[] args)
 	{
+		var sw = new Stopwatch();
+		sw.Start();
+
 		var links = new List<Tuple<string, string>>();
 		int n = int.Parse(Console.ReadLine()); // the number of adjacency relations
 		for (int i = 0; i < n; i++)
@@ -22,15 +26,21 @@ class Solution
 			var yi = inputs[1]; // the ID of a person which is adjacent to xi
 			links.Add(new Tuple<string, string>(xi, yi));
 		}
+		Console.Error.WriteLine("{0}\tRead input with {1} links", sw.ElapsedMilliseconds, links.Count);
 
 		var tree = buildTree(links);
+		Console.Error.WriteLine("{0}\tBuilt tree", sw.ElapsedMilliseconds);
+
 		var dijkstra = new Dijkstra(tree);
+		Console.Error.WriteLine("{0}\tCreated Dijkstra", sw.ElapsedMilliseconds);
 
 		var persons = tree.Keys.ToArray();
-
 		var longestPath = 0;
 		var firstPerson = "";
 		var tempStart = persons[0];
+
+
+		Console.Error.WriteLine(string.Format("Scanning {0} persons", persons.Length));
 		for (int i = 1; i < persons.Length; i++)
 		{
 			var testNode = persons[i];
@@ -42,21 +52,26 @@ class Solution
 				firstPerson = persons[i];
 			}
 		}
+		Console.Error.WriteLine("{0}\tFound first person", sw.ElapsedMilliseconds);
 
 		dijkstra.Reset();
+		Console.Error.WriteLine("{0}\tReset Dijkstra", sw.ElapsedMilliseconds);
 		//var secondPerson = "";
 		for (int i = 0; i < persons.Length; i++)
 		{
-			var l = dijkstra.Path(firstPerson, persons[i]).Length;
+			var testNode = persons[i];
+			var l = tree[testNode].Distance;
+			if (l == int.MaxValue) l = dijkstra.Path(firstPerson, testNode).Length;
 			if (l > longestPath)
 			{
 				longestPath = l;
 				//secondPerson = persons[i];
 			}
 		}
+		Console.Error.WriteLine("{0}\tFound second person", sw.ElapsedMilliseconds);
 
 		Console.WriteLine((longestPath / 2).ToString()); // The minimal amount of steps required to completely propagate the advertisement
-		Console.ReadLine();
+		//Console.ReadLine();
 	}
 
 	private static Dictionary<string, Node> buildTree(IEnumerable<Tuple<string, string>> links)
