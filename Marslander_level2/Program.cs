@@ -119,12 +119,12 @@ class Player
 				if (speed.X>CRITICAL_HORIZONTAL_SPEED)
 				{
 					Console.Error.WriteLine("Reduce speed to right in a safe manner, avoiding obstacles");
-					command = new Tuple<int, int>(15, 4);
+					command = new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
 				}
 				else if (speed.X < -CRITICAL_HORIZONTAL_SPEED)
 				{
 					Console.Error.WriteLine("Reduce speed to left in a safe manner, avoiding obstacles");
-					command = new Tuple<int, int>(15, 4);
+					command = new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
 				}
 				else
 				{
