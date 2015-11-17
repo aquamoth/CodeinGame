@@ -40,17 +40,12 @@ class Player
 			
 			var expectedPosition = new Point(XI, YI) + direction;
 			Console.WriteLine(expectedPosition.ToString());
-
-			// Write an action using Console.WriteLine()
-			// To debug: Console.Error.WriteLine("Debug messages...");
-
-			//Console.WriteLine("0 0"); // One line containing the X Y coordinates of the room in which you believe Indy will be on the next turn.
 		}
 	}
 
 	private static Direction nextStepOf(int type, string POS)
 	{
-		var posIndex = directionIndexOf(POS);
+		var posIndex = directionOf(POS);
 		var index = type * 4 + (int)posIndex;
 		switch (index)
 		{
@@ -121,18 +116,9 @@ class Player
 		}
 	}
 
-	private static Direction directionIndexOf(string POS)
+	private static Direction directionOf(string POS)
 	{
 		return (Direction)Enum.Parse(typeof(Direction), POS);
-		//switch (POS)
-		//{
-		//	case "TOP": return 0;
-		//	case "RIGHT": return 1;
-		//	case "BOTTOM": return 2;//Can never happen
-		//	case "LEFT": return 3;
-		//	default:
-		//		throw new NotSupportedException();
-		//}
 	}
 
 	//public static Node[] buildTree(List<string[]> map)
