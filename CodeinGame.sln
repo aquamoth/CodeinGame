@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Teads", "Teads\Teads.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Indiana", "Indiana\Indiana.csproj", "{AEAE696D-C712-427C-807D-50ABF7B25F4D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkCabling", "NetworkCabling\NetworkCabling.csproj", "{C7C64645-6E58-4574-9CBF-A89C0F04881F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,6 +101,10 @@ Global
 		{AEAE696D-C712-427C-807D-50ABF7B25F4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AEAE696D-C712-427C-807D-50ABF7B25F4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AEAE696D-C712-427C-807D-50ABF7B25F4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7C64645-6E58-4574-9CBF-A89C0F04881F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7C64645-6E58-4574-9CBF-A89C0F04881F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7C64645-6E58-4574-9CBF-A89C0F04881F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7C64645-6E58-4574-9CBF-A89C0F04881F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
