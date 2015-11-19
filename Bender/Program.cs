@@ -111,10 +111,24 @@ class Solution
 				bender.IsInvertedDirections = !bender.IsInvertedDirections;
 				//mapPoint.Symbol = '-';
 				break;
-			//case '-':
-			//	bender.IsInvertedDirections = false;
-			//	mapPoint.Symbol = 'I';
-			//	break;
+
+			case 'T':
+				for (int y = 0; y < map.Count; y++)
+				{
+					for (int x = 0; x < map[y].Length; x++)
+					{
+						if (x != bender.X || y != bender.Y)
+						{
+							if (map[y][x].Symbol == 'T')
+							{
+								bender.X = x;
+								bender.Y = y;
+								return StateChanges.None;
+							}
+						}
+					}
+				}
+				throw new ApplicationException("Found only ONE teleporter!");
 
 			case 'S': bender.Heading = Direction.SOUTH; break;
 			case 'E': bender.Heading = Direction.EAST; break;
