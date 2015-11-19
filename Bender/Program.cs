@@ -77,6 +77,7 @@ class Solution
 	private static StateChanges applyStateChange(Bender bender, List<MapPoint[]> map)
 	{
 		var mapPoint = map[bender.Y][bender.X];
+		//Console.Error.WriteLine(mapPoint.Symbol);
 		switch (mapPoint.Symbol)
 		{
 			case ' ':
@@ -85,14 +86,41 @@ class Solution
 			case '$':
 				return StateChanges.Killed;
 			case 'X':
+				if (bender.IsBenderMode)
+				{
+					mapPoint.Symbol = ' ';
+					break;
+				}
+				else
+				{
+					bender.stepBack();
+					bender.turn(map);
+					return StateChanges.Turned;
+				}
 			case '#':
 				bender.stepBack();
 				bender.turn(map);
 				return StateChanges.Turned;
+			case 'B':
+				bender.IsBenderMode = !bender.IsBenderMode;
+				if (bender.IsBenderMode)
+					mapPoint.Symbol = ' ';
+				break;
+
+			case 'I':
+				bender.IsInvertedDirections = !bender.IsInvertedDirections;
+				//mapPoint.Symbol = '-';
+				break;
+			//case '-':
+			//	bender.IsInvertedDirections = false;
+			//	mapPoint.Symbol = 'I';
+			//	break;
+
 			case 'S': bender.Heading = Direction.SOUTH; break;
 			case 'E': bender.Heading = Direction.EAST; break;
 			case 'N': bender.Heading = Direction.NORTH; break;
 			case 'W': bender.Heading = Direction.WEST; break;
+
 			default:
 				throw new NotImplementedException("Unknown mark: " + mapPoint.Symbol);
 		}
@@ -106,14 +134,12 @@ class Point
 	public int Y { get; set; }
 }
 
-class Bender : Point
+class Bender : Point, ICloneable
 {
 	public Direction Heading { get; set; }
+	public bool IsBenderMode { get; set; }
+	public bool IsInvertedDirections { get; set; }
 
-	public Bender Clone()
-	{
-		return new Bender { X = this.X, Y = this.Y, Heading = this.Heading };
-	}
 
 	public void step()
 	{
@@ -143,17 +169,43 @@ class Bender : Point
 
 	public void turn(List<MapPoint[]> map)
 	{
-		if (!map[Y + 1][X].IsObstacle)
-			Heading = Direction.SOUTH;
-		else if (!map[Y][X + 1].IsObstacle)
-			Heading = Direction.EAST;
-		else if (!map[Y - 1][X].IsObstacle)
-			Heading = Direction.NORTH;
-		else if (!map[Y][X - 1].IsObstacle)
-			Heading = Direction.WEST;
+		if (IsInvertedDirections)
+		{
+			if (!map[Y][X - 1].IsObstacle)
+				Heading = Direction.WEST;
+			else if (!map[Y - 1][X].IsObstacle)
+				Heading = Direction.NORTH;
+			else if (!map[Y][X + 1].IsObstacle)
+				Heading = Direction.EAST;
+			else if (!map[Y + 1][X].IsObstacle)
+				Heading = Direction.SOUTH;
+			else 
+				throw new NotSupportedException("No where to turn!");
+		}
 		else
-			throw new NotSupportedException("No where to turn!");
+		{
+			if (!map[Y + 1][X].IsObstacle)
+				Heading = Direction.SOUTH;
+			else if (!map[Y][X + 1].IsObstacle)
+				Heading = Direction.EAST;
+			else if (!map[Y - 1][X].IsObstacle)
+				Heading = Direction.NORTH;
+			else if (!map[Y][X - 1].IsObstacle)
+				Heading = Direction.WEST;
+			else
+				throw new NotSupportedException("No where to turn!");
+		}
 	}
+
+	object ICloneable.Clone()
+	{
+		return this.MemberwiseClone();
+	}
+	public Bender Clone()
+	{
+		return (Bender)(this as ICloneable).Clone();
+	}
+
 }
 
 enum StateChanges
