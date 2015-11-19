@@ -63,7 +63,7 @@ class Solution
 
 		if (hasLoop)
 		{
-			Console.WriteLine("Loop");
+			Console.WriteLine("LOOP");
 		}
 		else
 		{
@@ -146,11 +146,19 @@ class Point
 {
 	public int X { get; set; }
 	public int Y { get; set; }
+	public Direction Heading { get; set; }
+
+	public override bool Equals(object obj)
+	{
+		var p2 = obj as Point;
+		if (p2 == null)
+			return false;
+		return this.X == p2.X && this.Y == p2.Y && this.Heading == p2.Heading;
+	}
 }
 
 class Bender : Point, ICloneable
 {
-	public Direction Heading { get; set; }
 	public bool IsBenderMode { get; set; }
 	public bool IsInvertedDirections { get; set; }
 
