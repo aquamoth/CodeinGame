@@ -45,6 +45,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Completed", "Completed", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bender", "Bender\Bender.csproj", "{4F30B0DB-B748-4042-B8E7-11E34B4508D5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Scrabble", "Scrabble\Scrabble.csproj", "{8F0B229B-BCF9-46FA-B97F-5A34BC40E553}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -131,6 +133,10 @@ Global
 		{4F30B0DB-B748-4042-B8E7-11E34B4508D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F30B0DB-B748-4042-B8E7-11E34B4508D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4F30B0DB-B748-4042-B8E7-11E34B4508D5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F0B229B-BCF9-46FA-B97F-5A34BC40E553}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F0B229B-BCF9-46FA-B97F-5A34BC40E553}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F0B229B-BCF9-46FA-B97F-5A34BC40E553}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F0B229B-BCF9-46FA-B97F-5A34BC40E553}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
