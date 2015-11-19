@@ -24,122 +24,64 @@ class Solution
 			int influencer = int.Parse(inputs[1]);
 
 			links.Add(new Tuple<int, int>(writer, influencer));
-
-			//if (writers.ContainsKey(writer))
-			//{
-			//	writers[writer].Add(influencer);
-			//}
-			//else
-			//{
-
-			//}
 		}
 
 		var people = links.SelectMany(x => new[] { x.Item1, x.Item2 }).ToArray();
 		var allInfluencers = links.Select(x => x.Item2).Distinct();
 		var firstPersons = people.Except(allInfluencers);
 
-		int maxLength = 0;
-
-		foreach (var firstPerson in firstPersons)
-		{
-			var algorithm = new Dijkstra(links);
-			foreach (var person in people)
-			{
-				var path = algorithm.Path(firstPerson, person);
-				if (path != null && maxLength < path.Length)
-				{
-					maxLength = path.Length;
-				}
-			}
-		}
-
-		// Write an action using Console.WriteLine()
-		// To debug: Console.Error.WriteLine("Debug messages...");
+		var algorithm = new Dijkstra(links);
+		var maxLength = firstPersons.Select(p => algorithm.Nodes[p].MaxLength()).Max();
 
 		Console.WriteLine(maxLength); // The number of people involved in the longest succession of influences
 	}
 }
 
+public class Node
+{
+	public Node(int id)
+	{
+		Id = id;
+		Distance = int.MaxValue;
+	}
+
+	public int Id { get; private set; }
+	public Node[] Neighbours { get; set; }
+	public int[] ShortestPath { get; set; }
+	public int Distance { get; set; }
+	public bool Visited { get; set; }
+
+	//public static Node Tree(IEnumerable<Tuple<int, int>> links)
+}
+
+public static class NodeExtensions
+{
+	public static int MaxLength(this Node node)
+	{
+		if (node.Neighbours == null || node.Neighbours.Length == 0)
+			return 1;
+		return node.Neighbours.Max(child => child.MaxLength()) + 1;
+	}
+}
 
 public class Dijkstra
 {
-	public class Node
-	{
-		public Node(int id)
-		{
-			Id = id;
-			Distance = int.MaxValue;
-		}
 
-		public int Id { get; private set; }
-		public Node[] Neighbours { get; set; }
-		public int[] ShortestPath { get; set; }
-		public int Distance { get; set; }
-		public bool Visited { get; set; }
-	}
-
-	IDictionary<int, Node> _nodes;
+	public IDictionary<int, Node> Nodes { get; private set; }
 
 	public Dijkstra(IEnumerable<Tuple<int, int>> links)
 	{
-		_nodes = links
+		Nodes = links
 			.SelectMany(x => new[] { x.Item1, x.Item2 })
 			.Distinct()
 			.Select(id => new Node(id))
 			.ToDictionary(x => x.Id);
 
-		foreach (var node in _nodes.Values)
+		foreach (var node in Nodes.Values)
 		{
 			node.Neighbours = links.Where(tuple => tuple.Item1 == node.Id).Select(tuple => tuple.Item2)
-					.Select(id => _nodes[id])
+					.Select(id => Nodes[id])
 					.ToArray();
 		}
-	}
-
-	public int[] Path(int from, int to)
-	{
-		if (!_nodes.ContainsKey(to))
-			return null;//No paths to the destination at all
-
-		if (!_nodes.ContainsKey(from))
-			return null;//No paths from the source at all
-
-
-		//Initialize the traversal
-		var currentNode = _nodes[from];
-		currentNode.Distance = 0;
-		var unvisitedNodes = new List<Node>(_nodes.Values);
-
-		do
-		{
-			var tentativeDistance = currentNode.Distance + 1;
-			var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
-
-			foreach (var neighbour in unvisitedNeighbours)
-			{
-				if (neighbour.Distance > tentativeDistance)
-				{
-					neighbour.Distance = tentativeDistance;
-					neighbour.ShortestPath = (currentNode.ShortestPath ?? new int[0]).Union(new[] { currentNode.Id }).ToArray();
-				}
-			}
-
-			currentNode.Visited = true;
-			unvisitedNodes.Remove(currentNode);
-
-			if (currentNode.Id == to)
-				break;
-
-			currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
-		}
-		while (currentNode != null && currentNode.Distance != int.MaxValue);
-
-		//Determine output
-		var toNode = _nodes[to];
-		if (toNode.Distance == int.MaxValue)
-			return null; // No path to this gateway exists
-		else
-			return (currentNode.ShortestPath ?? new int[0]).Union(new[] { currentNode.Id }).ToArray();
 	}
 }
