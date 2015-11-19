@@ -35,6 +35,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Indiana", "Indiana\Indiana.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkCabling", "NetworkCabling\NetworkCabling.csproj", "{C7C64645-6E58-4574-9CBF-A89C0F04881F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelephoneNumbers", "TelephoneNumbers\TelephoneNumbers.csproj", "{B902C877-0DD6-47D5-A661-524487E08F2E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConwaySequence", "ConwaySequence\ConwaySequence.csproj", "{16F7825C-71A6-462D-86AB-26FCB43F1044}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -105,6 +109,14 @@ Global
 		{C7C64645-6E58-4574-9CBF-A89C0F04881F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7C64645-6E58-4574-9CBF-A89C0F04881F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7C64645-6E58-4574-9CBF-A89C0F04881F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B902C877-0DD6-47D5-A661-524487E08F2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B902C877-0DD6-47D5-A661-524487E08F2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B902C877-0DD6-47D5-A661-524487E08F2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B902C877-0DD6-47D5-A661-524487E08F2E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{16F7825C-71A6-462D-86AB-26FCB43F1044}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{16F7825C-71A6-462D-86AB-26FCB43F1044}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{16F7825C-71A6-462D-86AB-26FCB43F1044}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{16F7825C-71A6-462D-86AB-26FCB43F1044}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
