@@ -92,7 +92,6 @@ public class Dijkstra
 		foreach (var node in _nodes.Values)
 		{
 			node.Neighbours = links.Where(tuple => tuple.Item1 == node.Id).Select(tuple => tuple.Item2)
-					.Union(links.Where(tuple => tuple.Item2 == node.Id).Select(tuple => tuple.Item1))
 					.Select(id => _nodes[id])
 					.ToArray();
 		}
