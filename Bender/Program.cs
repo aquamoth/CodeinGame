@@ -33,31 +33,49 @@ class Solution
 		}
 
 		var movements = new List<Direction>();
-		var visitedNodes = new List<Point>();
+		var visitedNodes = new List<Bender>();
 
 		var stateChange = StateChanges.None;
 		var hasLoop = false;
 		do
 		{
 			visitedNodes.Add(bender);
+
+			//if (bender.X >= 5 && bender.X <= 7 && bender.Y >= 19 && bender.Y <= 21)
+			//if (movements.Count >= 105)
+			//{
+			//	Console.Error.WriteLine(movements.Count + ": " + bender);
+			//}
+
+
 			bender = bender.Clone();
 			bender.step();
 			var inputHeading = bender.Heading;
 			stateChange = applyStateChange(bender, map);
-			if (stateChange != StateChanges.None && visitedNodes.Contains(bender))
+
+			if (stateChange == StateChanges.AlteredMap)
+			{
+				visitedNodes.Clear();
+			}
+			else if (visitedNodes.Contains(bender))
 			{
 				hasLoop = true;
-				break;
 			}
-			else if (stateChange == StateChanges.Turned)
+			
+			if (stateChange != StateChanges.Turned)
 			{
-				if (visitedNodes.Contains(bender))
-					hasLoop = true;
-			}
-			else
-			{
+				//if (movements.Count > 145)
+				//{
+				//	Console.Error.WriteLine(bender);
+				//}
 				movements.Add(inputHeading);
 			}
+			
+			//if (movements.Count > 200)
+			//{
+			//	Console.Error.WriteLine("Movement overflow during debugging. Aborting!");
+			//	break;
+			//}
 		}
 		while (!hasLoop && stateChange != StateChanges.Killed);
 
@@ -88,8 +106,9 @@ class Solution
 			case 'X':
 				if (bender.IsBenderMode)
 				{
+					Console.Error.WriteLine("Breaking wall at: " + bender);
 					mapPoint.Symbol = ' ';
-					break;
+					return StateChanges.AlteredMap;
 				}
 				else
 				{
@@ -104,12 +123,15 @@ class Solution
 			case 'B':
 				bender.IsBenderMode = !bender.IsBenderMode;
 				if (bender.IsBenderMode)
+				{
+					//Console.Error.WriteLine("Drinking beer at: " + bender);
 					mapPoint.Symbol = ' ';
+					return StateChanges.AlteredMap;
+				}
 				break;
 
 			case 'I':
 				bender.IsInvertedDirections = !bender.IsInvertedDirections;
-				//mapPoint.Symbol = '-';
 				break;
 
 			case 'T':
@@ -147,20 +169,32 @@ class Point
 	public int X { get; set; }
 	public int Y { get; set; }
 	public Direction Heading { get; set; }
-
-	public override bool Equals(object obj)
-	{
-		var p2 = obj as Point;
-		if (p2 == null)
-			return false;
-		return this.X == p2.X && this.Y == p2.Y && this.Heading == p2.Heading;
-	}
 }
 
 class Bender : Point, ICloneable
 {
 	public bool IsBenderMode { get; set; }
 	public bool IsInvertedDirections { get; set; }
+
+
+	public override bool Equals(object obj)
+	{
+		var p2 = obj as Bender;
+		if (p2 == null)
+			return false;
+
+		return this.X == p2.X 
+			&& this.Y == p2.Y 
+			&& this.Heading == p2.Heading
+			&& this.IsBenderMode == p2.IsBenderMode
+			&& this.IsInvertedDirections == p2.IsInvertedDirections;
+	}
+
+	public override string ToString()
+	{
+		return string.Format("({0:N2}, {1:N2}) {2}\t{3} {4}", 
+			X, Y, Heading, IsBenderMode ? "B" : " ", IsInvertedDirections ? "I" : " ");
+	}
 
 
 	public void step()
@@ -234,6 +268,7 @@ enum StateChanges
 {
 	None,
 	Turned,
+	AlteredMap,
 	Killed
 }
 
