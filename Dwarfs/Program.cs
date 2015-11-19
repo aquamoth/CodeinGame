@@ -13,7 +13,6 @@ class Solution
 {
 	static void Main(string[] args)
 	{
-		//var writers = new Dictionary<int, Dijkstra.Node>();
 		var links = new List<Tuple<int, int>>();
 
 		int n = int.Parse(Console.ReadLine()); // the number of relationships of influence
@@ -30,8 +29,8 @@ class Solution
 		var allInfluencers = links.Select(x => x.Item2).Distinct();
 		var firstPersons = people.Except(allInfluencers);
 
-		var algorithm = new Dijkstra(links);
-		var maxLength = firstPersons.Select(p => algorithm.Nodes[p].MaxLength()).Max();
+		var trees = Node.Trees(links);
+		var maxLength = trees.Select(firstNode => firstNode.MaxLength()).Max();
 
 		Console.WriteLine(maxLength); // The number of people involved in the longest succession of influences
 	}
@@ -42,16 +41,30 @@ public class Node
 	public Node(int id)
 	{
 		Id = id;
-		Distance = int.MaxValue;
 	}
 
 	public int Id { get; private set; }
 	public Node[] Neighbours { get; set; }
-	public int[] ShortestPath { get; set; }
-	public int Distance { get; set; }
-	public bool Visited { get; set; }
 
-	//public static Node Tree(IEnumerable<Tuple<int, int>> links)
+	public static IEnumerable<Node> Trees(IEnumerable<Tuple<int, int>> links)
+	{
+		var Nodes = links
+			.SelectMany(x => new[] { x.Item1, x.Item2 })
+			.Distinct()
+			.Select(id => new Node(id))
+			.ToDictionary(x => x.Id);
+
+		foreach (var node in Nodes.Values)
+		{
+			node.Neighbours = links
+					.Where(tuple => tuple.Item1 == node.Id)
+					.Select(tuple => tuple.Item2)
+					.Select(id => Nodes[id])
+					.ToArray();
+		}
+
+		return Nodes.Values;
+	}
 }
 
 public static class NodeExtensions
@@ -61,27 +74,5 @@ public static class NodeExtensions
 		if (node.Neighbours == null || node.Neighbours.Length == 0)
 			return 1;
 		return node.Neighbours.Max(child => child.MaxLength()) + 1;
-	}
-}
-
-public class Dijkstra
-{
-
-	public IDictionary<int, Node> Nodes { get; private set; }
-
-	public Dijkstra(IEnumerable<Tuple<int, int>> links)
-	{
-		Nodes = links
-			.SelectMany(x => new[] { x.Item1, x.Item2 })
-			.Distinct()
-			.Select(id => new Node(id))
-			.ToDictionary(x => x.Id);
-
-		foreach (var node in Nodes.Values)
-		{
-			node.Neighbours = links.Where(tuple => tuple.Item1 == node.Id).Select(tuple => tuple.Item2)
-					.Select(id => Nodes[id])
-					.ToArray();
-		}
 	}
 }
