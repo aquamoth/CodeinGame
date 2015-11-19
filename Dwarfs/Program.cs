@@ -37,16 +37,20 @@ class Solution
 
 		var people = links.SelectMany(x => new[] { x.Item1, x.Item2 }).ToArray();
 		var allInfluencers = links.Select(x => x.Item2).Distinct();
-		var firstPerson = people.Except(allInfluencers).Single();
+		var firstPersons = people.Except(allInfluencers);
 
 		int maxLength = 0;
-		var algorithm = new Dijkstra(links);
-		foreach (var person in people)
+
+		foreach (var firstPerson in firstPersons)
 		{
-			var path = algorithm.Path(firstPerson, person);
-			if (maxLength<path.Length)
+			var algorithm = new Dijkstra(links);
+			foreach (var person in people)
 			{
-				maxLength = path.Length;
+				var path = algorithm.Path(firstPerson, person);
+				if (path != null && maxLength < path.Length)
+				{
+					maxLength = path.Length;
+				}
 			}
 		}
 
