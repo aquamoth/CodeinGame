@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TheGift", "TheGift\TheGift.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MayanCalculator", "MayanCalculator\MayanCalculator.csproj", "{27FF8983-4AFF-436B-BA58-95790F8CE738}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Labyrinth", "Labyrinth\Labyrinth.csproj", "{665C792A-C16E-4A8D-868C-B879FF56611B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -149,6 +151,10 @@ Global
 		{27FF8983-4AFF-436B-BA58-95790F8CE738}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{27FF8983-4AFF-436B-BA58-95790F8CE738}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{27FF8983-4AFF-436B-BA58-95790F8CE738}.Release|Any CPU.Build.0 = Release|Any CPU
+		{665C792A-C16E-4A8D-868C-B879FF56611B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{665C792A-C16E-4A8D-868C-B879FF56611B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{665C792A-C16E-4A8D-868C-B879FF56611B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{665C792A-C16E-4A8D-868C-B879FF56611B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -174,5 +180,6 @@ Global
 		{32B4102D-C399-4DD4-B8D9-E2CFA8373764} = {19861D0E-96E5-4106-9AD5-BAAFA776915F}
 		{8F0B229B-BCF9-46FA-B97F-5A34BC40E553} = {19861D0E-96E5-4106-9AD5-BAAFA776915F}
 		{8D0AD2BF-52B1-4F02-8C4D-B8240599A245} = {19861D0E-96E5-4106-9AD5-BAAFA776915F}
+		{27FF8983-4AFF-436B-BA58-95790F8CE738} = {19861D0E-96E5-4106-9AD5-BAAFA776915F}
 	EndGlobalSection
 EndGlobal
