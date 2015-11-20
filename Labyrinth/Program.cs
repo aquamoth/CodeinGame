@@ -91,7 +91,7 @@ class Player
 				}
 			}
 
-			//printMap(travelMap);
+			printMap(travelMap);
 			Console.WriteLine(direction.ToString()); // Kirk's next move (UP DOWN LEFT or RIGHT).
 			lastDirection = direction;
 		}
@@ -112,19 +112,6 @@ class Player
 		return (Direction)(((int)lastDirection + 2) % 4);
 	}
 
-	//private static Point step(Point position, Direction direction)
-	//{
-	//	switch (direction)
-	//	{
-	//		case Direction.UP: return new Point { X = position.X, Y = position.Y - 1 };
-	//		case Direction.RIGHT: return new Point { X = position.X + 1, Y = position.Y };
-	//		case Direction.DOWN: return new Point { X = position.X, Y = position.Y + 1 };
-	//		case Direction.LEFT: return new Point { X = position.X - 1, Y = position.Y };
-	//		default:
-	//			throw new NotSupportedException();
-	//	}
-	//}
-
 	private static List<char> directionTokensOf(string[] map, string[] travelMap, Point position)
 	{
 		var mapDirections = new List<char>(new[] { 
@@ -135,31 +122,6 @@ class Player
 			});
 		return mapDirections;
 	}
-
-	//static IEnumerable<char> tokensOf(string[] map, int x, int y)
-	//{
-	//	yield return map[y - 1][x];
-	//	yield return map[y][x + 1];
-	//	yield return map[y + 1][x];
-	//	yield return map[y][x - 1];
-	//}
-
-	//private static Direction selectDirection(List<char> mapDirections, Point position)
-	//{
-	//	//TODO: IF we see the exit on the map, prefer direction towards it!
-
-	//	//Console.Error.WriteLine("Still searching");
-	//	foreach (var token in new[] { CONTROL_ROOM, PATH_UNVISITED, PATH_VISITED, TELEPORTER, DEAD_END })
-	//	{
-	//		Console.Error.WriteLine("Searching for token: " + token);
-	//		var heading = (Direction)mapDirections.IndexOf(token);
-	//		if (heading != Direction.NONE)
-	//		{
-	//			return heading;
-	//		}
-	//	}
-	//	return Direction.NONE;
-	//}
 
 	private static char merge(string[] map, string[] travelMap, int x, int y)
 	{
