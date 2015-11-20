@@ -43,7 +43,7 @@ class Solution
 				string num1Line = Console.ReadLine();
 				digit += num1Line;
 			}
-			number1 = number1 * 10 + digits.IndexOf(digit);
+			number1 = number1 * digits.Count + digits.IndexOf(digit);
 		}
 		Console.Error.WriteLine("Number 1: " + number1);
 
@@ -58,7 +58,7 @@ class Solution
 				string num2Line = Console.ReadLine();
 				digit += num2Line;
 			}
-			number2 = number2 * 10 + digits.IndexOf(digit);
+			number2 = number2 * digits.Count + digits.IndexOf(digit);
 		}
 		Console.Error.WriteLine("Number 2: " + number2);
 
