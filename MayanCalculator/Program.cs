@@ -90,13 +90,15 @@ class Solution
 
 	private static IEnumerable<string> toMayan(long number, List<string> mayanDigits, int L)
 	{
-		if (number == 0)
-		{
-			return new string[0];
-		}
-		else
-		{
-			var first = toMayan(number / mayanDigits.Count, mayanDigits, L);
+		//if (number == 0)
+		//{
+		//	return new string[0];
+		//}
+		//else
+		//{
+			var firstNumber = number / mayanDigits.Count;
+			var first = firstNumber > 0 ? toMayan(firstNumber, mayanDigits, L) : new string[0];
+
 			var nextDigit = (int)(number % mayanDigits.Count);
 			Console.Error.WriteLine(nextDigit);
 			var nextMayanDigit = mayanDigits[nextDigit];
@@ -108,6 +110,6 @@ class Solution
 				.ToArray();
 
 			return first.Concat(nextMayanDigitRows);
-		}
+		//}
 	}
 }
