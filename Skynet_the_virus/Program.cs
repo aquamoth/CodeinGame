@@ -41,7 +41,7 @@ class Player
 			//Console.Error.WriteLine("Current SI position");
 			var SI = Console.ReadLine(); // The index of the node on which the Skynet agent is positioned this turn
 
-			string[] shortestPath = null;
+			var shortestPaths = new List<string[]>();
 			foreach (var gateway in gateways)
 			{
 				var algorithm = new Dijkstra(links);
@@ -51,21 +51,36 @@ class Player
 	
 				if (path != null)
 				{
-					if (shortestPath == null || path.Length < shortestPath.Length)
-						shortestPath = path;
+					if (shortestPaths.Count == 0 || path.Length < shortestPaths.First().Length)
+					{
+						shortestPaths.Clear();
+						shortestPaths.Add(path);
+					}
+					else if (path.Length == shortestPaths.First().Length)
+					{
+						shortestPaths.Add(path);
+					}
 				}
 			}
 
-			if (shortestPath == null)
+			if (!shortestPaths.Any())
 			{
 				Console.Error.WriteLine("No path left. I won!");
 				Console.ReadLine();
 				break;
 			}
 
-			var linkToSevere = shortestPath.Reverse().Take(2).Reverse();
-			Console.WriteLine(string.Join(" ", linkToSevere));
 
+			var linksToChooseFrom = shortestPaths.Select(path => path.Reverse().Take(2).Reverse()).ToArray();
+			foreach (var link in linksToChooseFrom)
+			{
+				Console.Error.WriteLine("Possible link: " + string.Join(" - ", link));
+			}
+			var linkToSevere = linksToChooseFrom.GroupBy(link => link.First()).OrderByDescending(grp => grp.Count()).First().First();
+			//var linkToSevere = linksToChooseFrom.First();
+
+
+			Console.WriteLine(string.Join(" ", linkToSevere));
 			links.Remove(new Tuple<string, string>(linkToSevere.First(), linkToSevere.Last()));
 			links.Remove(new Tuple<string, string>(linkToSevere.Last(), linkToSevere.First()));
 		}
