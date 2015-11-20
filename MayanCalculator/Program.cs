@@ -97,8 +97,8 @@ class Solution
 		}
 		else
 		{
-			var first = toMayan(result / 10, digits, L);
-			var nextDigit = digits[result % 10];
+			var first = toMayan(result / digits.Count, digits, L);
+			var nextDigit = digits[result % digits.Count];
 
 			var nextDigitRows = nextDigit
 				.Select((c, index) => new { character = c, part = index / L })
