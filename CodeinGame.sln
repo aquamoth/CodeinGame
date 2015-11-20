@@ -53,6 +53,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MayanCalculator", "MayanCal
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Labyrinth", "Labyrinth\Labyrinth.csproj", "{665C792A-C16E-4A8D-868C-B879FF56611B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BilbosForest", "BilbosForest\BilbosForest.csproj", "{D1F4CCF5-ABA2-4817-99F4-4EEFFF50BA6A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -155,6 +157,10 @@ Global
 		{665C792A-C16E-4A8D-868C-B879FF56611B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{665C792A-C16E-4A8D-868C-B879FF56611B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{665C792A-C16E-4A8D-868C-B879FF56611B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1F4CCF5-ABA2-4817-99F4-4EEFFF50BA6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1F4CCF5-ABA2-4817-99F4-4EEFFF50BA6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1F4CCF5-ABA2-4817-99F4-4EEFFF50BA6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1F4CCF5-ABA2-4817-99F4-4EEFFF50BA6A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
