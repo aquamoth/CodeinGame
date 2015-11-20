@@ -72,9 +72,10 @@ class Solution
 
 		switch (operation)
 		{
-			case "+":
-				result = number1 + number2;
-				break;
+			case "+": result = number1 + number2; break;
+			case "-": result = number1 - number2; break;
+			case "*": result = number1 * number2; break;
+			case "/": result = number1 / number2; break;
 
 			default:
 				throw new NotImplementedException("Operation: " + operation);
