@@ -90,26 +90,19 @@ class Solution
 
 	private static IEnumerable<string> toMayan(long number, List<string> mayanDigits, int L)
 	{
-		//if (number == 0)
-		//{
-		//	return new string[0];
-		//}
-		//else
-		//{
-			var firstNumber = number / mayanDigits.Count;
-			var first = firstNumber > 0 ? toMayan(firstNumber, mayanDigits, L) : new string[0];
+		var firstNumber = number / mayanDigits.Count;
+		var first = firstNumber > 0 ? toMayan(firstNumber, mayanDigits, L) : new string[0];
 
-			var nextDigit = (int)(number % mayanDigits.Count);
-			Console.Error.WriteLine(nextDigit);
-			var nextMayanDigit = mayanDigits[nextDigit];
+		var nextDigit = (int)(number % mayanDigits.Count);
+		Console.Error.WriteLine(nextDigit);
+		var nextMayanDigit = mayanDigits[nextDigit];
 
-			var nextMayanDigitRows = nextMayanDigit
-				.Select((c, index) => new { character = c, part = index / L })
-				.GroupBy(x => x.part, x => x.character)
-				.Select(x => string.Join("", x))
-				.ToArray();
+		var nextMayanDigitRows = nextMayanDigit
+			.Select((c, index) => new { character = c, part = index / L })
+			.GroupBy(x => x.part, x => x.character)
+			.Select(x => string.Join("", x))
+			.ToArray();
 
-			return first.Concat(nextMayanDigitRows);
-		//}
+		return first.Concat(nextMayanDigitRows);
 	}
 }
