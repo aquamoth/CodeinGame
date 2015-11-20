@@ -120,8 +120,9 @@ class Player
 
 	private static char merge(string[] map, string[] travelMap, int x, int y)
 	{
-		if (map[y][x] != PATH_UNVISITED)
-			return map[y][x];
+		var mapToken = map[y][x];
+		if (mapToken != PATH_UNVISITED && mapToken != TELEPORTER)
+			return mapToken;
 		else
 			return travelMap[y][x];
 	}
