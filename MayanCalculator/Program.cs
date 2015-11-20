@@ -32,30 +32,41 @@ class Solution
 		}
 
 
-		var digit1 = "";
+
+		int number1 = 0;
 		int S1 = int.Parse(Console.ReadLine());
-		for (int i = 0; i < S1; i++)
+		for (int x = 0; x < S1; x += H)
 		{
-			string num1Line = Console.ReadLine();
-			digit1 += num1Line;
+			var digit = "";
+			for (int i = 0; i < H; i++)
+			{
+				string num1Line = Console.ReadLine();
+				digit += num1Line;
+			}
+			number1 = number1 * 10 + digits.IndexOf(digit);
 		}
+		Console.Error.WriteLine("Number 1: " + number1);
 
-		var digit2 = "";
+
+		int number2 = 0;
 		int S2 = int.Parse(Console.ReadLine());
-		for (int i = 0; i < S2; i++)
+		for (int i = 0; i < S2; i+=H)
 		{
-			string num2Line = Console.ReadLine();
-			digit2 += num2Line;
+			var digit = "";
+			for (int x = 0; x < H; x++)
+			{
+				string num2Line = Console.ReadLine();
+				digit += num2Line;
+			}
+			number2 = number2 * 10 + digits.IndexOf(digit);
 		}
-
-
-		var number1 = digits.IndexOf(digit1);
-		var number2 = digits.IndexOf(digit2);
-
-
+		Console.Error.WriteLine("Number 2: " + number2);
 
 
 		string operation = Console.ReadLine();
+
+		Console.Error.WriteLine(number1 + " " + operation + " " + number2 + " = ");
+
 
 		int result;
 
@@ -70,18 +81,32 @@ class Solution
 		}
 
 
-
-
-		var resultString = digits[result]
-			.Select((c, index) => new { character = c, part = index / L })
-			.GroupBy(x => x.part, x => x.character)
-			.Select(x => string.Join("", x))
-			.ToArray();
+		var resultString = toMayan(result, digits, L).ToArray();
 
 		for (int y = 0; y < resultString.Length; y++)
 		{
 			Console.WriteLine(resultString[y]);
 		}
+	}
 
+	private static IEnumerable<string> toMayan(int result, List<string> digits, int L)
+	{
+		if (result == 0)
+		{
+			return new string[0];
+		}
+		else
+		{
+			var first = toMayan(result / 10, digits, L);
+			var nextDigit = digits[result % 10];
+
+			var nextDigitRows = nextDigit
+				.Select((c, index) => new { character = c, part = index / L })
+				.GroupBy(x => x.part, x => x.character)
+				.Select(x => string.Join("", x))
+				.ToArray();
+
+			return first.Concat(nextDigitRows);
+		}
 	}
 }
