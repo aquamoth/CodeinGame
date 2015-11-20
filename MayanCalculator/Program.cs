@@ -33,7 +33,7 @@ class Solution
 
 
 
-		int number1 = 0;
+		long number1 = 0;
 		int S1 = int.Parse(Console.ReadLine());
 		for (int x = 0; x < S1; x += H)
 		{
@@ -48,7 +48,7 @@ class Solution
 		Console.Error.WriteLine("Number 1: " + number1);
 
 
-		int number2 = 0;
+		long number2 = 0;
 		int S2 = int.Parse(Console.ReadLine());
 		for (int i = 0; i < S2; i+=H)
 		{
@@ -65,11 +65,7 @@ class Solution
 
 		string operation = Console.ReadLine();
 
-		Console.Error.WriteLine(number1 + " " + operation + " " + number2 + " = ");
-
-
-		int result;
-
+		long result;
 		switch (operation)
 		{
 			case "+": result = number1 + number2; break;
@@ -81,33 +77,37 @@ class Solution
 				throw new NotImplementedException("Operation: " + operation);
 		}
 
+		Console.Error.WriteLine(number1 + " " + operation + " " + number2 + " = " + result);
+
+
 
 		var resultString = toMayan(result, digits, L).ToArray();
-
 		for (int y = 0; y < resultString.Length; y++)
 		{
 			Console.WriteLine(resultString[y]);
 		}
 	}
 
-	private static IEnumerable<string> toMayan(int result, List<string> digits, int L)
+	private static IEnumerable<string> toMayan(long number, List<string> mayanDigits, int L)
 	{
-		if (result == 0)
+		if (number == 0)
 		{
 			return new string[0];
 		}
 		else
 		{
-			var first = toMayan(result / digits.Count, digits, L);
-			var nextDigit = digits[result % digits.Count];
+			var first = toMayan(number / mayanDigits.Count, mayanDigits, L);
+			var nextDigit = (int)(number % mayanDigits.Count);
+			Console.Error.WriteLine(nextDigit);
+			var nextMayanDigit = mayanDigits[nextDigit];
 
-			var nextDigitRows = nextDigit
+			var nextMayanDigitRows = nextMayanDigit
 				.Select((c, index) => new { character = c, part = index / L })
 				.GroupBy(x => x.part, x => x.character)
 				.Select(x => string.Join("", x))
 				.ToArray();
 
-			return first.Concat(nextDigitRows);
+			return first.Concat(nextMayanDigitRows);
 		}
 	}
 }
