@@ -89,53 +89,85 @@ class Player
 	
 			var lzCenter = new Point((lz.Item1.X + lz.Item2.X) / 2, lz.Item1.Y);
 
-			if (expectedLandingPoint.X > lz.Item1.X && expectedLandingPoint.X < lz.Item2.X && position.Y - lzCenter.Y < 200)
+			var expectingLandRightOfLZSafeLeft = expectedLandingPoint.X > lz.Item1.X + 100;
+			var expectingLandLeftOfLZSafeRight = expectedLandingPoint.X < lz.Item2.X - 100;
+			var expectingToHitLZSafeRange = expectingLandRightOfLZSafeLeft && expectingLandLeftOfLZSafeRight;
+			var expectingToHitLZ = expectedLandingPoint.X > lz.Item1.X && expectedLandingPoint.X < lz.Item2.X;
+
+			if (expectingToHitLZ && position.Y - lzCenter.Y < 200)
 			{
 				Console.Error.WriteLine("Just above LZ. Brace for impact!");
 				command = buildCommand_LAND(position, speed, lz.Item1.Y);
 			}
-			else if (expectedLandingPoint.X < lz.Item1.X + 200 || expectedLandingPoint.X > lz.Item2.X - 200)
+			else if (expectingToHitLZSafeRange && speed.X > CRITICAL_HORIZONTAL_SPEED)
 			{
-				Console.Error.WriteLine("Need to go more " + (expectedLandingPoint.X < lz.Item1.X ? "RIGHT" : "LEFT"));
-				var waypoint = findWaypoint(position, speed, lzCenter);
-				Console.Error.WriteLine("Heading for WAYPOINT " + waypoint);
-
-
-
-				var obstacle = findObstacleIn(topology, position, waypoint);
-				if (obstacle != null)
-				{
-					Console.Error.WriteLine("Avoid CRASHING into " + obstacle);
-					waypoint = avoid(topology, obstacle, position, waypoint);
-					Console.Error.WriteLine("Switched to WAYPOINT " + waypoint);
-				}
-
-				command = buildCommand_Waypoint(position, speed, waypoint);
+				Console.Error.WriteLine("Reduce speed to right in a safe manner, avoiding obstacles");
+				command = new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
+			}
+			else if (expectingToHitLZSafeRange && speed.X < -CRITICAL_HORIZONTAL_SPEED)
+			{
+				Console.Error.WriteLine("Reduce speed to left in a safe manner, avoiding obstacles");
+				command = new Tuple<int, int>(-MAX_ANGLE_KEEP_VSPEED, 4);
 			}
 			else
 			{
-				if (speed.X > CRITICAL_HORIZONTAL_SPEED)
+				var maxSpeed = new Point(Math.Sign(speed.X) * CRITICAL_HORIZONTAL_SPEED, speed.Y);
+				Console.Error.WriteLine("Calculating trajectory for max horizontal speed of " + maxSpeed);
+				var landingPointInMaxSpeed = plotTrajectory(position, maxSpeed, lz.Item1.Y, out time, out verticalAcceleration);
+				Console.Error.WriteLine("If we landed with max horiz. speed now, we end up at " + landingPointInMaxSpeed);
+				var hittingLZInMaxSpeed = landingPointInMaxSpeed.X > lz.Item1.X && landingPointInMaxSpeed.X < lz.Item2.X;
+
+				if (hittingLZInMaxSpeed && speed.X > CRITICAL_HORIZONTAL_SPEED)
 				{
-					Console.Error.WriteLine("Reduce speed to right in a safe manner, avoiding obstacles");
+					Console.Error.WriteLine("Break horizontal speed to right");
 					command = new Tuple<int, int>(MAX_ANGLE_KEEP_VSPEED, 4);
 				}
-				else if (speed.X < -CRITICAL_HORIZONTAL_SPEED)
+				else if (hittingLZInMaxSpeed && speed.X < -CRITICAL_HORIZONTAL_SPEED)
 				{
-					Console.Error.WriteLine("Reduce speed to left in a safe manner, avoiding obstacles");
+					Console.Error.WriteLine("Break horizontal speed to left");
 					command = new Tuple<int, int>(-MAX_ANGLE_KEEP_VSPEED, 4);
 				}
-				else
+				else if (expectingToHitLZSafeRange && Math.Abs(speed.X) <= CRITICAL_HORIZONTAL_SPEED)
 				{
-					var foundObstacleInTrajectory = false;//TODO:
-					if (foundObstacleInTrajectory)
+					Console.Error.WriteLine("Initiating LANDING procedure");
+					var obstacle = findObstacleIn(topology, position, new Point(expectedLandingPoint.X, expectedLandingPoint.Y + 10));
+					if (obstacle != null)
 					{
-						throw new NotImplementedException("Plot course to start of landing that avoids the obstactle");
+						Console.Error.WriteLine("Avoid CRASHING into " + obstacle + " during LANDING");
+						var waypoint = avoid(topology, obstacle, position, expectedLandingPoint);
+						Console.Error.WriteLine("Switched to WAYPOINT " + waypoint);
+						command = buildCommand_Waypoint(position, speed, waypoint);
 					}
 					else
 					{
 						command = buildCommand_LAND(position, speed, lz.Item1.Y);
 					}
 				}
+				else
+				{
+					Console.Error.WriteLine("Need to go more " + (expectingLandLeftOfLZSafeRight ? "RIGHT" : "LEFT"));
+					var waypoint = findWaypoint(position, speed, lzCenter);
+					Console.Error.WriteLine("Heading for WAYPOINT " + waypoint);
+
+					var obstacle = findObstacleIn(topology, position, waypoint);
+					if (obstacle != null)
+					{
+						Console.Error.WriteLine("Avoid CRASHING into " + obstacle);
+						waypoint = avoid(topology, obstacle, position, waypoint);
+						Console.Error.WriteLine("Switched to WAYPOINT " + waypoint);
+					}
+
+					command = buildCommand_Waypoint(position, speed, waypoint);
+				}
+			}
+
+			//Cut thrust if rotated >90 off course, since this is just counter-productive
+			var angleDiff = Math.Abs(command.Item1 - rotate) % 360;
+			Console.Error.WriteLine("Difference between actual " + rotate + " and wanted " + command.Item1 + " is " + angleDiff);
+			if (angleDiff > 140)
+			{
+				Console.Error.WriteLine("Cutting thrust!");
+				command = new Tuple<int, int>(command.Item1, 0);
 			}
 
 			Console.WriteLine(string.Format("{0} {1}", command.Item1, command.Item2));
