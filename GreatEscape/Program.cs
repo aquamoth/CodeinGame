@@ -20,8 +20,6 @@ class Player
 		int playerCount = int.Parse(inputs[2]); // number of players (2 or 3)
 		int myId = int.Parse(inputs[3]); // id of my player (0 = 1st player, 1 = 2nd player, ...)
 
-		int exitX = -1;
-
 		// game loop
 		while (true)
 		{
@@ -33,11 +31,17 @@ class Player
 				int y = int.Parse(inputs[1]); // y-coordinate of the player
 				int wallsLeft = int.Parse(inputs[2]); // number of walls available for the player
 
-				players[i] = new Point{X=x, Y=y, WallsLeft = wallsLeft};
+				players[i] = new Point { X = x, Y = y, WallsLeft = wallsLeft };
 			}
 
-			if (exitX == -1)
-				exitX = w - players[myId].X - 1;
+			var isRunningHorizontally = myId != 2;
+			var exitIndex = !isRunningHorizontally 
+				? h - 1
+				: (myId == 0 
+					? w - 1 
+					: 0);
+
+			//Console.Error.WriteLine("My id = " + myId + ", Running horiz. = " + isRunningHorizontally + ", exit index = " + exitIndex);
 
 			var walls = new List<Link>();
 			int wallCount = int.Parse(Console.ReadLine()); // number of walls on the board
@@ -78,11 +82,16 @@ class Player
 			var player = players[myId];
 			var SI = nameOf(player.X, player.Y, w);
 			var algorithm = new Dijkstra(map);
-			var exits = Enumerable.Repeat(0, h).Select((x, index) => new Point { X = exitX, Y = index }).ToArray();
+			var exits = isRunningHorizontally
+				? Enumerable.Repeat(0, h).Select((x, index) => new Point { X = exitIndex, Y = index }).ToArray()
+				: Enumerable.Repeat(0, w).Select((y, index) => new Point { X = index, Y = exitIndex }).ToArray();
+
 			string[] shortestPath = null;
 			foreach (var exit in exits)
 			{
 				var exitName = nameOf(exit.X, exit.Y, w);
+				Console.Error.WriteLine("Testing exit: " + exitName);
+
 				var path = algorithm.Path(SI, exitName);
 				if (shortestPath == null || shortestPath.Length > path.Length)
 					shortestPath = path;
