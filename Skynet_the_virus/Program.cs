@@ -16,16 +16,18 @@ class Player
 		//Console.Error.WriteLine("Number of Nodes, Links, Gateways");
 		string[] inputs;
 		inputs = Console.ReadLine().Split(' ');
+		Console.Error.WriteLine(string.Join(" ", inputs));
 		int N = int.Parse(inputs[0]); // the total number of nodes in the level, including the gateways
 		int L = int.Parse(inputs[1]); // the number of links
 		int E = int.Parse(inputs[2]); // the number of exit gateways
 
 		//Console.Error.WriteLine("All links, one per line");
-		var links = new List<Tuple<string, string>>();
+		var links = new List<Link>();
 		for (int i = 0; i < L; i++)
 		{
 			inputs = Console.ReadLine().Split(' ');
-			links.Add(new Tuple<string, string>(inputs[0], inputs[1]));
+			Console.Error.WriteLine(string.Join(" ", inputs));
+			links.Add(new Link { A = inputs[0], B = inputs[1] });
 		}
 
 		//Console.Error.WriteLine("All gateway node indexes, one per line");
@@ -33,6 +35,7 @@ class Player
 		for (int i = 0; i < E; i++)
 		{
 			gateways[i] = Console.ReadLine(); // the index of a gateway node
+			Console.Error.WriteLine(gateways[i]);
 		}
 
 		// game loop
@@ -40,61 +43,73 @@ class Player
 		{
 			//Console.Error.WriteLine("Current SI position");
 			var SI = Console.ReadLine(); // The index of the node on which the Skynet agent is positioned this turn
+			Console.Error.WriteLine(SI);
 
+			Console.Error.WriteLine("\nINPUT READ.");
 
-			var gatewayLinks = links.Where(x=>gateways.Intersect(new[]{x.Item1, x.Item2}).Any()).ToArray();
-			var nodesInFrontOfGateways = gatewayLinks.SelectMany(x => new[] { x.Item1, x.Item2 }).Except(gateways)
-				.Distinct();
+			var gatewayLinks = links.Where(link => gateways.Intersect(link.Nodes).Any()).ToArray();
+			var namesOfNodesToGateways = gatewayLinks.SelectMany(link => link.Nodes).Except(gateways).Distinct().ToArray();
 			//foreach (var node in nodesInFrontOfGateways)
 			//{
 			//	Console.Error.WriteLine(node + " is in front of one or more gateways");
 			//}
 
-			var nodesWithLinks = nodesInFrontOfGateways.Select(node => new
+			var nodeToGateways = namesOfNodesToGateways.Select(node => new Node
 			{
-				Node = node,
+				Name = node,
 				Links = links.Where(link =>
-						link.Item1 == node && gateways.Contains(link.Item2)
-					|| link.Item2 == node && gateways.Contains(link.Item1)
-					).ToArray()
+						link.A == node && gateways.Contains(link.B)
+					|| link.B == node && gateways.Contains(link.A)
+					).ToArray(),
+				Score = double.MaxValue
 			}).ToArray();
 
 
-
-			var scoredNodes = new List<Tuple<string, int, Tuple<string, string>[], double>>();
-			foreach (var node in nodesWithLinks)
+			foreach (var node in nodeToGateways)
 			{
 				var algorithm = new Dijkstra(links);
-				var path = algorithm.Path(SI, node.Node);
+				node.Path = algorithm.Path(SI, node.Name);
 
-				if (path != null)
+				if (node.Path == null)
 				{
-					var score = path.Length == 0 
-						? double.MaxValue 
-						: node.Links.Count() / ((double)path.Length - 1);
-					if (node.Links.Count() > 1)
-						score += 1000;
-					scoredNodes.Add(new Tuple<string, int, Tuple<string, string>[], double>(node.Node, path.Length, node.Links, score));
+					Console.Error.WriteLine("Node " + node + " has no path");
+					node.Score = 0;
 				}
+				else if (node.Links.Count() == 1)
+				{
+					Console.Error.WriteLine("Node " + node + " links to only one gateway");
+					node.Score = 1.0 / node.Path.Length;
+				}
+				else
+				{
+					Console.Error.WriteLine("Node " + node + " links to " + node.Links.Count() + " gateways");
+					var pathNodesWithoutLinksToGateways = node.Path.Where(nodeName => !namesOfNodesToGateways.Contains(nodeName)).Count();
+					node.Score = pathNodesWithoutLinksToGateways == 0
+						? double.MaxValue
+						: (node.Links.Count() - 1) / (double)pathNodesWithoutLinksToGateways;
+				}
+				Console.Error.WriteLine("Calculated node: " + node);
 			}
 
-			foreach (var node in scoredNodes.OrderByDescending(x => x.Item4))
+			foreach (var node in nodeToGateways.Where(node => node.Path != null).OrderByDescending(x => x.Score))
 			{
-				Console.Error.WriteLine(node.Item1 + " is " + node.Item2 + " steps away and has " + node.Item3.Length + " gateway links => Score = " + node.Item4);
+				Console.Error.WriteLine(node.Name + " is " + node.Path.Length + " steps away and has " + node.Links.Length + " gateway links => Score = " + node.Score);
 			}
-			//Tuple<string, double, Tuple<string, string>> mostCriticalNode = null;
-			var mostCriticalNode = scoredNodes.OrderByDescending(x => x.Item4).First();
 
-			//if (mostCriticalNode == null)
-			//{
-			//	Console.Error.WriteLine("No path left. I won!");
-			//	Console.ReadLine();
-			//	break;
-			//}
+			if (nodeToGateways.Length==0)
+			{
+				Console.Error.WriteLine("No gateways are reachable. I won!");
+				return;
+			}
 
 
-			var linkToSevere = mostCriticalNode.Item3.First();
-			Console.WriteLine(linkToSevere.Item1 + " " + linkToSevere.Item2);
+			var mostCriticalNode = nodeToGateways
+				.Where(node => node.Path != null)
+				.OrderByDescending(x => x.Score)
+				.First();
+			var linkToSevere = mostCriticalNode.Links.First();
+
+			Console.WriteLine(linkToSevere);
 			links.Remove(linkToSevere);
 		}
 	}
@@ -120,18 +135,18 @@ class Player
 
 		IDictionary<string, Node> _nodes;
 
-		public Dijkstra(IEnumerable<Tuple<string, string>> links)
+		public Dijkstra(IEnumerable<Link> links)
 		{
 			_nodes = links
-				.SelectMany(x => new[] { x.Item1, x.Item2 })
+				.SelectMany(link => link.Nodes)
 				.Distinct()
 				.Select(name => new Node(name))
 				.ToDictionary(x => x.Name);
 
 			foreach (var node in _nodes.Values)
 			{
-				node.Neighbours = links.Where(tuple => tuple.Item1 == node.Name).Select(tuple => tuple.Item2)
-						.Union(links.Where(tuple => tuple.Item2 == node.Name).Select(tuple => tuple.Item1))
+				node.Neighbours = links.Where(link => link.A == node.Name).Select(link => link.B)
+						.Union(links.Where(link => link.B == node.Name).Select(link => link.A))
 						.Select(name => _nodes[name])
 						.ToArray();
 			}
@@ -182,5 +197,31 @@ class Player
 			else
 				return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
 		}
+	}
+}
+
+public class Link
+{
+	public string A { get; set; }
+	public string B { get; set; }
+
+	public string[] Nodes { get { return new[] { A, B }; } }
+
+	public override string ToString()
+	{
+		return A + " " + B;
+	}
+}
+
+public class Node
+{
+	public string Name { get; set; }
+	public Link[] Links { get; set; }
+	public string[] Path { get; set; }
+	public double Score { get; set; }
+
+	public override string ToString()
+	{
+		return string.Format("{0} ({1} pts)", Name, Score);
 	}
 }
