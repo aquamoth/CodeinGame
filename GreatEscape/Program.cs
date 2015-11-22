@@ -44,23 +44,7 @@ class Player
 				int wallX = int.Parse(inputs[0]); // x-coordinate of the wall
 				int wallY = int.Parse(inputs[1]); // y-coordinate of the wall
 				string wallOrientation = inputs[2]; // wall orientation ('H' or 'V')
-
-				//TODO: This does not track where we can insert walls BETWEEN the existing parts
-
-				if (wallOrientation == "V")
-				{
-					walls.Add(new Link { A = nameOf(wallX, wallY, w), B = nameOf(wallX - 1, wallY, w) });
-					walls.Add(new Link { A = nameOf(wallX, wallY + 1, w), B = nameOf(wallX - 1, wallY + 1, w) });
-				}
-				else if (wallOrientation == "H")
-				{
-					walls.Add(new Link { A = nameOf(wallX, wallY, w), B = nameOf(wallX, wallY - 1, w) });
-					walls.Add(new Link { A = nameOf(wallX + 1, wallY, w), B = nameOf(wallX + 1, wallY - 1, w) });
-				}
-				else
-				{
-					throw new NotSupportedException();
-				}
+				walls.AddRange(createWall(wallX, wallY, wallOrientation, w));
 			}
 			//Console.Error.WriteLine("Walls at:");
 			//foreach (var link in walls)
@@ -71,19 +55,56 @@ class Player
 			var map = emptyMap(w, h).Except(walls).ToList();
 
 
-			var player = players[myId];
-
 			var myExits = exitsForPlayer(myId, w, h);
+			var shortestPath = pathFor(map, players[myId], myExits, w);
 
-			string[] shortestPath = pathFor(map, player, myExits, w);
+			var playerPaths = players.Select((player, index) =>
+				{
+					var exits = exitsForPlayer(index, w, h);
+					var playerPath = pathFor(map, players[index], exits, w);
+					return playerPath;
+				}).ToArray();
 
+			var currentLeaderboard = playerPaths
+				.Select((path, index) => new { Path = path, Index = index })
+				.OrderBy(x => x.Path.Length)
+				.Select(x => x.Index);
+			if (myId == currentLeaderboard.Skip(1).First())
+			{
+				Console.Error.WriteLine("I'm in second place! Try to stop the leader.");
+			}
 
-			// Write an action using Console.WriteLine()
-			// To debug: Console.Error.WriteLine("Debug messages...");
-
+			Console.Error.WriteLine("I'm winning, or last of three, or CAN'T stop the leader right now. Just run and hope the others take each other out.");
+	
 			var direction = directionOf(nameOf(players[myId].X, players[myId].Y, w), shortestPath[1]);
 			Console.WriteLine(direction);
 		}
+	}
+
+	private static Link[] createWall(int wallX, int wallY, string wallOrientation, int w)
+	{
+		//TODO: This does not track where we can insert walls BETWEEN the existing parts
+		Link[] wallSegments = null;
+		if (wallOrientation == "V")
+		{
+			wallSegments = new[]
+					{
+						new Link { A = nameOf(wallX, wallY, w), B = nameOf(wallX - 1, wallY, w) },
+						new Link { A = nameOf(wallX, wallY + 1, w), B = nameOf(wallX - 1, wallY + 1, w) }
+					};
+		}
+		else if (wallOrientation == "H")
+		{
+			wallSegments = new[]{
+						new Link { A = nameOf(wallX, wallY, w), B = nameOf(wallX, wallY - 1, w) },
+						new Link { A = nameOf(wallX + 1, wallY, w), B = nameOf(wallX + 1, wallY - 1, w) }
+					};
+		}
+		else
+		{
+			throw new NotSupportedException();
+		}
+		return wallSegments;
 	}
 
 	private static string[] pathFor(List<Link> map, Point player, Point[] myExits, int mapWidth)
