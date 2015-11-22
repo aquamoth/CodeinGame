@@ -20,7 +20,8 @@ class Player
 		int playerCount = int.Parse(inputs[2]); // number of players (2 or 3)
 		int myId = int.Parse(inputs[3]); // id of my player (0 = 1st player, 1 = 2nd player, ...)
 
-		var isFirst = true;
+		int exitX = -1;
+
 		// game loop
 		while (true)
 		{
@@ -34,6 +35,9 @@ class Player
 
 				players[i] = new Point{X=x, Y=y, WallsLeft = wallsLeft};
 			}
+
+			if (exitX == -1)
+				exitX = w - players[myId].X - 1;
 
 			var walls = new List<Link>();
 			int wallCount = int.Parse(Console.ReadLine()); // number of walls on the board
@@ -74,7 +78,7 @@ class Player
 			var player = players[myId];
 			var SI = nameOf(player.X, player.Y, w);
 			var algorithm = new Dijkstra(map);
-			var exits = Enumerable.Repeat(0, h).Select((x, index) => new Point { X = w - 1, Y = index }).ToArray();
+			var exits = Enumerable.Repeat(0, h).Select((x, index) => new Point { X = exitX, Y = index }).ToArray();
 			string[] shortestPath = null;
 			foreach (var exit in exits)
 			{
