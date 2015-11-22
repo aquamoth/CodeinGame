@@ -46,38 +46,47 @@ class Player
 			}
 			map[MAP_HEIGHT+1] = string.Join("", Enumerable.Repeat(CELL_WALL, MAP_WIDTH+2).ToArray());
 
-			printMap(map);
+			//printMap(map);
+			var mapChars = map.SelectMany(row=>row.Select(col=>col)).ToArray();
+			for (int i = 0; i < opponentCount; i++)
+			{
+				opponents[i].Score = mapChars.Where(x => x.ToString() == (i + 1).ToString()).Count();
+				Console.Error.WriteLine("Opponent " + 1 + " has score " + opponents[i].Score);
+			}
+			
 
 			//Prefer any neutral cell
 			Console.Error.WriteLine("I'm at " + player);
 			var directions = directionsTo(map, player, CELL_NEUTRAL).ToArray();
 			Console.Error.WriteLine("Neutral cells at: " + string.Join(", ", (directions.Select(d => d.ToString()).ToArray())));
-			if (!directions.Any())
-			{
-				Console.Error.WriteLine("No neutrals found");
-				//No neutral, so prefer an opponents cell, so we cross paths
-				var visited = directionsTo(map, player, CELL_PLAYER);
-				var walls = directionsTo(map, player, CELL_WALL[0]);
-				directions = new Direction[] { Direction.TOP, Direction.RIGHT, Direction.BOTTOM, Direction.LEFT }.Except(walls).Except(visited).ToArray();
-			}
+			//if (!directions.Any())
+			//{
+			//	Console.Error.WriteLine("No neutrals found");
+			//	//No neutral, so prefer an opponents cell, so we cross paths
+			//	var visited = directionsTo(map, player, CELL_PLAYER);
+			//	var walls = directionsTo(map, player, CELL_WALL[0]);
+			//	directions = new Direction[] { Direction.TOP, Direction.RIGHT, Direction.BOTTOM, Direction.LEFT }.Except(walls).Except(visited).ToArray();
+			//}
 			if (directions.Any())
 			{
 				//Go in one of the available directions
-				var nextDirection = (Direction)r.Next(directions.Count());
+				var nextDirection = (Direction)directions[r.Next(directions.Count())];
 				var newLocation = player + nextDirection;
 				Console.Error.WriteLine("Walking " + nextDirection.ToString() + " to " + newLocation);
 				Console.WriteLine(newLocation.ToString());
 			}
 			else
 			{
-				//I'm inside my own area. Get out!
-				var headTo = r.Next(opponents.Count());
-				var point = new Point(opponents[headTo].X, opponents[headTo].Y);
-				Console.WriteLine(point); 
+				//I'm trapped. Get out!
+				Console.Error.WriteLine("Heading for leader");
+				var point = opponents.OrderByDescending(x => x.Score).First();
+				if (Math.Abs(point.X - player.X) > Math.Abs(point.Y - player.Y))
+					Console.WriteLine(point);
+				else
+				{
+					Console.WriteLine(new Point(player.X, point.Y));
+				}
 			}
-
-			// Write an action using Console.WriteLine()
-			// To debug: Console.Error.WriteLine("Debug messages...");
 
 			//Console.WriteLine("17 10"); // action: "x y" to move or "BACK rounds" to go back in time
 		}
@@ -124,6 +133,7 @@ class Player
 
 class Combatant : Point
 {
+	public int Score { get; set; }
 	public int BackInTimeLeft { get; set; }
 	public Combatant() : base(0, 0) 
 	{ 
