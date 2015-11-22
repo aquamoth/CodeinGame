@@ -34,13 +34,6 @@ class Player
 				players[i] = new Point { X = x, Y = y, WallsLeft = wallsLeft };
 			}
 
-			var isRunningHorizontally = myId != 2;
-			var exitIndex = !isRunningHorizontally 
-				? h - 1
-				: (myId == 0 
-					? w - 1 
-					: 0);
-
 			//Console.Error.WriteLine("My id = " + myId + ", Running horiz. = " + isRunningHorizontally + ", exit index = " + exitIndex);
 
 			var walls = new List<Link>();
@@ -78,34 +71,53 @@ class Player
 			var map = emptyMap(w, h).Except(walls).ToList();
 
 
-			
 			var player = players[myId];
-			var SI = nameOf(player.X, player.Y, w);
-			var algorithm = new Dijkstra(map);
-			var exits = isRunningHorizontally
-				? Enumerable.Repeat(0, h).Select((x, index) => new Point { X = exitIndex, Y = index }).ToArray()
-				: Enumerable.Repeat(0, w).Select((y, index) => new Point { X = index, Y = exitIndex }).ToArray();
 
-			string[] shortestPath = null;
-			foreach (var exit in exits)
-			{
-				var exitName = nameOf(exit.X, exit.Y, w);
-				Console.Error.WriteLine("Testing exit: " + exitName);
+			var myExits = exitsForPlayer(myId, w, h);
 
-				var path = algorithm.Path(SI, exitName);
-				if (shortestPath == null || shortestPath.Length > path.Length)
-					shortestPath = path;
-			}
-
-			Console.Error.WriteLine("Shortest path to an exit is: " + string.Join(", ", shortestPath));
+			string[] shortestPath = pathFor(map, player, myExits, w);
 
 
 			// Write an action using Console.WriteLine()
 			// To debug: Console.Error.WriteLine("Debug messages...");
 
-			var direction = directionOf(nameOf(player.X, player.Y, w), shortestPath[1]);
+			var direction = directionOf(nameOf(players[myId].X, players[myId].Y, w), shortestPath[1]);
 			Console.WriteLine(direction);
 		}
+	}
+
+	private static string[] pathFor(List<Link> map, Point player, Point[] myExits, int mapWidth)
+	{
+		var SI = nameOf(player.X, player.Y, mapWidth);
+		var algorithm = new Dijkstra(map);
+		string[] shortestPath = null;
+		foreach (var exit in myExits)
+		{
+			var exitName = nameOf(exit.X, exit.Y, mapWidth);
+			var path = algorithm.Path(SI, exitName);
+			if (shortestPath == null || shortestPath.Length > path.Length)
+				shortestPath = path;
+		}
+
+		Console.Error.WriteLine("Shortest path to an exit is: " + string.Join(", ", shortestPath));
+		return shortestPath;
+	}
+
+	private static Point[] exitsForPlayer(int myId, int w, int h)
+	{
+
+
+		var isRunningHorizontally = myId != 2;
+		var exitIndex = !isRunningHorizontally
+			? h - 1
+			: (myId == 0
+				? w - 1
+				: 0);
+
+		var exits = isRunningHorizontally
+			? Enumerable.Repeat(0, h).Select((x, index) => new Point { X = exitIndex, Y = index }).ToArray()
+			: Enumerable.Repeat(0, w).Select((y, index) => new Point { X = index, Y = exitIndex }).ToArray();
+		return exits;
 	}
 
 	private static string directionOf(string fromName, string toName)
