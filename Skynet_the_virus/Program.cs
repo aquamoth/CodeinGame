@@ -120,87 +120,88 @@ class Player
 
 
 
-	class Dijkstra
+}
+
+class Dijkstra
+{
+	class Node
 	{
-		class Node
+		public Node(string name)
 		{
-			public Node(string name)
-			{
-				Name = name;
-				Distance = int.MaxValue;
-			}
-
-			public string Name { get; private set; }
-			public Node[] Neighbours { get; set; }
-			public string ShortestPath { get; set; }
-			public int Distance { get; set; }
-			public bool Visited { get; set; }
+			Name = name;
+			Distance = int.MaxValue;
 		}
 
-		IDictionary<string, Node> _nodes;
+		public string Name { get; private set; }
+		public Node[] Neighbours { get; set; }
+		public string ShortestPath { get; set; }
+		public int Distance { get; set; }
+		public bool Visited { get; set; }
+	}
 
-		public Dijkstra(IEnumerable<Link> links)
+	IDictionary<string, Node> _nodes;
+
+	public Dijkstra(IEnumerable<Link> links)
+	{
+		_nodes = links
+			.SelectMany(link => link.Nodes)
+			.Distinct()
+			.Select(name => new Node(name))
+			.ToDictionary(x => x.Name);
+
+		foreach (var node in _nodes.Values)
 		{
-			_nodes = links
-				.SelectMany(link => link.Nodes)
-				.Distinct()
-				.Select(name => new Node(name))
-				.ToDictionary(x => x.Name);
-
-			foreach (var node in _nodes.Values)
-			{
-				node.Neighbours = links.Where(link => link.A == node.Name).Select(link => link.B)
-						.Union(links.Where(link => link.B == node.Name).Select(link => link.A))
-						.Select(name => _nodes[name])
-						.ToArray();
-			}
+			node.Neighbours = links.Where(link => link.A == node.Name).Select(link => link.B)
+					.Union(links.Where(link => link.B == node.Name).Select(link => link.A))
+					.Select(name => _nodes[name])
+					.ToArray();
 		}
+	}
 
-		public string[] Path(string from, string to)
+	public string[] Path(string from, string to)
+	{
+		if (!_nodes.ContainsKey(to))
+			return null;//No paths to the destination at all
+
+		if (!_nodes.ContainsKey(from))
+			return null;//No paths from the source at all
+
+
+		//Initialize the traversal
+		var currentNode = _nodes[from];
+		currentNode.Distance = 0;
+		var unvisitedNodes = new List<Node>(_nodes.Values);
+
+		do
 		{
-			if (!_nodes.ContainsKey(to))
-				return null;//No paths to the destination at all
+			var tentativeDistance = currentNode.Distance + 1;
+			var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
 
-			if (!_nodes.ContainsKey(from))
-				return null;//No paths from the source at all
-
-
-			//Initialize the traversal
-			var currentNode = _nodes[from];
-			currentNode.Distance = 0;
-			var unvisitedNodes = new List<Node>(_nodes.Values);
-
-			do
+			foreach (var neighbour in unvisitedNeighbours)
 			{
-				var tentativeDistance = currentNode.Distance + 1;
-				var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
-
-				foreach (var neighbour in unvisitedNeighbours)
+				if (neighbour.Distance > tentativeDistance)
 				{
-					if (neighbour.Distance > tentativeDistance)
-					{
-						neighbour.Distance = tentativeDistance;
-						neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Name;
-					}
+					neighbour.Distance = tentativeDistance;
+					neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Name;
 				}
-
-				currentNode.Visited = true;
-				unvisitedNodes.Remove(currentNode);
-
-				if (currentNode.Name == to)
-					break;
-
-				currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
 			}
-			while (currentNode != null && currentNode.Distance != int.MaxValue);
 
-			//Determine output
-			var toNode = _nodes[to];
-			if (toNode.Distance == int.MaxValue)
-				return null; // No path to this gateway exists
-			else
-				return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
+			currentNode.Visited = true;
+			unvisitedNodes.Remove(currentNode);
+
+			if (currentNode.Name == to)
+				break;
+
+			currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
 		}
+		while (currentNode != null && currentNode.Distance != int.MaxValue);
+
+		//Determine output
+		var toNode = _nodes[to];
+		if (toNode.Distance == int.MaxValue)
+			return null; // No path to this gateway exists
+		else
+			return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
 	}
 }
 
