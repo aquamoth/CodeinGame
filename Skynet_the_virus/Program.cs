@@ -16,7 +16,7 @@ class Player
 		//Console.Error.WriteLine("Number of Nodes, Links, Gateways");
 		string[] inputs;
 		inputs = Console.ReadLine().Split(' ');
-		Console.Error.WriteLine(string.Join(" ", inputs));
+		//Console.Error.WriteLine(string.Join(" ", inputs));
 		int N = int.Parse(inputs[0]); // the total number of nodes in the level, including the gateways
 		int L = int.Parse(inputs[1]); // the number of links
 		int E = int.Parse(inputs[2]); // the number of exit gateways
@@ -26,7 +26,7 @@ class Player
 		for (int i = 0; i < L; i++)
 		{
 			inputs = Console.ReadLine().Split(' ');
-			Console.Error.WriteLine(string.Join(" ", inputs));
+			//Console.Error.WriteLine(string.Join(" ", inputs));
 			links.Add(new Link { A = inputs[0], B = inputs[1] });
 		}
 
@@ -35,7 +35,7 @@ class Player
 		for (int i = 0; i < E; i++)
 		{
 			gateways[i] = Console.ReadLine(); // the index of a gateway node
-			Console.Error.WriteLine(gateways[i]);
+			//Console.Error.WriteLine(gateways[i]);
 		}
 
 		// game loop
@@ -43,9 +43,8 @@ class Player
 		{
 			//Console.Error.WriteLine("Current SI position");
 			var SI = Console.ReadLine(); // The index of the node on which the Skynet agent is positioned this turn
-			Console.Error.WriteLine(SI);
-
-			Console.Error.WriteLine("\nINPUT READ.");
+			//Console.Error.WriteLine(SI);
+			//Console.Error.WriteLine("\nINPUT READ.");
 
 			var gatewayLinks = links.Where(link => gateways.Intersect(link.Nodes).Any()).ToArray();
 			var namesOfNodesToGateways = gatewayLinks.SelectMany(link => link.Nodes).Except(gateways).Distinct().ToArray();
@@ -69,6 +68,9 @@ class Player
 			{
 				var algorithm = new Dijkstra(links);
 				node.Path = algorithm.Path(SI, node.Name);
+				var pathNodesWithoutLinksToGateways = node.Path == null 
+					? 0 
+					: node.Path.Where(nodeName => !namesOfNodesToGateways.Contains(nodeName)).Count();
 
 				if (node.Path == null)
 				{
@@ -77,26 +79,28 @@ class Player
 				}
 				else if (node.Links.Count() == 1)
 				{
-					Console.Error.WriteLine("Node " + node + " links to only one gateway");
-					node.Score = 1.0 / node.Path.Length;
+					//Console.Error.WriteLine("Node " + node.Name + " links to only one gateway");
+					node.Score = node.Path.Length == 1 ? double.MaxValue : 0;// 1.0 / node.Path.Length;
 				}
 				else
 				{
-					Console.Error.WriteLine("Node " + node + " links to " + node.Links.Count() + " gateways");
-					var pathNodesWithoutLinksToGateways = node.Path.Where(nodeName => !namesOfNodesToGateways.Contains(nodeName)).Count();
 					node.Score = pathNodesWithoutLinksToGateways == 0
 						? double.MaxValue
 						: (node.Links.Count() - 1) / (double)pathNodesWithoutLinksToGateways;
 				}
-				Console.Error.WriteLine("Calculated node: " + node);
+				//Console.Error.WriteLine("Node " + node + " links to " + node.Links.Count() + " gateways, with " + pathNodesWithoutLinksToGateways + " chances to severe its links");
 			}
 
 			foreach (var node in nodeToGateways.Where(node => node.Path != null).OrderByDescending(x => x.Score))
 			{
-				Console.Error.WriteLine(node.Name + " is " + node.Path.Length + " steps away and has " + node.Links.Length + " gateway links => Score = " + node.Score);
+				var pathNodesWithoutLinksToGateways = node.Path == null
+					? 0
+					: node.Path.Where(nodeName => !namesOfNodesToGateways.Contains(nodeName)).Count();
+				Console.Error.WriteLine("Node " + node + " links to " + node.Links.Count() + " gateways, with " + pathNodesWithoutLinksToGateways + " chances to severe its links");
+				//Console.Error.WriteLine(node.Name + " is " + node.Path.Length + " steps away and has " + node.Links.Length + " gateway links => Score = " + node.Score);
 			}
 
-			if (nodeToGateways.Length==0)
+			if (nodeToGateways.Length == 0)
 			{
 				Console.Error.WriteLine("No gateways are reachable. I won!");
 				return;
