@@ -41,48 +41,61 @@ class Player
 			//Console.Error.WriteLine("Current SI position");
 			var SI = Console.ReadLine(); // The index of the node on which the Skynet agent is positioned this turn
 
-			var shortestPaths = new List<string[]>();
-			foreach (var gateway in gateways)
+
+			var gatewayLinks = links.Where(x=>gateways.Intersect(new[]{x.Item1, x.Item2}).Any()).ToArray();
+			var nodesInFrontOfGateways = gatewayLinks.SelectMany(x => new[] { x.Item1, x.Item2 }).Except(gateways)
+				.Distinct();
+			//foreach (var node in nodesInFrontOfGateways)
+			//{
+			//	Console.Error.WriteLine(node + " is in front of one or more gateways");
+			//}
+
+			var nodesWithLinks = nodesInFrontOfGateways.Select(node => new
+			{
+				Node = node,
+				Links = links.Where(link =>
+						link.Item1 == node && gateways.Contains(link.Item2)
+					|| link.Item2 == node && gateways.Contains(link.Item1)
+					).ToArray()
+			}).ToArray();
+
+
+
+			var scoredNodes = new List<Tuple<string, int, Tuple<string, string>[], double>>();
+			foreach (var node in nodesWithLinks)
 			{
 				var algorithm = new Dijkstra(links);
-				var path = algorithm.Path(SI, gateway);
-				Console.Error.Write("Shortest path to gateway " + gateway + ": ");
-				Console.Error.WriteLine(path == null ? "(none)" : string.Join(", ", path));
-	
+				var path = algorithm.Path(SI, node.Node);
+
 				if (path != null)
 				{
-					if (shortestPaths.Count == 0 || path.Length < shortestPaths.First().Length)
-					{
-						shortestPaths.Clear();
-						shortestPaths.Add(path);
-					}
-					else if (path.Length == shortestPaths.First().Length)
-					{
-						shortestPaths.Add(path);
-					}
+					var score = path.Length == 0 
+						? double.MaxValue 
+						: node.Links.Count() / ((double)path.Length - 1);
+					if (node.Links.Count() > 1)
+						score += 1000;
+					scoredNodes.Add(new Tuple<string, int, Tuple<string, string>[], double>(node.Node, path.Length, node.Links, score));
 				}
 			}
 
-			if (!shortestPaths.Any())
+			foreach (var node in scoredNodes.OrderByDescending(x => x.Item4))
 			{
-				Console.Error.WriteLine("No path left. I won!");
-				Console.ReadLine();
-				break;
+				Console.Error.WriteLine(node.Item1 + " is " + node.Item2 + " steps away and has " + node.Item3.Length + " gateway links => Score = " + node.Item4);
 			}
+			//Tuple<string, double, Tuple<string, string>> mostCriticalNode = null;
+			var mostCriticalNode = scoredNodes.OrderByDescending(x => x.Item4).First();
+
+			//if (mostCriticalNode == null)
+			//{
+			//	Console.Error.WriteLine("No path left. I won!");
+			//	Console.ReadLine();
+			//	break;
+			//}
 
 
-			var linksToChooseFrom = shortestPaths.Select(path => path.Reverse().Take(2).Reverse()).ToArray();
-			foreach (var link in linksToChooseFrom)
-			{
-				Console.Error.WriteLine("Possible link: " + string.Join(" - ", link));
-			}
-			var linkToSevere = linksToChooseFrom.GroupBy(link => link.First()).OrderByDescending(grp => grp.Count()).First().First();
-			//var linkToSevere = linksToChooseFrom.First();
-
-
-			Console.WriteLine(string.Join(" ", linkToSevere));
-			links.Remove(new Tuple<string, string>(linkToSevere.First(), linkToSevere.Last()));
-			links.Remove(new Tuple<string, string>(linkToSevere.Last(), linkToSevere.First()));
+			var linkToSevere = mostCriticalNode.Item3.First();
+			Console.WriteLine(linkToSevere.Item1 + " " + linkToSevere.Item2);
+			links.Remove(linkToSevere);
 		}
 	}
 
