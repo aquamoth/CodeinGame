@@ -55,9 +55,6 @@ class Player
 			var map = emptyMap(w, h).Except(walls).ToList();
 
 
-			var myExits = exitsForPlayer(myId, w, h);
-			var shortestPath = pathFor(map, players[myId], myExits, w);
-
 			var playerPaths = players.Select((player, index) =>
 				{
 					var exits = exitsForPlayer(index, w, h);
@@ -66,19 +63,78 @@ class Player
 				}).ToArray();
 
 			var currentLeaderboard = playerPaths
-				.Select((path, index) => new { Path = path, Index = index })
-				.OrderBy(x => x.Path.Length)
-				.Select(x => x.Index);
-			if (myId == currentLeaderboard.Skip(1).First())
+				.Select((path, index) => new { Id = index, Path = path, Score = path.Length - (index == myId ? 0.5 : 0.0) })
+				.OrderBy(x => x.Score);
+
+			Console.Error.WriteLine("Leaderboard: " + string.Join(", ", currentLeaderboard.Select(x => string.Format("{0}={1} pts", x.Id, x.Score)).ToArray()));
+
+			var commandGiven = false;
+			if (myId == currentLeaderboard.Skip(1).Select(x => x.Id).First())
 			{
 				Console.Error.WriteLine("I'm in second place! Try to stop the leader.");
+
+				var locations = playerPaths[currentLeaderboard.Select(x => x.Id).First()].Take(2).ToArray();
+				var movementToStop = new Link { A = locations[0], B = locations[1] };
+				Console.Error.WriteLine("Try to stop movement: " + movementToStop);
+
+				var heading = Link.DirectionOf(locations[0], locations[1]);
+				var p = Point.From(locations[0], w);
+				Link[] newWall = null;
+				switch (heading)
+				{
+					case Direction.LEFT:
+						newWall = createWall(p.X, p.Y, "V", w);
+						break;
+					case Direction.RIGHT:
+						newWall = createWall(p.X + 1, p.Y, "V", w);
+						break;
+					case Direction.UP:
+						newWall = createWall(p.X, p.Y, "H", w);
+						break;
+					case Direction.DOWN:
+						newWall = createWall(p.X, p.Y + 1, "H", w);
+						break;
+					default:
+						throw new NotSupportedException();
+				}
+				if (newWall != null)
+				{
+					var wallCommand = wallCommandOf(newWall.First(), w);
+					Console.Error.WriteLine("Testing wall command: " + wallCommand);
+					Console.Error.WriteLine("Want wall at First.A: " + newWall.First().A);
+					Console.Error.WriteLine("Want wall at First.B: " + newWall.First().B);
+					Console.Error.WriteLine("Want wall at Secnd.A: " + newWall.Skip(1).First().A);
+					Console.Error.WriteLine("Want wall at Secnd.B: " + newWall.Skip(1).First().B);
+					
+					foreach (var wall in walls)
+					{
+						Console.Error.WriteLine("Existing wall: " + wall);
+					}
+
+					//TODO: Check we don't have overlap with existing walls
+					//TODO: Check we don't trap opponents completely
+					Console.WriteLine(wallCommand);
+					commandGiven = true;
+				}
 			}
 
-			Console.Error.WriteLine("I'm winning, or last of three, or CAN'T stop the leader right now. Just run and hope the others take each other out.");
-	
-			var direction = directionOf(nameOf(players[myId].X, players[myId].Y, w), shortestPath[1]);
-			Console.WriteLine(direction);
+			if (!commandGiven)
+			{
+				Console.Error.WriteLine("I'm winning, or last of three, or CAN'T stop the leader right now. Just run and hope the others take each other out.");
+
+				var shortestPath = playerPaths[myId];
+				var direction = Link.DirectionOf(positionOf(players[myId].X, players[myId].Y, w), shortestPath[1]);
+				Console.WriteLine(direction.ToString());
+			}
 		}
+	}
+
+	private static string wallCommandOf(Link link, int w)
+	{
+		var heading = Link.DirectionOf(link.A, link.B);
+		var d = heading == Direction.RIGHT || heading == Direction.LEFT ? "V" : "H";
+		var p = Point.From(link.A, w);
+		return p + " " + d;
 	}
 
 	private static Link[] createWall(int wallX, int wallY, string wallOrientation, int w)
@@ -89,15 +145,15 @@ class Player
 		{
 			wallSegments = new[]
 					{
-						new Link { A = nameOf(wallX, wallY, w), B = nameOf(wallX - 1, wallY, w) },
-						new Link { A = nameOf(wallX, wallY + 1, w), B = nameOf(wallX - 1, wallY + 1, w) }
+						new Link { A = positionOf(wallX, wallY, w), B = positionOf(wallX - 1, wallY, w) },
+						new Link { A = positionOf(wallX, wallY + 1, w), B = positionOf(wallX - 1, wallY + 1, w) }
 					};
 		}
 		else if (wallOrientation == "H")
 		{
 			wallSegments = new[]{
-						new Link { A = nameOf(wallX, wallY, w), B = nameOf(wallX, wallY - 1, w) },
-						new Link { A = nameOf(wallX + 1, wallY, w), B = nameOf(wallX + 1, wallY - 1, w) }
+						new Link { A = positionOf(wallX, wallY, w), B = positionOf(wallX, wallY - 1, w) },
+						new Link { A = positionOf(wallX + 1, wallY, w), B = positionOf(wallX + 1, wallY - 1, w) }
 					};
 		}
 		else
@@ -107,20 +163,27 @@ class Player
 		return wallSegments;
 	}
 
-	private static string[] pathFor(List<Link> map, Point player, Point[] myExits, int mapWidth)
+	private static int[] pathFor(List<Link> map, Point player, Point[] myExits, int mapWidth)
 	{
-		var SI = nameOf(player.X, player.Y, mapWidth);
+		var SI = positionOf(player.X, player.Y, mapWidth);
 		var algorithm = new Dijkstra(map);
-		string[] shortestPath = null;
+		int[] shortestPath = null;
 		foreach (var exit in myExits)
 		{
-			var exitName = nameOf(exit.X, exit.Y, mapWidth);
-			var path = algorithm.Path(SI, exitName);
+			var exitPosition = positionOf(exit.X, exit.Y, mapWidth);
+			var path = algorithm.Path(SI, exitPosition);
 			if (shortestPath == null || shortestPath.Length > path.Length)
 				shortestPath = path;
 		}
 
-		Console.Error.WriteLine("Shortest path to an exit is: " + string.Join(", ", shortestPath));
+		if (shortestPath == null)
+		{
+			Console.Error.WriteLine("There is NO path to any exit!");
+		}
+		else
+		{
+			Console.Error.WriteLine("Shortest path to an exit is: " + string.Join(", ", shortestPath));
+		}
 		return shortestPath;
 	}
 
@@ -141,22 +204,6 @@ class Player
 		return exits;
 	}
 
-	private static string directionOf(string fromName, string toName)
-	{
-		var from = int.Parse(fromName);
-		var to = int.Parse(toName);
-		if (to == from + 1)
-			return "RIGHT";
-		else if (to == from - 1)
-			return "LEFT";
-		else if (to < from)
-			return "UP";
-		else if (to > from)
-			return "DOWN";
-		else
-			throw new NotSupportedException();
-	}
-
 	private static List<Link> emptyMap(int w, int h)
 	{
 		var links = new List<Link>();
@@ -164,24 +211,18 @@ class Player
 			for (int x = 0; x < w; x++)
 			{
 				if (y > 0)
-					links.Add(new Link { A = nameOf(x, y, w), B = nameOf(x, y - 1, w) });
+					links.Add(new Link { A = positionOf(x, y, w), B = positionOf(x, y - 1, w) });
 				if (x > 0)
-					links.Add(new Link { A = nameOf(x, y, w), B = nameOf(x - 1, y, w) });
+					links.Add(new Link { A = positionOf(x, y, w), B = positionOf(x - 1, y, w) });
 			}
 		return links;
 	}
 
-	static string nameOf(int x, int y, int width)
+	static int positionOf(int x, int y, int width)
 	{
-		return (x + y * width).ToString();
+		return (x + y * width);
 	}
 }
-
-
-
-
-
-
 
 
 
@@ -190,20 +231,20 @@ class Dijkstra
 {
 	public class Node
 	{
-		public Node(string name)
+		public Node(int position)
 		{
-			Name = name;
+			Position = position;
 			Distance = int.MaxValue;
 		}
 
-		public string Name { get; private set; }
+		public int Position { get; private set; }
 		public Node[] Neighbours { get; set; }
 		public string ShortestPath { get; set; }
 		public int Distance { get; set; }
 		public bool Visited { get; set; }
 	}
 
-	IDictionary<string, Node> _nodes;
+	IDictionary<int, Node> _nodes;
 
 	public Dijkstra(IEnumerable<Link> links)
 	{
@@ -211,18 +252,18 @@ class Dijkstra
 			.SelectMany(link => link.Nodes)
 			.Distinct()
 			.Select(name => new Node(name))
-			.ToDictionary(x => x.Name);
+			.ToDictionary(x => x.Position);
 
 		foreach (var node in _nodes.Values)
 		{
-			node.Neighbours = links.Where(link => link.A == node.Name).Select(link => link.B)
-					.Union(links.Where(link => link.B == node.Name).Select(link => link.A))
+			node.Neighbours = links.Where(link => link.A == node.Position).Select(link => link.B)
+					.Union(links.Where(link => link.B == node.Position).Select(link => link.A))
 					.Select(name => _nodes[name])
 					.ToArray();
 		}
 	}
 
-	public string[] Path(string from, string to)
+	public int[] Path(int from, int to)
 	{
 		if (!_nodes.ContainsKey(to))
 			return null;//No paths to the destination at all
@@ -246,14 +287,14 @@ class Dijkstra
 				if (neighbour.Distance > tentativeDistance)
 				{
 					neighbour.Distance = tentativeDistance;
-					neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Name;
+					neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Position;
 				}
 			}
 
 			currentNode.Visited = true;
 			unvisitedNodes.Remove(currentNode);
 
-			if (currentNode.Name == to)
+			if (currentNode.Position == to)
 				break;
 
 			currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
@@ -265,21 +306,16 @@ class Dijkstra
 		if (toNode.Distance == int.MaxValue)
 			return null; // No path to this gateway exists
 		else
-			return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
+			return (currentNode.ShortestPath + " " + currentNode.Position).TrimStart().Split(' ').Select(x => int.Parse(x)).ToArray();
 	}
 }
 
 public class Link
 {
-	public string A { get; set; }
-	public string B { get; set; }
+	public int A { get; set; }
+	public int B { get; set; }
 
-	public string[] Nodes { get { return new[] { A, B }; } }
-
-	public override string ToString()
-	{
-		return A + " " + B;
-	}
+	public int[] Nodes { get { return new[] { A, B }; } }
 
 	public override bool Equals(object obj)
 	{
@@ -295,6 +331,26 @@ public class Link
 	{
 		return A.GetHashCode() ^ B.GetHashCode();
 	}
+
+	public override string ToString()
+	{
+		return A + " " + B;
+	}
+
+	public static Direction DirectionOf(int from, int to)
+	{
+		if (to == from + 1)
+			return Direction.RIGHT;
+		else if (to == from - 1)
+			return Direction.LEFT;
+		else if (to < from)
+			return Direction.UP;
+		else if (to > from)
+			return Direction.DOWN;
+		else
+			throw new NotSupportedException();
+	}
+
 }
 
 public class Point
@@ -302,4 +358,24 @@ public class Point
 	public int X { get; set; }
 	public int Y { get; set; }
 	public int WallsLeft { get; set; }
+
+	public static Point From(int position, int mapWidth)
+	{
+		var x = position % mapWidth;
+		var y = position / mapWidth;
+		return new Point { X = x, Y = y };
+	}
+
+	public override string ToString()
+	{
+		return X + " " + Y;
+	}
+}
+
+public enum Direction
+{
+	UP,
+	RIGHT,
+	DOWN,
+	LEFT
 }
