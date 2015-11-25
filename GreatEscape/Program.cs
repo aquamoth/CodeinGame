@@ -13,13 +13,125 @@ class Player
 {
 	static void Main(string[] args)
 	{
+		unitTests();
+
+
+
+
+
+
+		string[] inputs;
+		inputs = Console.ReadLine().Split(' ');
+		int w = int.Parse(inputs[0]); // width of the board
+		int h = int.Parse(inputs[1]); // height of the board
+		int playerCount = int.Parse(inputs[2]); // number of players (2 or 3)
+		int myId = int.Parse(inputs[3]); // id of my player (0 = 1st player, 1 = 2nd player, ...)
+
+		// game loop
+		while (true)
+		{
+			var players = new Point[playerCount];
+			for (int i = 0; i < playerCount; i++)
+			{
+				inputs = Console.ReadLine().Split(' ');
+				int x = int.Parse(inputs[0]); // x-coordinate of the player
+				int y = int.Parse(inputs[1]); // y-coordinate of the player
+				int wallsLeft = int.Parse(inputs[2]); // number of walls available for the player
+
+				players[i] = new Point { X = x, Y = y, WallsLeft = wallsLeft };
+			}
+
+			//Console.Error.WriteLine("My id = " + myId + ", Running horiz. = " + isRunningHorizontally + ", exit index = " + exitIndex);
+
+			var walls = new List<Wall>();
+			int wallCount = int.Parse(Console.ReadLine()); // number of walls on the board
+			for (int i = 0; i < wallCount; i++)
+			{
+				inputs = Console.ReadLine().Split(' ');
+				int wallX = int.Parse(inputs[0]); // x-coordinate of the wall
+				int wallY = int.Parse(inputs[1]); // y-coordinate of the wall
+				string wallOrientation = inputs[2]; // wall orientation ('H' or 'V')
+				walls.Add(createWall(new Point(wallX, wallY), wallOrientation));
+			}
+			Console.Error.WriteLine("Walls at:");
+			foreach (var wall in walls)
+			{
+				Console.Error.WriteLine(wall);
+			}
+
+			var map = emptyMap(w, h).Where(link=> !walls.Any(wall=> isBlockedBy(link, wall, w))).ToList();
+			Console.Error.WriteLine("Map consists of " + map.Count + "links");
+
+			var playerPaths = players.Select((player, index) =>
+				{
+					var exits = exitsForPlayer(index, w, h);
+					var playerPath = pathFor(map, players[index], exits, w);
+					return playerPath;
+				}).ToArray();
+
+			Console.Error.WriteLine("Determining leaderboard");
+			var currentLeaderboard = playerPaths
+				.Select((path, index) => new { Id = index, Path = path, Score = (path == null ? int.MaxValue : path.Length) - (index == myId ? 0.5 : 0.0) })
+				.OrderBy(x => x.Score)
+				.ToArray();
+
+			Console.Error.WriteLine("Leaderboard:");
+			Console.Error.WriteLine(string.Join(", ", currentLeaderboard.Select(x => string.Format("{0}={1} pts", x.Id, x.Score)).ToArray()));
+
+			var commandGiven = false;
+			if (players[myId].WallsLeft>0 && myId == currentLeaderboard.Skip(1).Select(x => x.Id).First())
+			{
+				Console.Error.WriteLine("I'm in second place! Try to stop the leader.");
+
+				var locations = playerPaths[currentLeaderboard.Select(x => x.Id).First()].Take(2).ToArray();
+				var movementToStop = new Link { A = locations[0], B = locations[1] };
+				Console.Error.WriteLine("Try to stop movement: " + movementToStop);
+
+				var heading = Link.DirectionOf(locations[0], locations[1]);
+				Console.Error.WriteLine("Movement is to: " + heading);
+				var newWall = wallsThatBlocks(locations[0], heading, w)
+					.Where(wall => wall.Inside(new Area { X1 = 0, X2 = w, Y1 = 0, Y2 = h }))
+					.Where(w1 => !walls.Any(w2 => w2.Overlaps(w1)))
+					.FirstOrDefault(); //TODO: Consider using the wall that causes the longest new path for the opponent, yet the shortest path for self
+				//TODO: While newWall == null, try to stop another step in the players path
+				if (newWall != null)
+				{
+					Console.Error.WriteLine("Want wall at: " + newWall);
+					var wallCommand = commandFor(newWall);
+					Console.Error.WriteLine("Wall command: " + wallCommand);
+					
+					foreach (var wall in walls)
+					{
+						Console.Error.WriteLine("Existing wall: " + wall);
+					}
+
+					//TODO: Check we don't have overlap with existing walls
+					//TODO: Check we don't trap opponents completely
+					Console.WriteLine(wallCommand);
+					commandGiven = true;
+				}
+			}
+
+			if (!commandGiven)
+			{
+				Console.Error.WriteLine("I'm winning, or last of three, or CAN'T stop the leader right now. Just run and hope the others take each other out.");
+
+				var shortestPath = playerPaths[myId];
+				var direction = Link.DirectionOf(positionOf(players[myId].X, players[myId].Y, w), shortestPath[1]);
+				Console.WriteLine(direction.ToString());
+			}
+		}
+	}
+
+	private static void unitTests()
+	{
 		var verticalWall = new Wall { X1 = 2, X2 = 2, Y1 = 1, Y2 = 3 };
 
 		if (verticalWall.Overlaps(createWall(new Point(1, 0), "V"))) throw new ApplicationException();
 		if (verticalWall.Overlaps(createWall(new Point(1, 1), "V"))) throw new ApplicationException();
 		if (verticalWall.Overlaps(createWall(new Point(1, 2), "V"))) throw new ApplicationException();
 		if (verticalWall.Overlaps(createWall(new Point(1, 3), "V"))) throw new ApplicationException();
-	
+
 		if (!verticalWall.Overlaps(createWall(new Point(2, 0), "V"))) throw new ApplicationException();
 		if (!verticalWall.Overlaps(createWall(new Point(2, 1), "V"))) throw new ApplicationException();
 		if (!verticalWall.Overlaps(createWall(new Point(2, 2), "V"))) throw new ApplicationException();
@@ -111,110 +223,6 @@ class Player
 		var testwalls = new List<Wall> { new Wall { X1 = 2, Y1 = 3, X2 = 2, Y2 = 5 } };
 		var testMap2 = testMap1.Where(link => !testwalls.Any(wall => isBlockedBy(link, wall, 9))).ToList();
 		if (testMap2.Count != 142) throw new ApplicationException();
-
-
-
-
-
-
-		string[] inputs;
-		inputs = Console.ReadLine().Split(' ');
-		int w = int.Parse(inputs[0]); // width of the board
-		int h = int.Parse(inputs[1]); // height of the board
-		int playerCount = int.Parse(inputs[2]); // number of players (2 or 3)
-		int myId = int.Parse(inputs[3]); // id of my player (0 = 1st player, 1 = 2nd player, ...)
-
-		// game loop
-		while (true)
-		{
-			var players = new Point[playerCount];
-			for (int i = 0; i < playerCount; i++)
-			{
-				inputs = Console.ReadLine().Split(' ');
-				int x = int.Parse(inputs[0]); // x-coordinate of the player
-				int y = int.Parse(inputs[1]); // y-coordinate of the player
-				int wallsLeft = int.Parse(inputs[2]); // number of walls available for the player
-
-				players[i] = new Point { X = x, Y = y, WallsLeft = wallsLeft };
-			}
-
-			//Console.Error.WriteLine("My id = " + myId + ", Running horiz. = " + isRunningHorizontally + ", exit index = " + exitIndex);
-
-			var walls = new List<Wall>();
-			int wallCount = int.Parse(Console.ReadLine()); // number of walls on the board
-			for (int i = 0; i < wallCount; i++)
-			{
-				inputs = Console.ReadLine().Split(' ');
-				int wallX = int.Parse(inputs[0]); // x-coordinate of the wall
-				int wallY = int.Parse(inputs[1]); // y-coordinate of the wall
-				string wallOrientation = inputs[2]; // wall orientation ('H' or 'V')
-				walls.Add(createWall(new Point(wallX, wallY), wallOrientation));
-			}
-			Console.Error.WriteLine("Walls at:");
-			foreach (var wall in walls)
-			{
-				Console.Error.WriteLine(wall);
-			}
-
-			var map = emptyMap(w, h).Where(link=> !walls.Any(wall=> isBlockedBy(link, wall, w))).ToList();
-			Console.Error.WriteLine("Map consists of " + map.Count + "links");
-
-			var playerPaths = players.Select((player, index) =>
-				{
-					var exits = exitsForPlayer(index, w, h);
-					var playerPath = pathFor(map, players[index], exits, w);
-					return playerPath;
-				}).ToArray();
-
-			var currentLeaderboard = playerPaths
-				.Select((path, index) => new { Id = index, Path = path, Score = path.Length - (index == myId ? 0.5 : 0.0) })
-				.OrderBy(x => x.Score);
-
-			Console.Error.WriteLine("Leaderboard: " + string.Join(", ", currentLeaderboard.Select(x => string.Format("{0}={1} pts", x.Id, x.Score)).ToArray()));
-
-			var commandGiven = false;
-			if (myId == currentLeaderboard.Skip(1).Select(x => x.Id).First())
-			{
-				Console.Error.WriteLine("I'm in second place! Try to stop the leader.");
-
-				var locations = playerPaths[currentLeaderboard.Select(x => x.Id).First()].Take(2).ToArray();
-				var movementToStop = new Link { A = locations[0], B = locations[1] };
-				Console.Error.WriteLine("Try to stop movement: " + movementToStop);
-
-				var heading = Link.DirectionOf(locations[0], locations[1]);
-				Console.Error.WriteLine("Movement is to: " + heading);
-				var newWall = wallsThatBlocks(locations[0], heading, w)
-					.Where(wall => wall.Inside(new Area { X1 = 0, X2 = w, Y1 = 0, Y2 = h }))
-					.Where(w1 => !walls.Any(w2 => w2.Overlaps(w1)))
-					.FirstOrDefault(); //TODO: Consider using the wall that causes the longest new path for the opponent, yet the shortest path for self
-				//TODO: While newWall == null, try to stop another step in the players path
-				if (newWall != null)
-				{
-					Console.Error.WriteLine("Want wall at: " + newWall);
-					var wallCommand = commandFor(newWall);
-					Console.Error.WriteLine("Wall command: " + wallCommand);
-					
-					foreach (var wall in walls)
-					{
-						Console.Error.WriteLine("Existing wall: " + wall);
-					}
-
-					//TODO: Check we don't have overlap with existing walls
-					//TODO: Check we don't trap opponents completely
-					Console.WriteLine(wallCommand);
-					commandGiven = true;
-				}
-			}
-
-			if (!commandGiven)
-			{
-				Console.Error.WriteLine("I'm winning, or last of three, or CAN'T stop the leader right now. Just run and hope the others take each other out.");
-
-				var shortestPath = playerPaths[myId];
-				var direction = Link.DirectionOf(positionOf(players[myId].X, players[myId].Y, w), shortestPath[1]);
-				Console.WriteLine(direction.ToString());
-			}
-		}
 	}
 
 	private static IEnumerable<Wall> wallsThatBlocks(int position, Direction heading, int w)
