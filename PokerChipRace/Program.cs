@@ -32,18 +32,25 @@ class Player
 				entities[i] = readEntityFromConsole();
 			}
 
-			Console.Error.WriteLine("Entities:");
-			foreach(var e in entities)
-			{
-				Console.Error.WriteLine(e);
-			}
+			//Console.Error.WriteLine("Entities:");
+			//foreach(var e in entities)
+			//{
+			//	Console.Error.WriteLine(e);
+			//}
 
-			var expectedPositionsIn3Secs = entities.Select(x => new { Id = x.Id, Player = x.Player, Radius = x.Radius, P = x.P + x.V * 3 }).ToArray();
-			Console.Error.WriteLine("Entities are in 3 sec at:");
-			foreach (var ee in expectedPositionsIn3Secs)
-			{
-				Console.Error.WriteLine(ee.Id + ": " + ee.P);
-			}
+			var expectedPositionsIn3Secs = entities.Select(x => new Entity
+				{
+					Id = x.Id,
+					Player = x.Player,
+					Radius = x.Radius,
+					P = x.P + x.V * 3,
+					V = x.V
+				}).ToArray();
+			//Console.Error.WriteLine("Entities are in 3 sec at:");
+			//foreach (var ee in expectedPositionsIn3Secs)
+			//{
+			//	Console.Error.WriteLine(ee.Id + ": " + ee.P);
+			//}
 
 
 			var myChips = entities.Where(x => x.Player == playerId).ToArray();
@@ -54,10 +61,17 @@ class Player
 
 				var expectedChipPosition = expectedPositionsIn3Secs.Where(x => x.Id == chip.Id).Single();
 
-				var closeLargerChipsIn3Sec = expectedPositionsIn3Secs
+				var largerChipsIn3Sec = expectedPositionsIn3Secs
 					.Where(x => x.Player != chip.Player)
-					.Where(x => x.Radius > expectedChipPosition.Radius)
-					.Select(x => new { Chip = x, Distance = x.P.DistanceTo(expectedChipPosition.P) })
+					.Where(x => x.Radius > expectedChipPosition.Radius * 14 / 15.0)
+					.Select(x => new { Chip = x, Distance = x.DistanceTo(expectedChipPosition) })
+					.OrderBy(x => x.Distance);
+				foreach (var largerChip in largerChipsIn3Sec)
+				{
+					Console.Error.WriteLine("Larger chip #" + largerChip.Chip.Id + " has distance " + largerChip.Distance);
+				}
+
+				var closeLargerChipsIn3Sec = largerChipsIn3Sec
 					.Where(x => x.Distance < SCARE_DISTANCE)
 					.OrderBy(x => x.Distance);
 				if (closeLargerChipsIn3Sec.Any())
@@ -72,15 +86,15 @@ class Player
 				else
 				{
 					var closestSmallerChipIn3Sec = expectedPositionsIn3Secs
-						.Where(x => x.Radius < expectedChipPosition.Radius)
-						.Select(x => new { Chip = x, Distance = x.P.DistanceTo(expectedChipPosition.P) })
+						.Where(x => x.Radius < expectedChipPosition.Radius * 14 / 15.0)
+						.Select(x => new { Chip = x, Distance = x.DistanceTo(expectedChipPosition) })
 						.Where(x => x.Distance < SEARCH_AND_DESTROY_DISTANCE)
 						.OrderBy(x => x.Distance)
 						.ToArray();
 
 					foreach (var smallerChip in closestSmallerChipIn3Sec)
 					{
-						Console.Error.WriteLine(string.Format("#{0} has range {1}", smallerChip, smallerChip.Distance));
+						Console.Error.WriteLine(string.Format("#{0} has range {1}", smallerChip.Chip.Id, smallerChip.Distance));
 					}
 
 
@@ -136,6 +150,12 @@ class Entity
 	public Point P { get; set; }
 	public Point V { get; set; }
 
+	public float DistanceTo(Entity e)
+	{
+		var vector = this.P - e.P;
+		return vector.Length - this.Radius - e.Radius;
+	}
+
 	public override string ToString()
 	{
 		return string.Format("#{0} ({1}) at {2} + {3} has size {4}", Id, Player, P, V, Radius);
@@ -163,12 +183,6 @@ class Point
 	}
 
 	public float Length { get { return (float)Math.Sqrt(X * X + Y * Y); } }
-
-	public float DistanceTo(Point p)
-	{
-		var vector = this - p;
-		return vector.Length;
-	}
 
 	public override string ToString()
 	{
