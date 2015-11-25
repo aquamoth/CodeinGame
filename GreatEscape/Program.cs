@@ -13,6 +13,110 @@ class Player
 {
 	static void Main(string[] args)
 	{
+		var verticalWall = new Wall { X1 = 2, X2 = 2, Y1 = 1, Y2 = 3 };
+
+		if (verticalWall.Overlaps(createWall(new Point(1, 0), "V"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(1, 1), "V"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(1, 2), "V"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(1, 3), "V"))) throw new ApplicationException();
+	
+		if (!verticalWall.Overlaps(createWall(new Point(2, 0), "V"))) throw new ApplicationException();
+		if (!verticalWall.Overlaps(createWall(new Point(2, 1), "V"))) throw new ApplicationException();
+		if (!verticalWall.Overlaps(createWall(new Point(2, 2), "V"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(2, 3), "V"))) throw new ApplicationException();
+
+		if (verticalWall.Overlaps(createWall(new Point(3, 0), "V"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(3, 1), "V"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(3, 2), "V"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(3, 3), "V"))) throw new ApplicationException();
+
+		if (verticalWall.Overlaps(createWall(new Point(0, 1), "H"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(1, 1), "H"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(2, 1), "H"))) throw new ApplicationException();
+
+		if (verticalWall.Overlaps(createWall(new Point(0, 2), "H"))) throw new ApplicationException();
+		if (!verticalWall.Overlaps(createWall(new Point(1, 2), "H"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(2, 2), "H"))) throw new ApplicationException();
+
+		if (verticalWall.Overlaps(createWall(new Point(0, 3), "H"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(1, 3), "H"))) throw new ApplicationException();
+		if (verticalWall.Overlaps(createWall(new Point(2, 3), "H"))) throw new ApplicationException();
+
+
+
+
+		if (isBlockedBy(new Link { A = 0, B = 1 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 1, B = 2 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 2, B = 3 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 1, B = 0 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 2, B = 1 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 3, B = 2 }, verticalWall, 10)) throw new ApplicationException();
+
+		if (isBlockedBy(new Link { A = 10, B = 11 }, verticalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 11, B = 12 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 12, B = 13 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 11, B = 10 }, verticalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 12, B = 11 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 13, B = 12 }, verticalWall, 10)) throw new ApplicationException();
+
+		if (isBlockedBy(new Link { A = 20, B = 21 }, verticalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 21, B = 22 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 22, B = 23 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 21, B = 20 }, verticalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 22, B = 21 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 23, B = 22 }, verticalWall, 10)) throw new ApplicationException();
+
+		if (isBlockedBy(new Link { A = 30, B = 31 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 31, B = 32 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 32, B = 33 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 31, B = 30 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 32, B = 31 }, verticalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 33, B = 32 }, verticalWall, 10)) throw new ApplicationException();
+
+
+
+
+
+		var horisontalWall = new Wall { X1 = 1, X2 = 3, Y1 = 2, Y2 = 2 };
+		if (isBlockedBy(new Link { A = 0, B = 10 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 1, B = 11 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 2, B = 12 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 3, B = 13 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 10, B = 0 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 11, B = 1 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 12, B = 2 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 13, B = 3 }, horisontalWall, 10)) throw new ApplicationException();
+
+		if (isBlockedBy(new Link { A = 10, B = 20 }, horisontalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 11, B = 21 }, horisontalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 12, B = 22 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 13, B = 23 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 20, B = 10 }, horisontalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 21, B = 11 }, horisontalWall, 10)) throw new ApplicationException();
+		if (!isBlockedBy(new Link { A = 22, B = 12 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 23, B = 13 }, horisontalWall, 10)) throw new ApplicationException();
+
+		if (isBlockedBy(new Link { A = 20, B = 30 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 21, B = 31 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 22, B = 32 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 23, B = 33 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 30, B = 20 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 31, B = 21 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 32, B = 22 }, horisontalWall, 10)) throw new ApplicationException();
+		if (isBlockedBy(new Link { A = 33, B = 23 }, horisontalWall, 10)) throw new ApplicationException();
+
+
+		var testMap1 = emptyMap(9, 9);
+		if (testMap1.Count != 144) throw new ApplicationException();
+		var testwalls = new List<Wall> { new Wall { X1 = 2, Y1 = 3, X2 = 2, Y2 = 5 } };
+		var testMap2 = testMap1.Where(link => !testwalls.Any(wall => isBlockedBy(link, wall, 9))).ToList();
+		if (testMap2.Count != 142) throw new ApplicationException();
+
+
+
+
+
+
 		string[] inputs;
 		inputs = Console.ReadLine().Split(' ');
 		int w = int.Parse(inputs[0]); // width of the board
@@ -36,7 +140,7 @@ class Player
 
 			//Console.Error.WriteLine("My id = " + myId + ", Running horiz. = " + isRunningHorizontally + ", exit index = " + exitIndex);
 
-			var walls = new List<Link>();
+			var walls = new List<Wall>();
 			int wallCount = int.Parse(Console.ReadLine()); // number of walls on the board
 			for (int i = 0; i < wallCount; i++)
 			{
@@ -44,16 +148,16 @@ class Player
 				int wallX = int.Parse(inputs[0]); // x-coordinate of the wall
 				int wallY = int.Parse(inputs[1]); // y-coordinate of the wall
 				string wallOrientation = inputs[2]; // wall orientation ('H' or 'V')
-				walls.AddRange(createWall(wallX, wallY, wallOrientation, w));
+				walls.Add(createWall(new Point(wallX, wallY), wallOrientation));
 			}
-			//Console.Error.WriteLine("Walls at:");
-			//foreach (var link in walls)
-			//{
-			//	Console.Error.WriteLine(link);
-			//}
+			Console.Error.WriteLine("Walls at:");
+			foreach (var wall in walls)
+			{
+				Console.Error.WriteLine(wall);
+			}
 
-			var map = emptyMap(w, h).Except(walls).ToList();
-
+			var map = emptyMap(w, h).Where(link=> !walls.Any(wall=> isBlockedBy(link, wall, w))).ToList();
+			Console.Error.WriteLine("Map consists of " + map.Count + "links");
 
 			var playerPaths = players.Select((player, index) =>
 				{
@@ -78,33 +182,17 @@ class Player
 				Console.Error.WriteLine("Try to stop movement: " + movementToStop);
 
 				var heading = Link.DirectionOf(locations[0], locations[1]);
-				var p = Point.From(locations[0], w);
-				Link[] newWall = null;
-				switch (heading)
-				{
-					case Direction.LEFT:
-						newWall = createWall(p.X, p.Y, "V", w);
-						break;
-					case Direction.RIGHT:
-						newWall = createWall(p.X + 1, p.Y, "V", w);
-						break;
-					case Direction.UP:
-						newWall = createWall(p.X, p.Y, "H", w);
-						break;
-					case Direction.DOWN:
-						newWall = createWall(p.X, p.Y + 1, "H", w);
-						break;
-					default:
-						throw new NotSupportedException();
-				}
+				Console.Error.WriteLine("Movement is to: " + heading);
+				var newWall = wallsThatBlocks(locations[0], heading, w)
+					.Where(wall => wall.Inside(new Area { X1 = 0, X2 = w, Y1 = 0, Y2 = h }))
+					.Where(w1 => !walls.Any(w2 => w2.Overlaps(w1)))
+					.FirstOrDefault(); //TODO: Consider using the wall that causes the longest new path for the opponent, yet the shortest path for self
+				//TODO: While newWall == null, try to stop another step in the players path
 				if (newWall != null)
 				{
-					var wallCommand = wallCommandOf(newWall.First(), w);
-					Console.Error.WriteLine("Testing wall command: " + wallCommand);
-					Console.Error.WriteLine("Want wall at First.A: " + newWall.First().A);
-					Console.Error.WriteLine("Want wall at First.B: " + newWall.First().B);
-					Console.Error.WriteLine("Want wall at Secnd.A: " + newWall.Skip(1).First().A);
-					Console.Error.WriteLine("Want wall at Secnd.B: " + newWall.Skip(1).First().B);
+					Console.Error.WriteLine("Want wall at: " + newWall);
+					var wallCommand = commandFor(newWall);
+					Console.Error.WriteLine("Wall command: " + wallCommand);
 					
 					foreach (var wall in walls)
 					{
@@ -129,38 +217,75 @@ class Player
 		}
 	}
 
-	private static string wallCommandOf(Link link, int w)
+	private static IEnumerable<Wall> wallsThatBlocks(int position, Direction heading, int w)
 	{
-		var heading = Link.DirectionOf(link.A, link.B);
-		var d = heading == Direction.RIGHT || heading == Direction.LEFT ? "V" : "H";
-		var p = Point.From(link.A, w);
-		return p + " " + d;
+		var p = Point.From(position, w);
+		switch (heading)
+		{
+			case Direction.LEFT:
+				yield return createWall(p, "V");
+				yield return createWall(p + Direction.UP, "V");
+				break;
+			case Direction.RIGHT:
+				yield return createWall(p + Direction.RIGHT, "V");
+				yield return createWall(p + Direction.RIGHT + Direction.UP, "V");
+				break;
+			case Direction.UP:
+				yield return createWall(p, "H");
+				yield return createWall(p + Direction.LEFT, "H");
+				break;
+			case Direction.DOWN:
+				yield return createWall(p + Direction.DOWN, "H");
+				yield return createWall(p + Direction.DOWN + Direction.LEFT, "H");
+				break;
+			default:
+				throw new NotSupportedException();
+		}
 	}
 
-	private static Link[] createWall(int wallX, int wallY, string wallOrientation, int w)
+	private static bool isBlockedBy(Link link, Wall wall, int w)
 	{
-		//TODO: This does not track where we can insert walls BETWEEN the existing parts
-		Link[] wallSegments = null;
-		if (wallOrientation == "V")
+		var from = Point.From(link.A, w);
+		var to = Point.From(link.B, w);
+
+		//Passing to right
+		if (from.X < wall.X1 && to.X >= wall.X1 && from.Y >= wall.Y1 && to.Y < wall.Y2)
+			return true;
+		//Passing to left
+		if (from.X >= wall.X1 && to.X < wall.X1 && from.Y >= wall.Y1 && to.Y < wall.Y2)
+			return true;
+		//Passing up
+		if (from.X >= wall.X1 && to.X < wall.X2 && from.Y >= wall.Y1 && to.Y < wall.Y1)
+			return true;
+		//Passing down
+		if (from.X >= wall.X1 && to.X < wall.X2 && from.Y < wall.Y1 && to.Y >= wall.Y1)
+			return true;
+
+		return false;
+	}
+
+	private static string commandFor(Wall wall)
+	{
+		return wall.Command();
+	}
+
+	private static Wall createWall(Point location, string wallOrientation)
+	{
+		var wall = new Wall { X1 = location.X, Y1 = location.Y };
+		switch (wallOrientation)
 		{
-			wallSegments = new[]
-					{
-						new Link { A = positionOf(wallX, wallY, w), B = positionOf(wallX - 1, wallY, w) },
-						new Link { A = positionOf(wallX, wallY + 1, w), B = positionOf(wallX - 1, wallY + 1, w) }
-					};
+			case "V":
+				wall.X2 = wall.X1;
+				wall.Y2 = wall.Y1 + 2;
+				break;
+			case "H":
+				wall.X2 = wall.X1 + 2;
+				wall.Y2 = wall.Y1;
+				break;
+			default:
+				throw new NotSupportedException();
 		}
-		else if (wallOrientation == "H")
-		{
-			wallSegments = new[]{
-						new Link { A = positionOf(wallX, wallY, w), B = positionOf(wallX, wallY - 1, w) },
-						new Link { A = positionOf(wallX + 1, wallY, w), B = positionOf(wallX + 1, wallY - 1, w) }
-					};
-		}
-		else
-		{
-			throw new NotSupportedException();
-		}
-		return wallSegments;
+		return wall;
 	}
 
 	private static int[] pathFor(List<Link> map, Point player, Point[] myExits, int mapWidth)
@@ -353,17 +478,106 @@ public class Link
 
 }
 
+public class Area
+{
+	public int X1 { get; set; }
+	public int Y1 { get; set; }
+	public int X2 { get; set; }
+	public int Y2 { get; set; }
+}
+public class Wall : Area
+{
+	//public Direction Heading
+	//{
+	//	get
+	//	{
+	//		if (X1 < X2 && Y1 == Y2)
+	//			return Direction.LEFT;
+	//		else if (X1 == X2 && Y1 < Y2)
+	//			return Direction.UP;
+	//		else if (X1 > X2 && Y1 == Y2)
+	//			return Direction.RIGHT;
+	//		else if (X1 == X2 && Y1 > Y2)
+	//			return Direction.DOWN;
+	//		else
+	//		{
+	//			throw new NotSupportedException();
+	//		}
+	//	}
+	//}
+
+	bool IsHorizonal { get { return X1 != X2 && Y1 == Y2; } }
+	bool IsVertical { get { return X1 == X2 && Y1 != Y2; } }
+
+	public string Command()
+	{
+		return X1 + " " + Y1 + " " + (this.IsVertical ? "V" : "H");
+	}
+
+	public override string ToString()
+	{
+		return string.Format("({0}, {1}) - ({2}, {3})", X1, Y1, X2, Y2);
+	}
+
+	internal bool Overlaps(Wall wall)
+	{
+		if(this.IsHorizonal && wall.IsHorizonal)
+		{
+			//Both horizontal
+			return (Y1 == wall.Y1 && X2 > wall.X1 && X1 < wall.X2);
+		}
+		else if (this.IsVertical && wall.IsVertical)
+		{
+			//Both vertical
+			return (X1 == wall.X1 && Y2 > wall.Y1 && Y1 < wall.Y2);
+		}
+		else
+		{
+			//Crossing
+			var overLapsInX = (X2 > wall.X1 && X1 < wall.X2);
+			var overLapsInY = (Y2 > wall.Y1 && Y1 < wall.Y2);
+			return overLapsInX && overLapsInY;
+		}
+	}
+
+	internal bool Inside(Area area)
+	{
+		return X1 >= area.X1 && X2 < area.X2 && Y1 >= area.Y1 && Y2 <= area.Y2;
+	}
+}
+
 public class Point
 {
 	public int X { get; set; }
 	public int Y { get; set; }
 	public int WallsLeft { get; set; }
 
+	public Point() { }
+
+	public Point(int x, int y)
+	{
+		this.X = x;
+		this.Y = y;
+	}
+
 	public static Point From(int position, int mapWidth)
 	{
 		var x = position % mapWidth;
 		var y = position / mapWidth;
 		return new Point { X = x, Y = y };
+	}
+
+	public static Point operator +(Point point, Direction direction)
+	{
+		switch (direction)
+		{
+			case Direction.UP: return new Point(point.X, point.Y - 1);
+			case Direction.RIGHT: return new Point(point.X + 1, point.Y);
+			case Direction.DOWN: return new Point(point.X, point.Y + 1);
+			case Direction.LEFT: return new Point(point.X - 1, point.Y);
+			default:
+				throw new NotSupportedException();
+		}
 	}
 
 	public override string ToString()
