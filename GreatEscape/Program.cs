@@ -34,6 +34,7 @@ class Player
 				int wallsLeft = int.Parse(inputs[2]); // number of walls available for the player
 
 				players[i] = new Point { X = x, Y = y, WallsLeft = wallsLeft };
+				//Console.Error.WriteLine("Player " + i + " at " + players[i]);
 			}
 
 			var walls = new List<Wall>();
@@ -61,7 +62,7 @@ class Player
 				{
 					Id = index,
 					Path = path,
-					Score = (path == null ? int.MaxValue : path.Length) - (index == myId ? 0.5 : 0.0)
+					Score = (path == null || !players[index].IsRunning ? int.MaxValue : path.Length) - (index == myId ? 0.5 : 0.0)
 				})
 				.OrderBy(x => x.Score);
 
@@ -109,7 +110,7 @@ class Player
 						{
 							var testScore = resultingPlayerPaths.Select((path, index) =>
 							{
-								return (path.Length - playerPaths[index].Length) * (index == myId ? -1 : 1);
+								return !players[index].IsRunning ? 0 : (path.Length - playerPaths[index].Length) * (index == myId ? -1 : 1);
 							}).Sum();
 							Console.Error.WriteLine("The wall gives a score of " + testScore);
 
@@ -150,8 +151,15 @@ class Player
 	{
 		return players.Select((player, index) =>
 		{
-			var exits = exitsForPlayer(index, mapWidth, mapHeight);
-			return pathFor(map, players[index], exits, mapWidth);
+			if (player.IsRunning)
+			{
+				var exits = exitsForPlayer(index, mapWidth, mapHeight);
+				return pathFor(map, players[index], exits, mapWidth);
+			}
+			else
+			{
+				return new int[0];
+			}
 		});
 	}
 
@@ -588,6 +596,7 @@ public class Point
 	public int X { get; set; }
 	public int Y { get; set; }
 	public int WallsLeft { get; set; }
+	public bool IsRunning { get { return X >= 0 && Y >= 0; } }
 
 	public Point() { }
 
