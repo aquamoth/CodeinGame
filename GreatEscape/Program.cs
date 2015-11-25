@@ -64,72 +64,85 @@ class Player
 					Path = path,
 					Score = (path == null || !players[index].IsRunning ? int.MaxValue : path.Length) - (index == myId ? 0.5 : 0.0)
 				})
-				.OrderBy(x => x.Score);
+				.OrderBy(x => x.Score)
+				.ToArray();
 
-			Console.Error.WriteLine("Leaderboard:" + string.Join(", ", currentLeaderboard.Select(x => string.Format("{0}={1} pts", x.Id, x.Score)).ToArray()));
+			//Console.Error.WriteLine("Leaderboard:" + string.Join(", ", currentLeaderboard.Select(x => string.Format("{0}={1} pts", x.Id, x.Score)).ToArray()));
 
 			var commandGiven = false;
-			if (players[myId].WallsLeft > 0 && myId == currentLeaderboard.Skip(1).Select(x => x.Id).First())
+			if (players[myId].WallsLeft > 0 && myId != currentLeaderboard[0].Id)
 			{
-				Console.Error.WriteLine("I'm in second place! Try to stop the leader.");
-				var leaderId = currentLeaderboard.Select(x => x.Id).First();
-				var leaderPath = playerPaths[leaderId];
-
-				Wall bestWall = null;
-				int bestScore = 0;
-				for (int i = 0; i < leaderPath.Length - 2; i++)
+				if (myId == currentLeaderboard[1].Id)
 				{
-					var movementToStop = new Link { A = leaderPath[i], B = leaderPath[i + 1] };
-					Console.Error.Write("Try to stop movement: " + movementToStop);
-					var heading = Link.DirectionOf(movementToStop.A, movementToStop.B);
-					Console.Error.WriteLine(", to " + heading);
+					Console.Error.WriteLine("I'm in second place");
+				}
+				else
+				{
+					Console.Error.WriteLine("I'm in third place with " + playerPaths[myId].Length + " steps to go");
+				}
+				//I'm not winning, and I have walls left
+				if (myId == currentLeaderboard[1].Id || (playerPaths[myId].Length <= 5))
+				{
+					Console.Error.WriteLine("Trying to stop the leader.");
+					var leaderId = currentLeaderboard.Select(x => x.Id).First();
+					var leaderPath = playerPaths[leaderId];
 
-					//TODO: Consider using the wall that causes the longest new path for the opponent, yet the shortest path for self
-					var newWallsToTest = wallsThatBlocks(movementToStop.A, heading, w)
-						.Where(wall => wall.Inside(new Area { X1 = 0, X2 = w, Y1 = 0, Y2 = h }))
-						.Where(w1 => !walls.Any(w2 => w2.Overlaps(w1)));
-
-					foreach (var testWall in newWallsToTest)
+					Wall bestWall = null;
+					int bestScore = 0;
+					for (int i = 0; i < leaderPath.Length - 2; i++)
 					{
-						Console.Error.WriteLine("Testing wall at " + testWall);
-						var testMap = map.Where(link => !isBlockedBy(link, testWall, w)).ToList();
-						//Console.Error.WriteLine("Testmap consists of " + testMap.Count + " links");
+						var movementToStop = new Link { A = leaderPath[i], B = leaderPath[i + 1] };
+						//Console.Error.Write("Try to stop movement: " + movementToStop);
+						var heading = Link.DirectionOf(movementToStop.A, movementToStop.B);
+						//Console.Error.WriteLine(", to " + heading);
 
-						var resultingPlayerPaths = bestPathsFor(players, testMap, w, h).ToArray();
-						//Console.Error.WriteLine("Resulting player paths:");
-						//foreach (var path in resultingPlayerPaths)
-						//{
-						//	Console.Error.WriteLine("Path: " + string.Join(", ", path ?? new int[0]));
-						//}
-						if (resultingPlayerPaths.Any(p => p == null))
-						{
-							Console.Error.WriteLine("The wall traps at least one player.");
-							continue; //At least one player has NO paths to get out, so this is not a valid alternative
-						}
-						else
-						{
-							var testScore = resultingPlayerPaths.Select((path, index) =>
-							{
-								return !players[index].IsRunning ? 0 : (path.Length - playerPaths[index].Length) * (index == myId ? -1 : 1);
-							}).Sum();
-							Console.Error.WriteLine("The wall gives a score of " + testScore);
+						//TODO: Consider using the wall that causes the longest new path for the opponent, yet the shortest path for self
+						var newWallsToTest = wallsThatBlocks(movementToStop.A, heading, w)
+							.Where(wall => wall.Inside(new Area { X1 = 0, X2 = w, Y1 = 0, Y2 = h }))
+							.Where(w1 => !walls.Any(w2 => w2.Overlaps(w1)));
 
-							if (testScore > bestScore)
+						foreach (var testWall in newWallsToTest)
+						{
+							//Console.Error.WriteLine("Testing wall at " + testWall);
+							var testMap = map.Where(link => !isBlockedBy(link, testWall, w)).ToList();
+							//Console.Error.WriteLine("Testmap consists of " + testMap.Count + " links");
+
+							var resultingPlayerPaths = bestPathsFor(players, testMap, w, h).ToArray();
+							//Console.Error.WriteLine("Resulting player paths:");
+							//foreach (var path in resultingPlayerPaths)
+							//{
+							//	Console.Error.WriteLine("Path: " + string.Join(", ", path ?? new int[0]));
+							//}
+							if (resultingPlayerPaths.Any(p => p == null))
 							{
-								bestWall = testWall;
-								bestScore = testScore;
+								//Console.Error.WriteLine("The wall traps at least one player.");
+								continue; //At least one player has NO paths to get out, so this is not a valid alternative
+							}
+							else
+							{
+								var testScore = resultingPlayerPaths.Select((path, index) =>
+								{
+									return !players[index].IsRunning ? 0 : (path.Length - playerPaths[index].Length) * (index == myId ? -1 : 1);
+								}).Sum();
+								//Console.Error.WriteLine("The wall gives a score of " + testScore);
+
+								if (testScore > bestScore)
+								{
+									bestWall = testWall;
+									bestScore = testScore;
+								}
 							}
 						}
 					}
-				}
 
-				if (bestWall != null)
-				{
-					var wallCommand = commandFor(bestWall);
-					Console.Error.WriteLine("Using wall command: " + wallCommand);
+					if (bestWall != null)
+					{
+						var wallCommand = commandFor(bestWall);
+						Console.Error.WriteLine("Using wall command: " + wallCommand);
 
-					Console.WriteLine(wallCommand);
-					commandGiven = true;
+						Console.WriteLine(wallCommand);
+						commandGiven = true;
+					}
 				}
 			}
 
@@ -338,6 +351,9 @@ class Player
 
 	private static int[] pathFor(List<Link> map, Point player, Point[] exits, int mapWidth)
 	{
+		if (!player.IsRunning)
+			return new int[0];
+
 		var SI = positionOf(player.X, player.Y, mapWidth);
 		var algorithm = new Dijkstra(map);
 		int[] shortestPath = null;
