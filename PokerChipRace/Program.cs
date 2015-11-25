@@ -13,6 +13,9 @@ using System.Collections.Generic;
  **/
 class Player
 {
+	const float SCARE_DISTANCE = 50;
+	const float SEARCH_AND_DESTROY_DISTANCE = 200;
+
 	static void Main(string[] args)
 	{
 		int playerId = int.Parse(Console.ReadLine()); // your id (0 to 4)
@@ -35,7 +38,7 @@ class Player
 				Console.Error.WriteLine(e);
 			}
 
-			var expectedPositionsIn3Secs = entities.Select(x => new { Id = x.Id, Radius = x.Radius, P = x.P + x.V * 3 }).ToArray();
+			var expectedPositionsIn3Secs = entities.Select(x => new { Id = x.Id, Player = x.Player, Radius = x.Radius, P = x.P + x.V * 3 }).ToArray();
 			Console.Error.WriteLine("Entities are in 3 sec at:");
 			foreach (var ee in expectedPositionsIn3Secs)
 			{
@@ -50,30 +53,55 @@ class Player
 				Console.Error.WriteLine("Calculating for #" + chip.Id);
 
 				var expectedChipPosition = expectedPositionsIn3Secs.Where(x => x.Id == chip.Id).Single();
-				var closestSmallerChipIn3Sec = expectedPositionsIn3Secs
-					.Where(x => x.Radius < expectedChipPosition.Radius)
-					.OrderBy(x => x.P.DistanceTo(expectedChipPosition.P));
 
-				foreach (var smallerChip in closestSmallerChipIn3Sec)
+				var closeLargerChipsIn3Sec = expectedPositionsIn3Secs
+					.Where(x => x.Player != chip.Player)
+					.Where(x => x.Radius > expectedChipPosition.Radius)
+					.Select(x => new { Chip = x, Distance = x.P.DistanceTo(expectedChipPosition.P) })
+					.Where(x => x.Distance < SCARE_DISTANCE)
+					.OrderBy(x => x.Distance);
+				if (closeLargerChipsIn3Sec.Any())
 				{
-					Console.Error.WriteLine(string.Format("#{0} has range {1}", smallerChip, smallerChip.P.DistanceTo(expectedChipPosition.P)));
-				}
-
-
-				var nextTarget = closestSmallerChipIn3Sec.FirstOrDefault();//entities.Where(x => x.Radius < chip.Radius).OrderByDescending(x => x.Radius).FirstOrDefault();
-				if (nextTarget != null)
-				{
-					Console.Error.WriteLine("Closest smaller target is " + nextTarget.Id);
-					var expectedDistance = (nextTarget.P - expectedChipPosition.P);
-					Console.Error.WriteLine("Expecting distance of " + expectedDistance.Length);
-
-					var targetPosition = chip.P + expectedDistance;
+					var singleClosestLargerChip = closeLargerChipsIn3Sec.First();
+					var closestAggressor = entities.Where(x => x.Id == singleClosestLargerChip.Chip.Id).Single();
+					Console.Error.WriteLine(string.Format("#{0} is larger and only {1}m away. Avoiding!", singleClosestLargerChip.Chip.Id, singleClosestLargerChip.Distance));
+					var targetPosition = chip.P + chip.P - closestAggressor.P;
 					Console.Error.WriteLine("Speeding towards " + targetPosition);
-
-					var x = Math.Round(targetPosition.X);
-					var y = Math.Round(targetPosition.Y);
-					Console.WriteLine(x + " " + y); // One instruction per chip: 2 real numbers (x y) for a propulsion, or 'WAIT'.
+					Console.WriteLine(targetPosition.Print() + " Help!"); // One instruction per chip: 2 real numbers (x y) for a propulsion, or 'WAIT'.
 				}
+				else
+				{
+					var closestSmallerChipIn3Sec = expectedPositionsIn3Secs
+						.Where(x => x.Radius < expectedChipPosition.Radius)
+						.Select(x => new { Chip = x, Distance = x.P.DistanceTo(expectedChipPosition.P) })
+						.Where(x => x.Distance < SEARCH_AND_DESTROY_DISTANCE)
+						.OrderBy(x => x.Distance)
+						.ToArray();
+
+					foreach (var smallerChip in closestSmallerChipIn3Sec)
+					{
+						Console.Error.WriteLine(string.Format("#{0} has range {1}", smallerChip, smallerChip.Distance));
+					}
+
+
+					var nextTarget = closestSmallerChipIn3Sec.FirstOrDefault();
+					if (nextTarget != null)
+					{
+						Console.Error.WriteLine("Closest smaller target is " + nextTarget.Chip.Id);
+						var expectedDistance = (nextTarget.Chip.P - expectedChipPosition.P);
+						Console.Error.WriteLine("Expecting distance of " + expectedDistance.Length);
+
+						var targetPosition = chip.P + expectedDistance;
+						Console.Error.WriteLine("Speeding towards " + targetPosition);
+						Console.WriteLine(targetPosition.Print()); // One instruction per chip: 2 real numbers (x y) for a propulsion, or 'WAIT'.
+					}
+					else
+					{
+						Console.WriteLine("WAIT Zzzz...");
+					}
+
+				}
+
 			}
 		}
 	}
@@ -145,5 +173,12 @@ class Point
 	public override string ToString()
 	{
 		return string.Format("({0}, {1})", X, Y);
+	}
+
+	internal string Print()
+	{
+		var x = Math.Round(this.X);
+		var y = Math.Round(this.Y);
+		return x + " " + y;
 	}
 }
