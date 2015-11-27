@@ -34,7 +34,7 @@ class Player
 				var turningCost = (ALPHABETH.IndexOf(letter) - ALPHABETH.IndexOf(zoneLetter) + ALPHABETH.Length + ALPHABETH.Length / 2) % ALPHABETH.Length - ALPHABETH.Length / 2;
 				var movingCost = (positionOfLetter - currentPosition + NUMBER_OF_ZONES + NUMBER_OF_ZONES / 2) % NUMBER_OF_ZONES - NUMBER_OF_ZONES / 2;
 				var totalCost = Math.Abs(turningCost) + Math.Abs(movingCost);
-				if (totalCost < bestCost)
+				if (totalCost < bestCost || (totalCost == bestCost && zoneLetter == ' '))
 				{
 					bestMove = movingCost;
 					bestTurn = turningCost;
