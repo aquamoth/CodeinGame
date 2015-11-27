@@ -18,53 +18,63 @@ class Player
 	{
 		string magicPhrase = Console.ReadLine();
 
-		var requiredLetters = magicPhrase.Distinct().ToList();
-
-		var commands = new StringBuilder();
+		var currentZones = Enumerable.Repeat(' ', NUMBER_OF_ZONES).ToArray();
 		var currentPosition = 0;
-		var createdLetters = 0;
-
 		for (int i = 0; i < magicPhrase.Length; i++)
 		{
 			var letter = magicPhrase[i];
-			var positionOfLetter = requiredLetters.IndexOf(letter);
+			//Console.Error.WriteLine("Solving letter: " + letter);
 
-			var steps = (positionOfLetter - currentPosition + NUMBER_OF_ZONES) % NUMBER_OF_ZONES;
-			if (steps != 0)
+			var bestMove = 0;
+			var bestTurn = 0;
+			var bestCost = int.MaxValue;
+			for (int positionOfLetter = 0; positionOfLetter < NUMBER_OF_ZONES; positionOfLetter++)
 			{
-				if (steps < NUMBER_OF_ZONES / 2)
+				var zoneLetter = currentZones[positionOfLetter];
+				var turningCost = (ALPHABETH.IndexOf(letter) - ALPHABETH.IndexOf(zoneLetter) + ALPHABETH.Length + ALPHABETH.Length / 2) % ALPHABETH.Length - ALPHABETH.Length / 2;
+				var movingCost = (positionOfLetter - currentPosition + NUMBER_OF_ZONES + NUMBER_OF_ZONES / 2) % NUMBER_OF_ZONES - NUMBER_OF_ZONES / 2;
+				var totalCost = Math.Abs(turningCost) + Math.Abs(movingCost);
+				if (totalCost < bestCost)
 				{
-					//Step "steps" steps to the right
-					commands.Append(Enumerable.Repeat('>', steps).ToArray());
+					bestMove = movingCost;
+					bestTurn = turningCost;
+					bestCost = totalCost;
+					//Console.Error.WriteLine("..so far best is to turn #" + positionOfLetter + " from '" + zoneLetter + "' in " + turningCost + " turns. It takes " + movingCost + " steps to go there.");
 				}
-				else
-				{
-					//Step NUMBER_OF_ZONES - "steps" steps to the left
-					commands.Append(Enumerable.Repeat('<', NUMBER_OF_ZONES - steps).ToArray());
-				}
-				currentPosition = (currentPosition + steps) % NUMBER_OF_ZONES;
 			}
+
+			currentPosition = stepToZone(currentPosition, bestMove);
 
 			//Create the letter if it hasn't been already
-			if (currentPosition+1>createdLetters)
+			if (bestTurn < 0)
 			{
-				var index = ALPHABETH.IndexOf(letter);
-				if (index > ALPHABETH.Length / 2)
-				{
-					commands.Append(Enumerable.Repeat('-', ALPHABETH.Length - index).ToArray());
-				}
-				else
-				{
-					commands.Append(Enumerable.Repeat('+', index).ToArray());
-				}
-				createdLetters = currentPosition + 1;
+				Console.Write(Enumerable.Repeat('-', Math.Abs(bestTurn)).ToArray());
 			}
+			else if (bestTurn > 0)
+			{
+				Console.Write(Enumerable.Repeat('+', Math.Abs(bestTurn)).ToArray());
+			}
+			currentZones[currentPosition] = letter;
+
 
 			//Register the letter
-			commands.Append('.');
+			Console.Write('.');
 		}
 
-		Console.WriteLine(commands.ToString());
-		//Console.WriteLine("+.>-.");
+		Console.WriteLine("");
+	}
+
+	private static int stepToZone(int currentPosition, int bestStep)
+	{
+		if (bestStep > 0)
+		{
+			Console.Write(Enumerable.Repeat('>', bestStep).ToArray());
+		}
+		else if (bestStep < 0)
+		{
+			Console.Write(Enumerable.Repeat('<', Math.Abs(bestStep)).ToArray());
+		}
+		currentPosition = (currentPosition + bestStep + NUMBER_OF_ZONES) % NUMBER_OF_ZONES;
+		return currentPosition;
 	}
 }
