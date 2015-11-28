@@ -52,11 +52,12 @@ class Player
 	private static void updateGameState(GameState gameState)
 	{
 		updateGameStateFromConsole(gameState);
-
-		updatePodSquads(gameState);
-
 		if (gameState.IsFirstTurn)
 			firstTurnInitialization(gameState);
+
+		mergePodSquads(gameState);
+		cleanupKilledSquads(gameState);
+		updateSquadPods(gameState);
 	}
 
 	private static void firstTurnInitialization(GameState gameState)
@@ -71,30 +72,71 @@ class Player
 		//}
 	}
 
-	private static void updatePodSquads(GameState gameState)
+	private static void updateSquadPods(GameState gameState)
 	{
-		gameState.Squads.Clear(); // Delete any old squad states and start over. This should be removed once foreach(var squad in squads) works below
-
 		var zonesWithMyPods = gameState.Zones.Where(x => x.MyPods > 0);
 		foreach (var zone in zonesWithMyPods)
 		{
-			var podsToDeploy = zone.MyPods;
+			Console.Error.WriteLine("Refreshing squads at zone #" + zone.Id);
 
 			var squads = gameState.Squads.Where(s => s.ZoneId == zone.Id);
-			foreach (var squad in squads)
+			if (squads.Sum(x => x.Pods) != zone.MyPods)
 			{
-				throw new NotImplementedException("No support for updating existing squads at this time");
-			}
-			if (podsToDeploy > 0)
-			{
-				if (squads.Any())
+				if (squads.Count() == 0)
 				{
-					throw new ApplicationException("New squads should be distributed evenly into existing squads");
+					var squad = createSquad(zone.Id, zone.MyPods);
+					gameState.Squads.Add(squad);
+				}
+				else if (squads.Count() == 1)
+				{
+					var squad = squads.Single();
+					if (squad.Pods != zone.MyPods)
+					{
+						Console.Error.WriteLine(string.Format("Updating squad at zone #{0} from {1} to {2} pods.", zone.Id, squad.Pods, zone.MyPods));
+						squad.Pods = zone.MyPods;
+					}
 				}
 				else
 				{
-					gameState.Squads.Add(createSquad(zone.Id, podsToDeploy));
+					throw new NotImplementedException("No support for multiple squads at same location at this time");
 				}
+			}
+		}
+	}
+
+	private static void cleanupKilledSquads(GameState gameState)
+	{
+		foreach (var squad in gameState.Squads.ToArray())
+		{
+			if (gameState.Zones[squad.ZoneId].MyPods == 0)
+			{
+				Console.Error.WriteLine(string.Format("Squad at zone #{0} with {1} pods was killed and is removed.", squad.ZoneId, squad.Pods));
+				Console.Error.WriteLine(gameState.Zones[squad.ZoneId]);
+				gameState.Squads.Remove(squad);
+			}
+		}
+	}
+
+	private static void mergePodSquads(GameState gameState)
+	{
+		var squadsOfSameTypeInSameZone = gameState.Squads
+			//.Select(x => new { id = x.ZoneId, type = x.GetType() })
+				  .GroupBy(x => new { id = x.ZoneId, type = x.GetType() })
+				  .Where(grp => grp.Count() > 1);
+
+		foreach (var squadsToMerge in squadsOfSameTypeInSameZone)
+		{
+			Console.Error.WriteLine(string.Format("Merging {0} squads of type {2} at zone #{3} with a total of {4} pods.",
+				squadsToMerge.Count(),
+				squadsToMerge.Key.type.ToString(),
+				squadsToMerge.Key.id,
+				squadsToMerge.Sum(x => x.Pods)
+				));
+			var squadToKeep = squadsToMerge.First();
+			foreach (var squad in squadsToMerge.Skip(1))
+			{
+				squadToKeep.Pods += squad.Pods;
+				gameState.Squads.Remove(squad);
 			}
 		}
 	}
@@ -166,9 +208,10 @@ class Player
 
 	#endregion Game State
 
-	private static IPodSquad createSquad(int zoneId, int podsToDeploy)
+	private static IPodSquad createSquad(int zoneId, int pods)
 	{
-		return new MazeRunner { ZoneId = zoneId, Pods = podsToDeploy };
+		Console.Error.WriteLine(string.Format("Creating new squad with {0} pods at zone #{1}", pods, zoneId));
+		return new MazeRunner { ZoneId = zoneId, Pods = pods };
 	}
 }
 
@@ -227,7 +270,7 @@ public class Zone
 public interface IPodSquad
 {
 	int ZoneId { get; }
-	int Pods { get; }
+	int Pods { get; set; }
 
 	void BeforeMove(GameState gameState);
 	IEnumerable<string> Move(GameState gameState);
