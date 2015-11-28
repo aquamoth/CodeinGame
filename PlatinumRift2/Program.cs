@@ -77,7 +77,7 @@ class Player
 		var zonesWithMyPods = gameState.Zones.Where(x => x.MyPods > 0);
 		foreach (var zone in zonesWithMyPods)
 		{
-			Console.Error.WriteLine("Refreshing squads at zone #" + zone.Id);
+			//Console.Error.WriteLine("Refreshing squads at zone #" + zone.Id);
 
 			var squads = gameState.Squads.Where(s => s.ZoneId == zone.Id);
 			if (squads.Sum(x => x.Pods) != zone.MyPods)
@@ -277,10 +277,49 @@ public interface IPodSquad
 	void AfterMove(GameState gameState);
 }
 
+public abstract class BaseSquad : IPodSquad
+{
+	public int ZoneId { get; set; }
+	public int Pods { get; set; }
+
+	public virtual void BeforeMove(GameState gameState)
+	{
+	}
+	public virtual IEnumerable<string> Move(GameState gameState)
+	{
+		Console.Error.WriteLine("Moving has not been implemented for squad of type " + this.GetType().ToString());
+		return new string[0];
+	}
+	public virtual void AfterMove(GameState gameState)
+	{
+	}
+}
+
+public class RandomRunner : BaseSquad
+{
+	Random r;
+
+	public RandomRunner()
+	{
+		r = new Random();
+	}
+
+	public override IEnumerable<string> Move(GameState gameState)
+	{
+		var neighbours = gameState.Zones[this.ZoneId].Neighbours;
+		var index = r.Next(neighbours.Count);
+		var nextZoneId = neighbours[index];
+		Console.Error.WriteLine(string.Format("Randomly moving {0} pods from {1} to {2}", this.Pods, this.ZoneId, nextZoneId));
+		return new[] { string.Format("{0} {1} {2}", this.Pods, this.ZoneId, nextZoneId) };
+	}
+}
+
 public class MazeRunner : IPodSquad
 {
 	public int ZoneId { get; set; }
 	public int Pods { get; set; }
+
+	public int PreviousZoneId { get; set; }
 
 	public void BeforeMove(GameState gameState)
 	{
@@ -297,38 +336,95 @@ public class MazeRunner : IPodSquad
 		var unvisitedNeighbours = currentZone.Neighbours
 			.Where(id => gameState.Zones[id].MazeVisitedCount == 0)
 			.ToArray();
-		Console.Error.WriteLine(string.Format("Squad of {0} pods at #{1} has {2} unvisited neighbours.", Pods, ZoneId, unvisitedNeighbours.Length));
+		//Console.Error.WriteLine(string.Format("Squad of {0} pods at #{1} has {2} unvisited neighbours.", Pods, ZoneId, unvisitedNeighbours.Length));
+
 		if (unvisitedNeighbours.Any())
 		{
-			var zonesToVisit = unvisitedNeighbours.Count();
-			for (int i = 0; i < zonesToVisit - 1; i++)
-			{
-				if (Pods == 1)
-				{
-					Console.Error.WriteLine("Only one pod left in the squad. Sending it to last zone.");
-					break;
-				}
-				var podsInGroup = (int)Math.Ceiling(Pods / (double)(zonesToVisit - i));
-				var squad = new MazeRunner { ZoneId = unvisitedNeighbours[i], Pods = podsInGroup };
-				gameState.Squads.Add(squad);
-				this.Pods -= podsInGroup;
-
-				Console.Error.WriteLine(string.Format("{0} pods at zone #{1} moves to zone #{2}.", squad.Pods, currentZone.Id, squad.ZoneId));
-				if (gameState.Zones[squad.ZoneId].MazeVisitedCount == 0)
-					gameState.Zones[squad.ZoneId].MazeVisitedCount = 1;
-				yield return string.Format("{0} {1} {2}", squad.Pods, currentZone.Id, squad.ZoneId);
-			}
-			//We keep ourselves around for the last neighbour
-			this.ZoneId = unvisitedNeighbours.Last();
-			Console.Error.WriteLine(string.Format("{0} pods at zone #{1} moves to zone #{2}.", this.Pods, currentZone.Id, this.ZoneId));
-			if (gameState.Zones[this.ZoneId].MazeVisitedCount == 0)
-				gameState.Zones[this.ZoneId].MazeVisitedCount = 1;
-			yield return string.Format("{0} {1} {2}", this.Pods, currentZone.Id, this.ZoneId);
+			return moveToUnvisitedZones(gameState, currentZone, unvisitedNeighbours);
 		}
 		else
 		{
-			Console.Error.WriteLine("Backtracking hasn't been implemented yet.");
+			return backtrack(gameState, currentZone);
 		}
+	}
+
+	private string[] backtrack(GameState gameState, Zone currentZone)
+	{
+		Console.Error.WriteLine("Backtracking from zone #" + ZoneId + " by converting into a random runner");
+		var squad = new RandomRunner { ZoneId = this.ZoneId, Pods = this.Pods };
+		gameState.Squads.Remove(this);
+		gameState.Squads.Add(squad);
+		return squad.Move(gameState).ToArray();
+
+//		Console.Error.WriteLine("Backtracking from zone #" + ZoneId);
+//		if (currentZone.MazeVisitedCount == 1)
+//		{
+//			Console.Error.WriteLine("Marking zone #" + ZoneId + " as a dead end");
+//			currentZone.MazeVisitedCount = 2;
+//		}
+
+//		var neighbours = gameState.Zones.Where(zone=> currentZone.Neighbours.Contains(zone.Id));
+//		var neighboursVisitedOnce = neighbours.Where(z => z.MazeVisitedCount == 1);
+//		if (neighboursVisitedOnce.Count() == 0)
+//		{
+//			Console.Error.WriteLine("All exists are marked as double visited. Idling!");
+//#warning Convert this Squad to another type
+//			return new string[0];
+//		}
+//		else if (neighboursVisitedOnce.Count() == 1)
+//		{
+//			var backtrackZone = neighboursVisitedOnce.Single().Id;
+//			//It's obvious where we came from, so go back there.
+//			Console.Error.WriteLine("Backtracking to zone #" + backtrackZone);
+//			return new[] { this.MoveTo(backtrackZone) };
+//		}
+//		else
+//		{
+//			Console.Error.WriteLine(string.Format("Zone #{0} has multiple exits visited just once: {1}",
+//				this.ZoneId,
+//				string.Join(", ", neighboursVisitedOnce.Select(x => x.Id).ToArray())
+//				));
+//			return new[] { this.MoveTo(this.PreviousZoneId) };
+//		}
+	}
+
+	public string MoveTo(int toZone)
+	{
+		this.PreviousZoneId = this.ZoneId;
+		this.ZoneId = toZone;
+		Console.Error.WriteLine(string.Format("{0} pods at zone #{1} moves to zone #{2}.", this.Pods, this.PreviousZoneId, this.ZoneId));
+		return string.Format("{0} {1} {2}", this.Pods, this.PreviousZoneId, this.ZoneId);
+	}
+
+
+	private string[] moveToUnvisitedZones(GameState gameState, Zone currentZone, int[] unvisitedNeighbours)
+	{
+		var commands = new List<string>();
+
+		var zonesToVisit = unvisitedNeighbours.Count();
+		for (int i = 0; i < zonesToVisit - 1; i++)
+		{
+			if (Pods == 1)
+			{
+				//Console.Error.WriteLine("Only one pod left in the squad. Sending it to last zone.");
+				break;
+			}
+			var podsInGroup = (int)Math.Ceiling(Pods / (double)(zonesToVisit - i));
+			var squad = new MazeRunner { ZoneId = this.ZoneId, Pods = podsInGroup };
+			gameState.Squads.Add(squad);
+			this.Pods -= podsInGroup;
+
+			commands.Add(squad.MoveTo(unvisitedNeighbours[i]));
+			if (gameState.Zones[squad.ZoneId].MazeVisitedCount == 0)
+				gameState.Zones[squad.ZoneId].MazeVisitedCount = 1;
+		}
+
+		//We keep ourselves around for the last neighbour
+		commands.Add(this.MoveTo(unvisitedNeighbours.Last()));
+		if (gameState.Zones[this.ZoneId].MazeVisitedCount == 0)
+			gameState.Zones[this.ZoneId].MazeVisitedCount = 1;
+
+		return commands.ToArray();
 	}
 
 	public void AfterMove(GameState gameState)
@@ -337,52 +433,3 @@ public class MazeRunner : IPodSquad
 }
 
 
-
-
-
-
-
-
-
-//public class Link
-//{
-//	public int A { get; set; }
-//	public int B { get; set; }
-
-//	public int[] Nodes { get { return new[] { A, B }; } }
-
-//	//public override bool Equals(object obj)
-//	//{
-//	//	var other = obj as Link;
-//	//	return obj != null
-//	//		&& (
-//	//			(this.A.Equals(other.A) && this.B.Equals(other.B))
-//	//		|| (this.A.Equals(other.B) && this.B.Equals(other.A))
-//	//		);
-//	//}
-
-//	//public override int GetHashCode()
-//	//{
-//	//	return A.GetHashCode() ^ B.GetHashCode();
-//	//}
-
-//	public override string ToString()
-//	{
-//		return A + " " + B;
-//	}
-
-//	//public static Direction DirectionOf(int from, int to)
-//	//{
-//	//	if (to == from + 1)
-//	//		return Direction.RIGHT;
-//	//	else if (to == from - 1)
-//	//		return Direction.LEFT;
-//	//	else if (to < from)
-//	//		return Direction.UP;
-//	//	else if (to > from)
-//	//		return Direction.DOWN;
-//	//	else
-//	//		throw new NotSupportedException();
-//	//}
-
-//}
