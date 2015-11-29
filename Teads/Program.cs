@@ -15,7 +15,6 @@ class Solution
 	static void Main(string[] args)
 	{
 		var sw = new Stopwatch();
-		sw.Start();
 
 		var tree = new Dictionary<string, Node>();
 		int n = int.Parse(Console.ReadLine()); // the number of adjacency relations
@@ -29,10 +28,11 @@ class Solution
 			nodex.Neighbours.Add(nodey);
 			nodey.Neighbours.Add(nodex);
 		}
-		Console.Error.WriteLine("{0}\tRead input with {1} links", sw.ElapsedMilliseconds, n);
+		//Console.Error.WriteLine("{0}\tRead input with {1} links", sw.ElapsedMilliseconds, n);
 
-		Console.Error.WriteLine("{0}\tBuilt tree", sw.ElapsedMilliseconds);
+		//Console.Error.WriteLine("{0}\tBuilt tree", sw.ElapsedMilliseconds);
 
+		sw.Start();
 		var dijkstra = new Dijkstra(tree);
 		Console.Error.WriteLine("{0}\tCreated Dijkstra", sw.ElapsedMilliseconds);
 
@@ -41,39 +41,45 @@ class Solution
 		var firstPerson = "";
 		var tempStart = persons[0];
 
-
-		Console.Error.WriteLine(string.Format("Scanning {0} persons", persons.Length));
+		var sw2 = new Stopwatch();
+		Console.Error.WriteLine(string.Format("{0}\tScanning {1} persons", sw.ElapsedMilliseconds, persons.Length));
 		for (int i = 1; i < persons.Length; i++)
 		{
 			var testNode = persons[i];
 			var l = tree[testNode].Distance;
-			if (l == int.MaxValue) l = dijkstra.Path(tempStart, testNode).Length;
+			if (l == int.MaxValue)
+			{
+				sw2.Start();
+				l = dijkstra.Path(tempStart, testNode) ?? int.MaxValue;//.Length;
+				sw2.Stop();
+			}
 			if (l > longestPath)
 			{
 				longestPath = l;
 				firstPerson = persons[i];
 			}
 		}
-		Console.Error.WriteLine("{0}\tFound first person", sw.ElapsedMilliseconds);
+		Console.Error.WriteLine("{0}\tFound first person: {1}. Path() used {2} ms.", sw.ElapsedMilliseconds, firstPerson, sw2.ElapsedMilliseconds);
 
 		dijkstra.Reset();
 		Console.Error.WriteLine("{0}\tReset Dijkstra", sw.ElapsedMilliseconds);
-		//var secondPerson = "";
+
+		longestPath = 0;
+		var secondPerson = "";
 		for (int i = 0; i < persons.Length; i++)
 		{
 			var testNode = persons[i];
 			var l = tree[testNode].Distance;
-			if (l == int.MaxValue) l = dijkstra.Path(firstPerson, testNode).Length;
+			if (l == int.MaxValue) l = dijkstra.Path(firstPerson, testNode) ?? int.MaxValue;//.Length;
 			if (l > longestPath)
 			{
 				longestPath = l;
-				//secondPerson = persons[i];
+				secondPerson = persons[i];
 			}
 		}
-		Console.Error.WriteLine("{0}\tFound second person", sw.ElapsedMilliseconds);
+		Console.Error.WriteLine("{0}\tFound second person: {1}", sw.ElapsedMilliseconds, secondPerson);
 
-		Console.WriteLine((longestPath / 2).ToString()); // The minimal amount of steps required to completely propagate the advertisement
-		//Console.ReadLine();
+		Console.WriteLine((int)Math.Floor((longestPath + 1) / 2.0)); // The minimal amount of steps required to completely propagate the advertisement
 	}
 
 	private static Node ensureNodeInTree(Dictionary<string, Node> tree, string xi)
@@ -100,7 +106,6 @@ class Solution
 
 		public string Name { get; private set; }
 		public List<Node> Neighbours { get; private set; }
-		public string ShortestPath { get; set; }
 		public int Distance { get; set; }
 		public bool Visited { get; set; }
 
@@ -125,12 +130,11 @@ class Solution
 			foreach (var node in _nodes.Values)
 			{
 				node.Distance = int.MaxValue;
-				node.ShortestPath = null;
 				node.Visited = false;
 			}
 		}
 
-		public string[] Path(string from, string to)
+		public int? Path(string from, string to)
 		{
 			if (!_nodes.ContainsKey(to))
 				return null;//No paths to the destination at all
@@ -143,36 +147,48 @@ class Solution
 			currentNode.Distance = 0;
 			var unvisitedNodes = new List<Node>(_nodes.Values);
 
+			var sw = new Stopwatch();
+			sw.Start();
+			var sw2 = new Stopwatch();
+			var sw3 = new Stopwatch();
+			var sw4 = new Stopwatch();
 			do
 			{
 				var tentativeDistance = currentNode.Distance + 1;
-				var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
 
-				foreach (var neighbour in unvisitedNeighbours)
+				sw2.Start();
+				foreach (var neighbour in currentNode.Neighbours.Where(x => !x.Visited && x.Distance > tentativeDistance))
 				{
-					if (neighbour.Distance > tentativeDistance)
-					{
-						neighbour.Distance = tentativeDistance;
-						neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Name;
-					}
+					neighbour.Distance = tentativeDistance;
 				}
+				sw2.Stop();
 
 				currentNode.Visited = true;
+
+				sw3.Start();
 				unvisitedNodes.Remove(currentNode);
+				sw3.Stop();
 
 				if (currentNode.Name == to)
 					break;
 
+				sw4.Start();
 				currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
+				sw4.Stop();
 			}
 			while (currentNode != null && currentNode.Distance != int.MaxValue);
+			sw.Stop();
+			Console.Error.WriteLine("\t{0}\tTotal Dijkstra time", sw.ElapsedMilliseconds);
+			Console.Error.WriteLine("\t{0}\tSetting distances", sw2.ElapsedMilliseconds);
+			Console.Error.WriteLine("\t{0}\tRemoving visited node", sw3.ElapsedMilliseconds);
+			Console.Error.WriteLine("\t{0}\tMoving node pointer", sw4.ElapsedMilliseconds);
 
 			//Determine output
 			var toNode = _nodes[to];
 			if (toNode.Distance == int.MaxValue)
 				return null; // No path to this gateway exists
 			else
-				return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
+				return currentNode.Distance;
 		}
 	}
 
