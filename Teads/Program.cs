@@ -57,6 +57,8 @@ class Solution
 				longestPath = l.Value;
 				firstPerson = persons[i];
 			}
+			if (i % 5000 == 0)
+				Console.Error.WriteLine("{0}\tProcessed {1} persons. Path() used {2} ms.", sw.ElapsedMilliseconds, i + 1, sw2.ElapsedMilliseconds);
 		}
 		Console.Error.WriteLine("{0}\tFound first person: {1}. Path() used {2} ms.", sw.ElapsedMilliseconds, firstPerson, sw2.ElapsedMilliseconds);
 
@@ -120,7 +122,7 @@ class Solution
 	{
 		IDictionary<string, Node> _nodes;
 		public string From { get; private set;}
-		List<Node> unvisitedNodes = new List<Node>();
+		Queue<Node> unvisitedNodes = new Queue<Node>();
 
 		public Dijkstra(IDictionary<string, Node> nodes, string from)
 		{
@@ -135,10 +137,11 @@ class Solution
 				node.Distance = int.MaxValue;
 				node.Visited = false;
 			}
+			unvisitedNodes.Clear();
 
 			this.From = from;
 			_nodes[from].Distance = 0;
-			unvisitedNodes.Add(_nodes[from]);
+			unvisitedNodes.Enqueue(_nodes[from]);
 		}
 
 		public int? Path(string to)
@@ -155,15 +158,23 @@ class Solution
 			var sw4 = new Stopwatch();
 
 			sw.Start();
+			var counter = 0;
 			do
 			{
+				counter++;
+
 				sw4.Start();
-				var currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
-				if (currentNode == null)
+				if (!unvisitedNodes.Any())
 				{
 					break;
 				}
+				var currentNode = unvisitedNodes.Dequeue();
 				sw4.Stop();
+
+				sw3.Start();
+				currentNode.Visited = true;
+				//unvisitedNodes.Remove(currentNode);
+				sw3.Stop();
 
 				var tentativeDistance = currentNode.Distance + 1;
 
@@ -174,24 +185,22 @@ class Solution
 					{
 						neighbour.Distance = tentativeDistance;
 					}
-					unvisitedNodes.Add(neighbour);
+					unvisitedNodes.Enqueue(neighbour);
 				}
 				sw2.Stop();
-
-				sw3.Start();
-				currentNode.Visited = true;
-				unvisitedNodes.Remove(currentNode);
-				sw3.Stop();
 
 				if (currentNode.Name == to)
 					break;
 			}
 			while (true); //currentNode != null && currentNode.Distance != int.MaxValue
 			sw.Stop();
-			//Console.Error.WriteLine("\t{0}\tTotal Dijkstra time", sw.ElapsedMilliseconds);
-			//Console.Error.WriteLine("\t{0}\tSetting distances", sw2.ElapsedMilliseconds);
-			//Console.Error.WriteLine("\t{0}\tRemoving visited node", sw3.ElapsedMilliseconds);
-			//Console.Error.WriteLine("\t{0}\tMoving node pointer", sw4.ElapsedMilliseconds);
+			if (sw.ElapsedMilliseconds > 10000)
+			{
+				Console.Error.WriteLine("\t{0}\tTotal Dijkstra time for {1} nodes", sw.ElapsedMilliseconds, counter);
+				Console.Error.WriteLine("\t{0}\tSelecting next node", sw4.ElapsedMilliseconds);
+				Console.Error.WriteLine("\t{0}\tUpdating neighbours", sw2.ElapsedMilliseconds);
+				Console.Error.WriteLine("\t{0}\tRemoving visited node", sw3.ElapsedMilliseconds);
+			}
 
 			//Determine output
 			var toNode = _nodes[to];
