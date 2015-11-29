@@ -14,7 +14,7 @@ class Solution
 {
 	static void Main(string[] args)
 	{
-		var sw = new Stopwatch();
+		//var sw = new Stopwatch();
 
 		var tree = new Dictionary<string, Node>();
 		int n = int.Parse(Console.ReadLine()); // the number of adjacency relations
@@ -30,24 +30,17 @@ class Solution
 		}
 		//Console.Error.WriteLine("{0}\tRead input with {1} links", sw.ElapsedMilliseconds, n);
 
-		//Console.Error.WriteLine("{0}\tBuilt tree", sw.ElapsedMilliseconds);
-
-		sw.Start();
-
 		var persons = tree.Keys.ToArray();
 		var longestPath = 0;
 		var firstPerson = "";
 		var tempStart = persons[0];
 		var bfs = new Dijkstra(tree, tempStart);
-		Console.Error.WriteLine("{0}\tCreated Dijkstra", sw.ElapsedMilliseconds);
+		//Console.Error.WriteLine("{0}\tCreated Dijkstra", sw.ElapsedMilliseconds);
 
-		var sw2 = new Stopwatch();
-		Console.Error.WriteLine(string.Format("{0}\tScanning {1} persons", sw.ElapsedMilliseconds, persons.Length));
+		//Console.Error.WriteLine(string.Format("{0}\tScanning {1} persons", sw.ElapsedMilliseconds, persons.Length));
 		for (int i = 1; i < persons.Length; i++)
 		{
-			sw2.Start();
 			var l = bfs.Path(persons[i]);
-			sw2.Stop();
 			if (!l.HasValue)
 			{
 				Console.Error.WriteLine(string.Format("No path between {0} and {1}", bfs.From, persons[i]));
@@ -57,15 +50,13 @@ class Solution
 				longestPath = l.Value;
 				firstPerson = persons[i];
 			}
-			if (i % 5000 == 0)
-				Console.Error.WriteLine("{0}\tProcessed {1} persons. Path() used {2} ms.", sw.ElapsedMilliseconds, i + 1, sw2.ElapsedMilliseconds);
 		}
-		Console.Error.WriteLine("{0}\tFound first person: {1}. Path() used {2} ms.", sw.ElapsedMilliseconds, firstPerson, sw2.ElapsedMilliseconds);
+		//Console.Error.WriteLine("{0}\tFound first person: {1}. Path() used {2} ms.", sw.ElapsedMilliseconds, firstPerson, sw2.ElapsedMilliseconds);
 
 		longestPath = 0;
 		var secondPerson = "";
 		bfs.Reset(firstPerson);
-		Console.Error.WriteLine("{0}\tReset Dijkstra", sw.ElapsedMilliseconds);
+		//Console.Error.WriteLine("{0}\tReset Dijkstra", sw.ElapsedMilliseconds);
 		for (int i = 0; i < persons.Length; i++)
 		{
 			var l = bfs.Path(persons[i]);
@@ -79,7 +70,7 @@ class Solution
 				secondPerson = persons[i];
 			}
 		}
-		Console.Error.WriteLine("{0}\tFound second person: {1}", sw.ElapsedMilliseconds, secondPerson);
+		//Console.Error.WriteLine("{0}\tFound second person: {1}", sw.ElapsedMilliseconds, secondPerson);
 
 		Console.WriteLine((int)Math.Floor((longestPath + 1) / 2.0)); // The minimal amount of steps required to completely propagate the advertisement
 	}
@@ -152,33 +143,19 @@ class Solution
 			if (_nodes[to].Distance != int.MaxValue)
 				return _nodes[to].Distance;
 
-			var sw = new Stopwatch();
-			var sw2 = new Stopwatch();
-			var sw3 = new Stopwatch();
-			var sw4 = new Stopwatch();
 
-			sw.Start();
-			var counter = 0;
 			do
 			{
-				counter++;
-
-				sw4.Start();
 				if (!unvisitedNodes.Any())
 				{
 					break;
 				}
 				var currentNode = unvisitedNodes.Dequeue();
-				sw4.Stop();
 
-				sw3.Start();
 				currentNode.Visited = true;
-				//unvisitedNodes.Remove(currentNode);
-				sw3.Stop();
 
 				var tentativeDistance = currentNode.Distance + 1;
 
-				sw2.Start();
 				foreach (var neighbour in currentNode.Neighbours.Where(x => !x.Visited))
 				{
 					if (neighbour.Distance > tentativeDistance)
@@ -187,20 +164,11 @@ class Solution
 					}
 					unvisitedNodes.Enqueue(neighbour);
 				}
-				sw2.Stop();
 
 				if (currentNode.Name == to)
 					break;
 			}
-			while (true); //currentNode != null && currentNode.Distance != int.MaxValue
-			sw.Stop();
-			if (sw.ElapsedMilliseconds > 10000)
-			{
-				Console.Error.WriteLine("\t{0}\tTotal Dijkstra time for {1} nodes", sw.ElapsedMilliseconds, counter);
-				Console.Error.WriteLine("\t{0}\tSelecting next node", sw4.ElapsedMilliseconds);
-				Console.Error.WriteLine("\t{0}\tUpdating neighbours", sw2.ElapsedMilliseconds);
-				Console.Error.WriteLine("\t{0}\tRemoving visited node", sw3.ElapsedMilliseconds);
-			}
+			while (true);
 
 			//Determine output
 			var toNode = _nodes[to];
