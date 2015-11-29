@@ -143,32 +143,21 @@ class Solution
 			if (_nodes[to].Distance != int.MaxValue)
 				return _nodes[to].Distance;
 
-
-			do
+			while (unvisitedNodes.Any())
 			{
-				if (!unvisitedNodes.Any())
-				{
-					break;
-				}
 				var currentNode = unvisitedNodes.Dequeue();
-
 				currentNode.Visited = true;
-
 				var tentativeDistance = currentNode.Distance + 1;
 
 				foreach (var neighbour in currentNode.Neighbours.Where(x => !x.Visited))
 				{
 					if (neighbour.Distance > tentativeDistance)
-					{
 						neighbour.Distance = tentativeDistance;
-					}
 					unvisitedNodes.Enqueue(neighbour);
 				}
-
 				if (currentNode.Name == to)
 					break;
 			}
-			while (true);
 
 			//Determine output
 			var toNode = _nodes[to];
