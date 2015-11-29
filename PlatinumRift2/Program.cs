@@ -98,7 +98,8 @@ class Player
 				}
 				else
 				{
-					throw new NotImplementedException("No support for multiple squads at same location at this time");
+#warning No support for multiple squads at same location at this time
+					Console.Error.WriteLine("Ignoring multiple squads at same location and hoping for best.");
 				}
 			}
 		}
@@ -328,9 +329,9 @@ public class Torpedo : BaseSquad
 		: base(pods, zoneId)
 	{
 		Console.Error.WriteLine("Creating torpedo from " + zoneId + " to " + targetZoneId);
-		var bfs = new Dijkstra(map);
+		var bfs = new Dijkstra(map, zoneId);
 		//Console.Error.WriteLine("Generating waypoints");
-		var path = bfs.Path(zoneId, targetZoneId).Skip(1);
+		var path = bfs.Path(targetZoneId).Skip(1);
 		Console.Error.WriteLine("Queueing waypoints: " + string.Join(", ", path));
 		_queue = new Queue<int>(path);
 	}
@@ -350,79 +351,66 @@ public class Torpedo : BaseSquad
 
 
 
-
 	class Dijkstra
 	{
-		public class Node
+		class Node
 		{
-			public Node(int position)
-			{
-				Position = position;
-				Distance = int.MaxValue;
-			}
-
-			public int Position { get; private set; }
-			public Node[] Neighbours { get; set; }
-			public string ShortestPath { get; set; }
-			public int Distance { get; set; }
+			public int Id { get; set; }
+			public int[] Neighbours { get; set; }
 			public bool Visited { get; set; }
+			public int[] Path { get; set; }
 		}
 
-		IDictionary<int, Node> _nodes;
+		Node[] _nodes;
+		public int From { get; private set; }
+		Queue<Node> unvisitedNodes = new Queue<Node>();
 
-		public Dijkstra(Zone[] map)
+		public Dijkstra(Zone[] zones, int from)
 		{
-			_nodes = map.Select(zone => new Node(zone.Id)).ToDictionary(x => x.Position);
-			foreach (var node in _nodes.Values)
+			_nodes = zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
+			Reset(from);
+		}
+
+		public void Reset(int from)
+		{
+			foreach (var node in _nodes)
 			{
-				node.Neighbours = map[node.Position].Neighbours.Select(id => _nodes[id]).ToArray();
+				node.Path = null;
+				//node.Distance = int.MaxValue;
+				node.Visited = false;
 			}
+			unvisitedNodes.Clear();
+
+			this.From = from;
+			_nodes[from].Path = new int[] { from };
+			unvisitedNodes.Enqueue(_nodes[from]);
 		}
 
-		public int[] Path(int from, int to)
+		public int[] Path(int to)
 		{
-			if (!_nodes.ContainsKey(to))
+			if (to >= _nodes.Length)
 				return null;//No paths to the destination at all
 
-			if (!_nodes.ContainsKey(from))
-				return null;//No paths from the source at all
+			if (_nodes[to].Path != null)
+				return _nodes[to].Path;
 
-
-			//Initialize the traversal
-			var currentNode = _nodes[from];
-			currentNode.Distance = 0;
-			var unvisitedNodes = new List<Node>(_nodes.Values);
-
-			do
+			while (unvisitedNodes.Any())
 			{
-				var tentativeDistance = currentNode.Distance + 1;
-				var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
-
-				foreach (var neighbour in unvisitedNeighbours)
-				{
-					if (neighbour.Distance > tentativeDistance)
-					{
-						neighbour.Distance = tentativeDistance;
-						neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Position;
-					}
-				}
-
+				var currentNode = unvisitedNodes.Dequeue();
 				currentNode.Visited = true;
-				unvisitedNodes.Remove(currentNode);
+				var tentativeDistance = currentNode.Path.Length + 1;
 
-				if (currentNode.Position == to)
+				foreach (var neighbour in currentNode.Neighbours.Select(id => _nodes[id]).Where(node => !node.Visited))
+				{
+					if (neighbour.Path == null || neighbour.Path.Length > tentativeDistance)
+						neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
+					unvisitedNodes.Enqueue(neighbour);
+				}
+				if (currentNode.Id == to)
 					break;
-
-				currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
 			}
-			while (currentNode != null && currentNode.Distance != int.MaxValue);
 
-			//Determine output
-			var toNode = _nodes[to];
-			if (toNode.Distance == int.MaxValue)
-				return null; // No path to this gateway exists
-			else
-				return (currentNode.ShortestPath + " " + currentNode.Position).TrimStart().Split(' ').Select(x => int.Parse(x)).ToArray();
+			return _nodes[to].Path;
 		}
 	}
 }
