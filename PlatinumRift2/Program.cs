@@ -84,7 +84,7 @@ class Player
 			{
 				if (squads.Count() == 0)
 				{
-					var squad = createSquad(zone.Id, zone.MyPods);
+					var squad = createSquad(gameState, zone.Id, zone.MyPods);
 					gameState.Squads.Add(squad);
 				}
 				else if (squads.Count() == 1)
@@ -126,7 +126,7 @@ class Player
 
 		foreach (var squadsToMerge in squadsOfSameTypeInSameZone)
 		{
-			Console.Error.WriteLine(string.Format("Merging {0} squads of type {2} at zone #{3} with a total of {4} pods.",
+			Console.Error.WriteLine(string.Format("Merging {0} squads of type {1} at zone #{2} with a total of {3} pods.",
 				squadsToMerge.Count(),
 				squadsToMerge.Key.type.ToString(),
 				squadsToMerge.Key.id,
@@ -208,13 +208,21 @@ class Player
 
 	#endregion Game State
 
-	private static IPodSquad createSquad(int zoneId, int pods)
+	private static IPodSquad createSquad(GameState gameState, int zoneId, int pods)
 	{
 		Console.Error.WriteLine(string.Format("Creating new squad with {0} pods at zone #{1}", pods, zoneId));
-		return new MazeRunner { ZoneId = zoneId, Pods = pods };
+		if (gameState.Zones[zoneId].Neighbours.Where(id => gameState.Zones[id].MazeVisitedCount == 0).Any())
+		{
+			return new MazeRunner { ZoneId = zoneId, Pods = pods };
+		}
+		else
+		{
+			return new Torpedo(pods, zoneId, gameState.TheirBase, gameState.Zones);
+		}
 	}
 }
 
+#region Main objects
 
 public class GameState
 {
@@ -266,7 +274,6 @@ public class Zone
 	}
 }
 
-
 public interface IPodSquad
 {
 	int ZoneId { get; }
@@ -282,6 +289,12 @@ public abstract class BaseSquad : IPodSquad
 	public int ZoneId { get; set; }
 	public int Pods { get; set; }
 
+	public BaseSquad(int pods, int zoneId)
+	{
+		this.Pods = pods;
+		this.ZoneId = zoneId;
+	}
+
 	public virtual void BeforeMove(GameState gameState)
 	{
 	}
@@ -293,13 +306,131 @@ public abstract class BaseSquad : IPodSquad
 	public virtual void AfterMove(GameState gameState)
 	{
 	}
+
+	protected virtual string MoveTo(int toZone)
+	{
+		Console.Error.WriteLine(string.Format("{0} pods at zone #{1} moves to zone #{2}.", this.Pods, this.ZoneId, toZone));
+		var command = string.Format("{0} {1} {2}", this.Pods, this.ZoneId, toZone);
+		this.ZoneId = toZone;
+		return command;
+	}
+}
+
+#endregion Main objects
+
+public class Torpedo : BaseSquad
+{
+	readonly Queue<int> _queue;
+
+	public Torpedo(int pods, int zoneId, int targetZoneId, Zone[] map)
+		: base(pods, zoneId)
+	{
+		Console.Error.WriteLine("Creating torpedo from " + zoneId + " to " + targetZoneId);
+		var bfs = new Dijkstra(map);
+		//Console.Error.WriteLine("Generating waypoints");
+		var path = bfs.Path(zoneId, targetZoneId).Skip(1);
+		Console.Error.WriteLine("Queueing waypoints: " + string.Join(", ", path));
+		_queue = new Queue<int>(path);
+	}
+
+	public override IEnumerable<string> Move(GameState gameState)
+	{
+		if (_queue.Any())
+		{
+			var nextZoneId = _queue.Dequeue();
+			yield return MoveTo(nextZoneId);
+		}
+		else
+		{
+			Console.Error.WriteLine("Torpedo reached its target and idles at #" + this.ZoneId);
+		}
+	}
+
+
+
+
+	class Dijkstra
+	{
+		public class Node
+		{
+			public Node(int position)
+			{
+				Position = position;
+				Distance = int.MaxValue;
+			}
+
+			public int Position { get; private set; }
+			public Node[] Neighbours { get; set; }
+			public string ShortestPath { get; set; }
+			public int Distance { get; set; }
+			public bool Visited { get; set; }
+		}
+
+		IDictionary<int, Node> _nodes;
+
+		public Dijkstra(Zone[] map)
+		{
+			_nodes = map.Select(zone => new Node(zone.Id)).ToDictionary(x => x.Position);
+			foreach (var node in _nodes.Values)
+			{
+				node.Neighbours = map[node.Position].Neighbours.Select(id => _nodes[id]).ToArray();
+			}
+		}
+
+		public int[] Path(int from, int to)
+		{
+			if (!_nodes.ContainsKey(to))
+				return null;//No paths to the destination at all
+
+			if (!_nodes.ContainsKey(from))
+				return null;//No paths from the source at all
+
+
+			//Initialize the traversal
+			var currentNode = _nodes[from];
+			currentNode.Distance = 0;
+			var unvisitedNodes = new List<Node>(_nodes.Values);
+
+			do
+			{
+				var tentativeDistance = currentNode.Distance + 1;
+				var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
+
+				foreach (var neighbour in unvisitedNeighbours)
+				{
+					if (neighbour.Distance > tentativeDistance)
+					{
+						neighbour.Distance = tentativeDistance;
+						neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Position;
+					}
+				}
+
+				currentNode.Visited = true;
+				unvisitedNodes.Remove(currentNode);
+
+				if (currentNode.Position == to)
+					break;
+
+				currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
+			}
+			while (currentNode != null && currentNode.Distance != int.MaxValue);
+
+			//Determine output
+			var toNode = _nodes[to];
+			if (toNode.Distance == int.MaxValue)
+				return null; // No path to this gateway exists
+			else
+				return (currentNode.ShortestPath + " " + currentNode.Position).TrimStart().Split(' ').Select(x => int.Parse(x)).ToArray();
+		}
+	}
 }
 
 public class RandomRunner : BaseSquad
 {
 	Random r;
 
-	public RandomRunner()
+	public RandomRunner(int pods, int zoneId) 
+		: base(pods, zoneId)
 	{
 		r = new Random();
 	}
@@ -309,8 +440,9 @@ public class RandomRunner : BaseSquad
 		var neighbours = gameState.Zones[this.ZoneId].Neighbours;
 		var index = r.Next(neighbours.Count);
 		var nextZoneId = neighbours[index];
-		Console.Error.WriteLine(string.Format("Randomly moving {0} pods from {1} to {2}", this.Pods, this.ZoneId, nextZoneId));
-		return new[] { string.Format("{0} {1} {2}", this.Pods, this.ZoneId, nextZoneId) };
+		//Console.Error.WriteLine(string.Format("Randomly moving {0} pods from {1} to {2}", this.Pods, this.ZoneId, nextZoneId));
+		//return new[] { string.Format("{0} {1} {2}", this.Pods, this.ZoneId, nextZoneId) };
+		return new[] { MoveTo(nextZoneId) };
 	}
 }
 
@@ -351,7 +483,7 @@ public class MazeRunner : IPodSquad
 	private string[] backtrack(GameState gameState, Zone currentZone)
 	{
 		Console.Error.WriteLine("Backtracking from zone #" + ZoneId + " by converting into a random runner");
-		var squad = new RandomRunner { ZoneId = this.ZoneId, Pods = this.Pods };
+		var squad = new RandomRunner(this.Pods, this.ZoneId);
 		gameState.Squads.Remove(this);
 		gameState.Squads.Add(squad);
 		return squad.Move(gameState).ToArray();
