@@ -213,7 +213,7 @@ class Player
 		Console.Error.WriteLine(string.Format("Creating new squad with {0} pods at zone #{1}", pods, zoneId));
 		if (gameState.Zones[zoneId].Neighbours.Where(id => gameState.Zones[id].MazeVisitedCount == 0).Any())
 		{
-			return new MazeRunner { ZoneId = zoneId, Pods = pods };
+			return new MazeRunner(pods, zoneId);
 		}
 		else
 		{
@@ -317,6 +317,8 @@ public abstract class BaseSquad : IPodSquad
 }
 
 #endregion Main objects
+
+#region Squads
 
 public class Torpedo : BaseSquad
 {
@@ -446,14 +448,16 @@ public class RandomRunner : BaseSquad
 	}
 }
 
-public class MazeRunner : IPodSquad
+public class MazeRunner : BaseSquad
 {
-	public int ZoneId { get; set; }
-	public int Pods { get; set; }
-
 	public int PreviousZoneId { get; set; }
 
-	public void BeforeMove(GameState gameState)
+	public MazeRunner(int pods, int zoneId)
+		: base(pods, zoneId)
+	{
+	}
+
+	public override void BeforeMove(GameState gameState)
 	{
 		var currentZone = gameState.Zones[ZoneId];
 
@@ -461,7 +465,7 @@ public class MazeRunner : IPodSquad
 			currentZone.MazeVisitedCount = 1;
 	}
 
-	public IEnumerable<string> Move(GameState gameState)
+	public override IEnumerable<string> Move(GameState gameState)
 	{
 		var currentZone = gameState.Zones[ZoneId];
 
@@ -520,15 +524,6 @@ public class MazeRunner : IPodSquad
 //		}
 	}
 
-	public string MoveTo(int toZone)
-	{
-		this.PreviousZoneId = this.ZoneId;
-		this.ZoneId = toZone;
-		Console.Error.WriteLine(string.Format("{0} pods at zone #{1} moves to zone #{2}.", this.Pods, this.PreviousZoneId, this.ZoneId));
-		return string.Format("{0} {1} {2}", this.Pods, this.PreviousZoneId, this.ZoneId);
-	}
-
-
 	private string[] moveToUnvisitedZones(GameState gameState, Zone currentZone, int[] unvisitedNeighbours)
 	{
 		var commands = new List<string>();
@@ -542,7 +537,7 @@ public class MazeRunner : IPodSquad
 				break;
 			}
 			var podsInGroup = (int)Math.Ceiling(Pods / (double)(zonesToVisit - i));
-			var squad = new MazeRunner { ZoneId = this.ZoneId, Pods = podsInGroup };
+			var squad = new MazeRunner(podsInGroup, this.ZoneId);
 			gameState.Squads.Add(squad);
 			this.Pods -= podsInGroup;
 
@@ -558,10 +553,6 @@ public class MazeRunner : IPodSquad
 
 		return commands.ToArray();
 	}
-
-	public void AfterMove(GameState gameState)
-	{
-	}
 }
 
-
+#endregion Squads
