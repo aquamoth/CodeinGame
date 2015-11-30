@@ -66,10 +66,45 @@ class Player
 		gameState.MyBase = gameState.Zones.Where(x => x.OwnerId == gameState.MyId).Single().Id;
 		gameState.TheirBase = gameState.Zones.Where(x => x.OwnerId == (1 - gameState.MyId)).Single().Id;
 
-		//foreach (var zone in gameState.Zones.Where(x=>x.Visible))
-		//{
-		//	Log(zone);
-		//}
+		allPathsBetweenBases(gameState);
+	}
+
+	private static void allPathsBetweenBases(GameState gameState)
+	{
+		Log("Locating paths between bases");
+		var pathsBetweenBases = new List<int[]>();
+		var map = new List<Zone>(gameState.Zones);
+		while (true)
+		{
+			var dfs = new Dijkstra(map.ToArray(), gameState.MyBase);
+			var path = dfs.Path(gameState.TheirBase);
+			if (path == null)
+			{
+				break;
+			}
+			pathsBetweenBases.Add(path);
+			//Log("Path: {0}", string.Join(", ", path));
+			var zoneIdAtMiddleOfPath = path[path.Length / 2];
+			isolateZoneOn(map, zoneIdAtMiddleOfPath);
+		}
+
+		var importantNodes = pathsBetweenBases.Select(path => path[path.Length / 2]).Distinct().ToArray();
+		Log("Try to hold nodes #{0}", string.Join(", ", importantNodes));
+	}
+
+	private static void isolateZoneOn(List<Zone> map, int idToIsolate)
+	{
+		var zoneToSevere = map[idToIsolate];
+		foreach (var id in zoneToSevere.Neighbours)
+		{
+			var zone = map[id];
+			var newZone = new Zone(zone.Id);
+			newZone.Neighbours.AddRange(zone.Neighbours.Except(new[] { id }));
+			map.RemoveAt(id);
+			map.Insert(id, newZone);
+		}
+		map.RemoveAt(zoneToSevere.Id);
+		map.Insert(zoneToSevere.Id, new Zone(zoneToSevere.Id));
 	}
 
 	private static void updateSquadPods(GameState gameState)
