@@ -19,7 +19,7 @@ class Player
 		while (true)
 		{
 			updateGameState(gameState);
-			
+
 			var commands = processSquads(gameState);
 
 			Console.WriteLine(string.Join(" ", commands.ToArray())); // first line for movement commands, second line no longer used (see the protocol in the statement for details)
@@ -214,10 +214,14 @@ class Player
 		{
 			return new MazeRunner(pods, zoneId);
 		}
+		else if (gameState.Squads.OfType<EdgeFinder>().Sum(s => s.Pods) + gameState.Squads.OfType<MazeRunner>().Sum(s => s.Pods) < 20)
+		{
+			return new EdgeFinder(pods, zoneId);
+		}
 		else
 		{
-			return new DeadDuck(pods, zoneId);
-			//return new Torpedo(pods, zoneId, gameState.TheirBase, gameState.Zones);
+			//return new DeadDuck(pods, zoneId);
+			return new Torpedo(pods, zoneId, gameState.TheirBase, gameState.Zones);
 		}
 	}
 
