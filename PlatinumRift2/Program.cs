@@ -218,7 +218,8 @@ class Player
 		}
 		else
 		{
-			return new Torpedo(pods, zoneId, gameState.TheirBase, gameState.Zones);
+			return new DeadDuck(pods, zoneId);
+			//return new Torpedo(pods, zoneId, gameState.TheirBase, gameState.Zones);
 		}
 	}
 }
@@ -310,16 +311,102 @@ public abstract class BaseSquad : IPodSquad
 
 	protected virtual string MoveTo(int toZone)
 	{
-		Console.Error.WriteLine(string.Format("{0} pods at zone #{1} moves to zone #{2}.", this.Pods, this.ZoneId, toZone));
+		//Log("{0} pods at zone #{1} moves to zone #{2}.", this.Pods, this.ZoneId, toZone);
 		var command = string.Format("{0} {1} {2}", this.Pods, this.ZoneId, toZone);
 		this.ZoneId = toZone;
 		return command;
+	}
+
+	protected void Log(string format, params object[] args)
+	{
+		Console.Error.WriteLine(string.Format(format, args));
 	}
 }
 
 #endregion Main objects
 
+#region Helpers
+
+public class Dijkstra
+{
+	class Node
+	{
+		public int Id { get; set; }
+		public int[] Neighbours { get; set; }
+		public bool Visited { get; set; }
+		public int[] Path { get; set; }
+	}
+
+	Node[] _nodes;
+	public int From { get; private set; }
+	Queue<Node> unvisitedNodes = new Queue<Node>();
+
+	public Dijkstra(Zone[] zones, int from)
+	{
+		_nodes = zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
+		Reset(from);
+	}
+
+	public void Reset(int from)
+	{
+		foreach (var node in _nodes)
+		{
+			node.Path = null;
+			//node.Distance = int.MaxValue;
+			node.Visited = false;
+		}
+		unvisitedNodes.Clear();
+
+		this.From = from;
+		_nodes[from].Path = new int[] { from };
+		unvisitedNodes.Enqueue(_nodes[from]);
+	}
+
+	public int[] Path(int to)
+	{
+		if (to >= _nodes.Length)
+			return null;//No paths to the destination at all
+
+		if (_nodes[to].Path != null)
+			return _nodes[to].Path;
+
+		while (unvisitedNodes.Any())
+		{
+			var currentNode = unvisitedNodes.Dequeue();
+			currentNode.Visited = true;
+			var tentativeDistance = currentNode.Path.Length + 1;
+
+			foreach (var neighbour in currentNode.Neighbours.Select(id => _nodes[id]).Where(node => !node.Visited))
+			{
+				if (neighbour.Path == null || neighbour.Path.Length > tentativeDistance)
+					neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
+				unvisitedNodes.Enqueue(neighbour);
+			}
+			if (currentNode.Id == to)
+				break;
+		}
+
+		return _nodes[to].Path;
+	}
+}
+
+#endregion Helpers
+
 #region Squads
+
+public class DeadDuck : BaseSquad
+{
+	public DeadDuck(int pods, int zoneId) 
+		: base(pods, zoneId)
+	{
+	}
+
+	public override IEnumerable<string> Move(GameState gameState)
+	{
+		Log("DeadDuck at #{0} is not moving.", ZoneId);
+		return new string[0];
+	}
+}
 
 public class Torpedo : BaseSquad
 {
@@ -328,11 +415,10 @@ public class Torpedo : BaseSquad
 	public Torpedo(int pods, int zoneId, int targetZoneId, Zone[] map)
 		: base(pods, zoneId)
 	{
-		Console.Error.WriteLine("Creating torpedo from " + zoneId + " to " + targetZoneId);
+		Log("Creating torpedo at #{0} heading to #", zoneId, targetZoneId);
 		var bfs = new Dijkstra(map, zoneId);
-		//Console.Error.WriteLine("Generating waypoints");
 		var path = bfs.Path(targetZoneId).Skip(1);
-		Console.Error.WriteLine("Queueing waypoints: " + string.Join(", ", path));
+		//Log("Queueing waypoints: {0}", string.Join(", ", path));
 		_queue = new Queue<int>(path);
 	}
 
@@ -348,93 +434,28 @@ public class Torpedo : BaseSquad
 			Console.Error.WriteLine("Torpedo reached its target and idles at #" + this.ZoneId);
 		}
 	}
-
-
-
-	class Dijkstra
-	{
-		class Node
-		{
-			public int Id { get; set; }
-			public int[] Neighbours { get; set; }
-			public bool Visited { get; set; }
-			public int[] Path { get; set; }
-		}
-
-		Node[] _nodes;
-		public int From { get; private set; }
-		Queue<Node> unvisitedNodes = new Queue<Node>();
-
-		public Dijkstra(Zone[] zones, int from)
-		{
-			_nodes = zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
-			Reset(from);
-		}
-
-		public void Reset(int from)
-		{
-			foreach (var node in _nodes)
-			{
-				node.Path = null;
-				//node.Distance = int.MaxValue;
-				node.Visited = false;
-			}
-			unvisitedNodes.Clear();
-
-			this.From = from;
-			_nodes[from].Path = new int[] { from };
-			unvisitedNodes.Enqueue(_nodes[from]);
-		}
-
-		public int[] Path(int to)
-		{
-			if (to >= _nodes.Length)
-				return null;//No paths to the destination at all
-
-			if (_nodes[to].Path != null)
-				return _nodes[to].Path;
-
-			while (unvisitedNodes.Any())
-			{
-				var currentNode = unvisitedNodes.Dequeue();
-				currentNode.Visited = true;
-				var tentativeDistance = currentNode.Path.Length + 1;
-
-				foreach (var neighbour in currentNode.Neighbours.Select(id => _nodes[id]).Where(node => !node.Visited))
-				{
-					if (neighbour.Path == null || neighbour.Path.Length > tentativeDistance)
-						neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
-					unvisitedNodes.Enqueue(neighbour);
-				}
-				if (currentNode.Id == to)
-					break;
-			}
-
-			return _nodes[to].Path;
-		}
-	}
 }
 
-public class RandomRunner : BaseSquad
-{
-	Random r;
+//public class RandomRunner : BaseSquad
+//{
+//	Random r;
 
-	public RandomRunner(int pods, int zoneId) 
-		: base(pods, zoneId)
-	{
-		r = new Random();
-	}
+//	public RandomRunner(int pods, int zoneId) 
+//		: base(pods, zoneId)
+//	{
+//		r = new Random();
+//	}
 
-	public override IEnumerable<string> Move(GameState gameState)
-	{
-		var neighbours = gameState.Zones[this.ZoneId].Neighbours;
-		var index = r.Next(neighbours.Count);
-		var nextZoneId = neighbours[index];
-		//Console.Error.WriteLine(string.Format("Randomly moving {0} pods from {1} to {2}", this.Pods, this.ZoneId, nextZoneId));
-		//return new[] { string.Format("{0} {1} {2}", this.Pods, this.ZoneId, nextZoneId) };
-		return new[] { MoveTo(nextZoneId) };
-	}
-}
+//	public override IEnumerable<string> Move(GameState gameState)
+//	{
+//		var neighbours = gameState.Zones[this.ZoneId].Neighbours;
+//		var index = r.Next(neighbours.Count);
+//		var nextZoneId = neighbours[index];
+//		//Console.Error.WriteLine(string.Format("Randomly moving {0} pods from {1} to {2}", this.Pods, this.ZoneId, nextZoneId));
+//		//return new[] { string.Format("{0} {1} {2}", this.Pods, this.ZoneId, nextZoneId) };
+//		return new[] { MoveTo(nextZoneId) };
+//	}
+//}
 
 public class MazeRunner : BaseSquad
 {
@@ -468,48 +489,20 @@ public class MazeRunner : BaseSquad
 		}
 		else
 		{
-			return backtrack(gameState, currentZone);
+			return transformSquad(gameState, currentZone);
 		}
 	}
 
-	private string[] backtrack(GameState gameState, Zone currentZone)
+	private string[] transformSquad(GameState gameState, Zone currentZone)
 	{
-		Console.Error.WriteLine("Backtracking from zone #" + ZoneId + " by converting into a random runner");
-		var squad = new RandomRunner(this.Pods, this.ZoneId);
+		Log("Squad at #{0} is transformed to a new EdgeFinder", this.ZoneId);
+		var squad = new EdgeFinder(this.Pods, this.ZoneId);
 		gameState.Squads.Remove(this);
 		gameState.Squads.Add(squad);
-		return squad.Move(gameState).ToArray();
-
-//		Console.Error.WriteLine("Backtracking from zone #" + ZoneId);
-//		if (currentZone.MazeVisitedCount == 1)
-//		{
-//			Console.Error.WriteLine("Marking zone #" + ZoneId + " as a dead end");
-//			currentZone.MazeVisitedCount = 2;
-//		}
-
-//		var neighbours = gameState.Zones.Where(zone=> currentZone.Neighbours.Contains(zone.Id));
-//		var neighboursVisitedOnce = neighbours.Where(z => z.MazeVisitedCount == 1);
-//		if (neighboursVisitedOnce.Count() == 0)
-//		{
-//			Console.Error.WriteLine("All exists are marked as double visited. Idling!");
-//#warning Convert this Squad to another type
-//			return new string[0];
-//		}
-//		else if (neighboursVisitedOnce.Count() == 1)
-//		{
-//			var backtrackZone = neighboursVisitedOnce.Single().Id;
-//			//It's obvious where we came from, so go back there.
-//			Console.Error.WriteLine("Backtracking to zone #" + backtrackZone);
-//			return new[] { this.MoveTo(backtrackZone) };
-//		}
-//		else
-//		{
-//			Console.Error.WriteLine(string.Format("Zone #{0} has multiple exits visited just once: {1}",
-//				this.ZoneId,
-//				string.Join(", ", neighboursVisitedOnce.Select(x => x.Id).ToArray())
-//				));
-//			return new[] { this.MoveTo(this.PreviousZoneId) };
-//		}
+		squad.BeforeMove(gameState);
+		var result = squad.Move(gameState).ToArray();
+		return result;
+		//TODO: When to call AfterMove()?
 	}
 
 	private string[] moveToUnvisitedZones(GameState gameState, Zone currentZone, int[] unvisitedNeighbours)
@@ -540,6 +533,110 @@ public class MazeRunner : BaseSquad
 			gameState.Zones[this.ZoneId].MazeVisitedCount = 1;
 
 		return commands.ToArray();
+	}
+}
+
+public class EdgeFinder : BaseSquad
+{
+	Zone TargetZone;
+	Queue<int> _path;
+
+	public EdgeFinder(int pods, int zoneId)
+		: base(pods, zoneId)
+	{
+	}
+
+	public override void BeforeMove(GameState gameState)
+	{
+		base.BeforeMove(gameState);
+
+		if (TargetZone != null && !isValidTarget(gameState, TargetZone))
+			TargetZone = null;
+
+		if (TargetZone == null)
+		{
+			Log("EdgeFinder at #{0} needs to determine where to go.", ZoneId);
+			var possibleTargets = gameState.Zones
+				.Where(zone => isValidTarget(gameState, zone))
+				.ToArray();
+
+			var dfs = new Dijkstra(gameState.Zones, this.ZoneId);
+			var target = possibleTargets
+				.Select(zone => new { Zone = zone, Path = dfs.Path(zone.Id) })
+				.Where(x => x.Path != null)
+				.OrderBy(x => x.Path.Length)
+				.FirstOrDefault();
+
+			if (target == null)
+			{
+#warning What if we can't find a valid target?
+				Log("EdgeFinder at zone #{0} could not find a valid target. Idling.", this.ZoneId);
+			}
+			else
+			{
+				TargetZone = target.Zone;
+				_path = new Queue<int>(target.Path.Skip(1));
+				Log("EdgeFinder at zone #{0} is heading for zone #{1} through path {2}", this.ZoneId, this.TargetZone.Id, string.Join(", ", _path.ToArray()));
+			}
+		}
+	}
+
+	public override IEnumerable<string> Move(GameState gameState)
+	{
+		if (_path != null && _path.Any())
+		{
+			var nextId = _path.Dequeue();
+			//TODO: Split into multiple in case optimal
+			return new[] { MoveTo(nextId) };
+		}
+		else
+		{
+#warning Convert EdgeFinder to something else here
+			Log("EdgeFinder at #{0} has nowhere to go.", ZoneId);
+			return new string[0];
+			//return base.Move(gameState);
+		}
+	}
+
+	public override void AfterMove(GameState gameState)
+	{
+		base.AfterMove(gameState);
+		if (_path != null && !_path.Any())
+		{
+			Log("EdgeFinder at #{0} has no more moves.", ZoneId);
+			if (isValidTarget(gameState, gameState.Zones[ZoneId]))
+			{
+				Log("EdgeFinder at #{0} has reached its target. Converting it to a MazeRunner.", ZoneId);
+				var squad = new MazeRunner(this.Pods, this.ZoneId);
+				gameState.Squads.Remove(this);
+				gameState.Squads.Add(squad);
+			}
+			else
+			{
+				Log("... but EdgeFinder at #{0} is not at a valid target.", ZoneId);
+				//TargetZone = null;
+				//_path = null;
+			}
+		}
+	}
+
+
+	private bool isValidTarget(GameState gameState, Zone zone)
+	{
+		if (zone.MazeVisitedCount != 1)
+			return false;
+		if (gameState.Squads.OfType<MazeRunner>().Any(squad => squad.ZoneId == zone.Id))
+			return false;
+		var unvisitedNeighbours = zone.Neighbours.Where(id => gameState.Zones[id].MazeVisitedCount == 0);
+
+		var otherEdgeFindersHeadingForZone = gameState.Squads
+			.OfType<EdgeFinder>()
+			.Except(new[] { this })
+			.Where(squad => squad.TargetZone == zone);
+		if (unvisitedNeighbours.Count() <= otherEdgeFindersHeadingForZone.Count())
+			return false;
+
+		return true;
 	}
 }
 
