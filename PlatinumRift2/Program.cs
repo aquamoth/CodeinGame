@@ -560,16 +560,20 @@ public class EdgeFinder : BaseSquad
 		if (TargetZone == null)
 		{
 			//Log("EdgeFinder at #{0} needs to determine where to go.", ZoneId);
+			var dfs = new Dijkstra(gameState.Zones, this.ZoneId);
+
+			//Try to move to the closest unexplored area
 			var possibleTargets = gameState.Zones
 				.Where(zone => isValidTarget(gameState, zone))
 				.ToArray();
+			var target = closestTargetOf(dfs, possibleTargets);
 
-			var dfs = new Dijkstra(gameState.Zones, this.ZoneId);
-			var target = possibleTargets
-				.Select(zone => new { Zone = zone, Path = dfs.Path(zone.Id) })
-				.Where(x => x.Path != null)
-				.OrderBy(x => x.Path.Length)
-				.FirstOrDefault();
+			//... and secondary to the closest active MazeRunner
+			if (target == null)
+			{
+				possibleTargets = gameState.Squads.OfType<MazeRunner>().Select(x => gameState.Zones[x.ZoneId]).ToArray();
+				target = closestTargetOf(dfs, possibleTargets);
+			}
 
 			if (target == null)
 			{
@@ -578,11 +582,22 @@ public class EdgeFinder : BaseSquad
 			}
 			else
 			{
-				TargetZone = target.Zone;
-				_path = new Queue<int>(target.Path.Skip(1));
+				TargetZone = target.Item1;
+				_path = new Queue<int>(target.Item2.Skip(1));
 				Log("EdgeFinder at zone #{0} is heading for zone #{1} through path {2}", this.ZoneId, this.TargetZone.Id, string.Join(", ", _path.ToArray()));
 			}
 		}
+	}
+
+	private static Tuple<Zone, int[]> closestTargetOf(Dijkstra dfs, Zone[] possibleTargets)
+	{
+
+		var target = possibleTargets
+			.Select(zone => new Tuple<Zone, int[]>(zone, dfs.Path(zone.Id)))
+			.Where(x => x.Item2 != null)
+			.OrderBy(x => x.Item2.Length)
+			.FirstOrDefault();
+		return target;
 	}
 
 	public override IEnumerable<string> Move(GameState gameState)
