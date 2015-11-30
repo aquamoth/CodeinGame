@@ -62,13 +62,13 @@ class Player
 
 	private static void firstTurnInitialization(GameState gameState)
 	{
-		Console.Error.WriteLine("Detecting base zones");
+		Log("Detecting base zones");
 		gameState.MyBase = gameState.Zones.Where(x => x.OwnerId == gameState.MyId).Single().Id;
 		gameState.TheirBase = gameState.Zones.Where(x => x.OwnerId == (1 - gameState.MyId)).Single().Id;
 
 		//foreach (var zone in gameState.Zones.Where(x=>x.Visible))
 		//{
-		//	Console.Error.WriteLine(zone);
+		//	Log(zone);
 		//}
 	}
 
@@ -77,7 +77,7 @@ class Player
 		var zonesWithMyPods = gameState.Zones.Where(x => x.MyPods > 0);
 		foreach (var zone in zonesWithMyPods)
 		{
-			//Console.Error.WriteLine("Refreshing squads at zone #" + zone.Id);
+			//Log("Refreshing squads at zone #", zone.Id);
 
 			var squads = gameState.Squads.Where(s => s.ZoneId == zone.Id);
 			if (squads.Sum(x => x.Pods) != zone.MyPods)
@@ -92,14 +92,14 @@ class Player
 					var squad = squads.Single();
 					if (squad.Pods != zone.MyPods)
 					{
-						Console.Error.WriteLine(string.Format("Updating squad at zone #{0} from {1} to {2} pods.", zone.Id, squad.Pods, zone.MyPods));
+						Log("Updating squad at zone #{0} from {1} to {2} pods.", zone.Id, squad.Pods, zone.MyPods);
 						squad.Pods = zone.MyPods;
 					}
 				}
 				else
 				{
 #warning No support for multiple squads at same location at this time
-					Console.Error.WriteLine("Ignoring multiple squads at same location and hoping for best.");
+					Log("Ignoring multiple squads at same location and hoping for best.");
 				}
 			}
 		}
@@ -111,8 +111,8 @@ class Player
 		{
 			if (gameState.Zones[squad.ZoneId].MyPods == 0)
 			{
-				Console.Error.WriteLine(string.Format("Squad at zone #{0} with {1} pods was killed and is removed.", squad.ZoneId, squad.Pods));
-				Console.Error.WriteLine(gameState.Zones[squad.ZoneId]);
+				Log("Squad at zone #{0} with {1} pods was killed and is removed.", squad.ZoneId, squad.Pods);
+				//Console.Error.WriteLine(gameState.Zones[squad.ZoneId]);
 				gameState.Squads.Remove(squad);
 			}
 		}
@@ -127,12 +127,12 @@ class Player
 
 		foreach (var squadsToMerge in squadsOfSameTypeInSameZone)
 		{
-			Console.Error.WriteLine(string.Format("Merging {0} squads of type {1} at zone #{2} with a total of {3} pods.",
+			Log("Merging {0} squads of type {1} at zone #{2} with a total of {3} pods.",
 				squadsToMerge.Count(),
 				squadsToMerge.Key.type.ToString(),
 				squadsToMerge.Key.id,
 				squadsToMerge.Sum(x => x.Pods)
-				));
+				);
 			var squadToKeep = squadsToMerge.First();
 			foreach (var squad in squadsToMerge.Skip(1))
 			{
@@ -154,7 +154,7 @@ class Player
 
 		gameState.PlayerCount = int.Parse(inputs[0]); // the amount of players (always 2)
 		gameState.MyId = int.Parse(inputs[1]); // my player ID (0 or 1)
-		//Console.Error.WriteLine("MyId: {0}, Platinum: {1}", gameState.MyId, gameState.MyPlatinum);
+		//Log("MyId: {0}, Platinum: {1}", gameState.MyId, gameState.MyPlatinum);
 
 		int zoneCount = int.Parse(inputs[2]); // the amount of zones on the map
 		int linkCount = int.Parse(inputs[3]); // the amount of links between all zones
@@ -183,15 +183,13 @@ class Player
 	{
 		gameState.MyPlatinum = int.Parse(Console.ReadLine()); // your available Platinum
 
-		//Console.Error.WriteLine(string.Format("Updating {0} zone states.", gameState.Zones.Length));
+		//Log("Updating {0} zone states.", gameState.Zones.Length);
 		for (int i = 0; i < gameState.Zones.Length; i++)
 		{
 			var str = Console.ReadLine();
-			//Console.Error.WriteLine(str);
+			//Log(str);
 			var inputs = str.Split(' ');
 			int zId = int.Parse(inputs[0]); // this zone's ID
-			//if (zId != i)
-			//	Console.Error.WriteLine("zID!=i: " + zId + ", " + i);
 			gameState.Zones[zId].OwnerId = int.Parse(inputs[1]); // the player who owns this zone (-1 otherwise)
 	
 			var podsp0 = int.Parse(inputs[2]); // player 0's PODs on this zone
@@ -211,7 +209,7 @@ class Player
 
 	private static IPodSquad createSquad(GameState gameState, int zoneId, int pods)
 	{
-		Console.Error.WriteLine(string.Format("Creating new squad with {0} pods at zone #{1}", pods, zoneId));
+		Log("Creating new squad with {0} pods at zone #{1}", pods, zoneId);
 		if (gameState.Zones[zoneId].Neighbours.Where(id => gameState.Zones[id].MazeVisitedCount == 0).Any())
 		{
 			return new MazeRunner(pods, zoneId);
@@ -221,6 +219,11 @@ class Player
 			return new DeadDuck(pods, zoneId);
 			//return new Torpedo(pods, zoneId, gameState.TheirBase, gameState.Zones);
 		}
+	}
+
+	public static void Log(string format, params object[] args)
+	{
+		Console.Error.WriteLine(string.Format(format, args));
 	}
 }
 
@@ -302,7 +305,7 @@ public abstract class BaseSquad : IPodSquad
 	}
 	public virtual IEnumerable<string> Move(GameState gameState)
 	{
-		Console.Error.WriteLine("Moving has not been implemented for squad of type " + this.GetType().ToString());
+		Log("Moving has not been implemented for squad of type {0}", this.GetType());
 		return new string[0];
 	}
 	public virtual void AfterMove(GameState gameState)
@@ -317,10 +320,7 @@ public abstract class BaseSquad : IPodSquad
 		return command;
 	}
 
-	protected void Log(string format, params object[] args)
-	{
-		Console.Error.WriteLine(string.Format(format, args));
-	}
+	protected void Log(string format, params object[] args) { Player.Log(format, args); }
 }
 
 #endregion Main objects
@@ -431,7 +431,7 @@ public class Torpedo : BaseSquad
 		}
 		else
 		{
-			Console.Error.WriteLine("Torpedo reached its target and idles at #" + this.ZoneId);
+			Log("Torpedo reached its target and idles at #", this.ZoneId);
 		}
 	}
 }
@@ -451,7 +451,7 @@ public class Torpedo : BaseSquad
 //		var neighbours = gameState.Zones[this.ZoneId].Neighbours;
 //		var index = r.Next(neighbours.Count);
 //		var nextZoneId = neighbours[index];
-//		//Console.Error.WriteLine(string.Format("Randomly moving {0} pods from {1} to {2}", this.Pods, this.ZoneId, nextZoneId));
+//		//Log("Randomly moving {0} pods from {1} to {2}", this.Pods, this.ZoneId, nextZoneId);
 //		//return new[] { string.Format("{0} {1} {2}", this.Pods, this.ZoneId, nextZoneId) };
 //		return new[] { MoveTo(nextZoneId) };
 //	}
@@ -481,7 +481,7 @@ public class MazeRunner : BaseSquad
 		var unvisitedNeighbours = currentZone.Neighbours
 			.Where(id => gameState.Zones[id].MazeVisitedCount == 0)
 			.ToArray();
-		//Console.Error.WriteLine(string.Format("Squad of {0} pods at #{1} has {2} unvisited neighbours.", Pods, ZoneId, unvisitedNeighbours.Length));
+		//Log("Squad of {0} pods at #{1} has {2} unvisited neighbours.", Pods, ZoneId, unvisitedNeighbours.Length);
 
 		if (unvisitedNeighbours.Any())
 		{
@@ -514,7 +514,7 @@ public class MazeRunner : BaseSquad
 		{
 			if (Pods == 1)
 			{
-				//Console.Error.WriteLine("Only one pod left in the squad. Sending it to last zone.");
+				//Log("Only one pod left in the squad. Sending it to last zone.");
 				break;
 			}
 			var podsInGroup = (int)Math.Ceiling(Pods / (double)(zonesToVisit - i));
@@ -555,7 +555,7 @@ public class EdgeFinder : BaseSquad
 
 		if (TargetZone == null)
 		{
-			Log("EdgeFinder at #{0} needs to determine where to go.", ZoneId);
+			//Log("EdgeFinder at #{0} needs to determine where to go.", ZoneId);
 			var possibleTargets = gameState.Zones
 				.Where(zone => isValidTarget(gameState, zone))
 				.ToArray();
