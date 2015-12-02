@@ -66,45 +66,6 @@ class Player
 		gameState.MyBase = gameState.Zones.Where(x => x.OwnerId == gameState.MyId).Single().Id;
 		gameState.TheirBase = gameState.Zones.Where(x => x.OwnerId == (1 - gameState.MyId)).Single().Id;
 
-		allPathsBetweenBases(gameState);
-	}
-
-	private static void allPathsBetweenBases(GameState gameState)
-	{
-		Log("Locating paths between bases");
-		var pathsBetweenBases = new List<int[]>();
-		var map = new List<Zone>(gameState.Zones);
-		while (true)
-		{
-			var dfs = new Dijkstra(map.ToArray(), gameState.MyBase);
-			var path = dfs.Path(gameState.TheirBase);
-			if (path == null)
-			{
-				break;
-			}
-			pathsBetweenBases.Add(path);
-			//Log("Path: {0}", string.Join(", ", path));
-			var zoneIdAtMiddleOfPath = path[path.Length / 2];
-			isolateZoneOn(map, zoneIdAtMiddleOfPath);
-		}
-
-		var importantNodes = pathsBetweenBases.Select(path => path[path.Length / 2]).Distinct().ToArray();
-		Log("Try to hold nodes #{0}", string.Join(", ", importantNodes));
-	}
-
-	private static void isolateZoneOn(List<Zone> map, int idToIsolate)
-	{
-		var zoneToSevere = map[idToIsolate];
-		foreach (var id in zoneToSevere.Neighbours)
-		{
-			var zone = map[id];
-			var newZone = new Zone(zone.Id);
-			newZone.Neighbours.AddRange(zone.Neighbours.Except(new[] { id }));
-			map.RemoveAt(id);
-			map.Insert(id, newZone);
-		}
-		map.RemoveAt(zoneToSevere.Id);
-		map.Insert(zoneToSevere.Id, new Zone(zoneToSevere.Id));
 	}
 
 	private static void updateSquadPods(GameState gameState)
@@ -249,12 +210,13 @@ class Player
 		{
 			return new MazeRunner(pods, zoneId);
 		}
-		else if (gameState.Squads.OfType<EdgeFinder>().Sum(s => s.Pods) + gameState.Squads.OfType<MazeRunner>().Sum(s => s.Pods) < 20)
-		{
-			return new EdgeFinder(pods, zoneId);
-		}
+		//else if (gameState.Squads.OfType<EdgeFinder>().Sum(s => s.Pods) + gameState.Squads.OfType<MazeRunner>().Sum(s => s.Pods) < 20)
+		//{
+		//	return new EdgeFinder(pods, zoneId);
+		//}
 		else
 		{
+			//return new WallKeeper(pods, zoneId);
 			//return new DeadDuck(pods, zoneId);
 			return new Torpedo(pods, zoneId, gameState.TheirBase, gameState.Zones);
 		}
@@ -282,6 +244,8 @@ public class GameState
 
 	public List<IPodSquad> Squads { get; private set; }
 
+	public IDictionary<string, object> Heap { get; private set; }
+
 	public GameState()
 	{
 		PlayerCount = 0;
@@ -289,6 +253,7 @@ public class GameState
 		MyBase = -1;
 		TheirBase = -1;
 		Squads = new List<IPodSquad>();
+		Heap = new Dictionary<string, object>();
 	}
 }
 
@@ -691,6 +656,97 @@ public class EdgeFinder : BaseSquad
 			return false;
 
 		return true;
+	}
+}
+
+public class WallKeeper : BaseSquad
+{
+	const string KEY_WALL = "WallKeeper-Wall";
+
+	public int? TargetId { get; set; }
+	public Queue<int> Path { get; protected set; }
+
+	public WallKeeper(int pods, int zoneId)
+		: base(pods, zoneId)
+	{
+	}
+
+	public override void BeforeMove(GameState gameState)
+	{
+		if (!gameState.Heap.ContainsKey(KEY_WALL))
+		{
+			var paths = allPathsBetweenBases(gameState);
+			gameState.Heap.Add(KEY_WALL, paths);
+		}
+
+		if (!TargetId.HasValue)
+		{
+			Log("WallKeeper selects where to go");
+			var wallZones = (IDictionary<int, int[]>)gameState.Heap[KEY_WALL];
+			var wallkeepers = gameState.Squads.OfType<WallKeeper>();
+			if (wallkeepers.Any())
+			{
+				var wallKeepersPerZone = wallkeepers
+					.Where(s => s.TargetId.HasValue)
+					.GroupBy(s => s.TargetId)
+					.Select(grp => new { Id = grp.Key, Count = grp.Sum(x => x.Pods) })
+					.ToArray();
+				var podsPerTarget = wallKeepersPerZone.ToDictionary(x => x.Id, x => x.Count);
+				var targetZones = wallZones.Keys.Select(id => gameState.Zones[id]);
+				var targetZonesWithPods = targetZones.Select(zone => new
+				{
+					Id = zone.Id,
+					Pods = podsPerTarget.ContainsKey(zone.Id) ? podsPerTarget[zone.Id] : 0
+				}).ToArray();
+
+				TargetId = targetZonesWithPods.OrderBy(x => x.Pods).First().Id;
+			}
+			else
+			{
+				TargetId = wallZones.First().Key;
+			}
+			Path = new Queue<int>(new Dijkstra(gameState.Zones, ZoneId).Path(TargetId.Value));
+			Log("WallKeeper is going to {0}", TargetId);
+		}
+		//base.BeforeMove(gameState);
+	}
+
+	public override IEnumerable<string> Move(GameState gameState)
+	{
+		if (Path.Any())
+		{
+			var nextId = Path.Dequeue();
+			yield return MoveTo(nextId);
+		}
+		else
+		{
+			yield return "";
+		}
+	}
+
+
+	private static IDictionary<int, int[]> allPathsBetweenBases(GameState gameState)
+	{
+		Player.Log("Locating paths to center of playground");
+		var pathFromMe = pathsFrom(gameState, gameState.MyBase);
+		var pathFromThem = pathsFrom(gameState, gameState.TheirBase).ToArray();
+
+		var centerZones = pathFromMe
+			.Select((path, index) => new { Id = index, Path = path })
+			.Where(x => Math.Abs(pathFromThem[x.Id].Length - x.Path.Length) <= 1)
+			.ToDictionary(x => x.Id, x => x.Path);
+
+		Player.Log("Try to hold nodes #{0}", string.Join(", ", centerZones.Keys));
+		return centerZones;
+	}
+
+	private static IEnumerable<int[]> pathsFrom(GameState gameState, int from)
+	{
+		var dfs = new Dijkstra(gameState.Zones, from);
+		for (var i = 0; i < gameState.Zones.Length; i++)
+		{
+			yield return dfs.Path(i);
+		}
 	}
 }
 
