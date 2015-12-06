@@ -12,16 +12,18 @@ class Player
 {
 	static void Main(string[] args)
 	{
+		//assertions();
+
 		var nodes = new List<Node>();
 
 		int width = int.Parse(Console.ReadLine()); // the number of cells on the X axis
-		//Console.Error.WriteLine(width);
+		Console.Error.WriteLine(width);
 		int height = int.Parse(Console.ReadLine()); // the number of cells on the Y axis
-		//Console.Error.WriteLine(height);
+		Console.Error.WriteLine(height);
 		for (int y = 0; y < height; y++)
 		{
 			var l = Console.ReadLine(); // width characters, each either a number or a '.'
-			//Console.Error.WriteLine(l);
+			Console.Error.WriteLine(l);
 			for (int x = 0; x < l.Length; x++)
 			{
 				if (l[x] != '.')
@@ -31,8 +33,13 @@ class Player
 				}
 			}
 		}
-		Console.Error.WriteLine("Solving");
+		Console.Error.WriteLine("Map:");
+		foreach (var  node in nodes)
+		{
+			Console.Error.WriteLine(node);
+		}
 
+		Console.Error.WriteLine("Solving");
 		if (!solve(nodes))
 		{
 			throw new ApplicationException("No possible solutions");
@@ -47,12 +54,42 @@ class Player
 		//Console.WriteLine("0 0 2 0 1"); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
 	}
 
+	private static void assertions()
+	{
+		var testnodes = new List<Node> { 
+			new Node { X = 0, Y = 0 }, 
+			new Node { X = 1, Y = 0 }, 
+			new Node { X = 2, Y = 0 }, 
+
+			new Node { X = 0, Y = 1 }, 
+			new Node { X = 1, Y = 1 }, 
+			new Node { X = 2, Y = 1 }, 
+
+			new Node { X = 0, Y = 2 }, 
+			new Node { X = 1, Y = 2 }, 
+			new Node { X = 2, Y = 2 }, 
+		};
+		attach(testnodes[3], testnodes[5]);
+		var isTrue = crossesExistingLinks(testnodes[1], testnodes[7], testnodes);
+		if (!isTrue)
+			throw new ApplicationException();
+	}
+
 	private static void print(Node node, Node link, int count = 1)
 	{
 		Console.WriteLine("{0} {1} {2} {3} {4}", node.X, node.Y, link.X, link.Y, count);
 	}
 
 	private static bool solve(List<Node> nodes)
+	{
+		solveSingleSolutions(nodes);
+
+		Console.Error.WriteLine("Trying to solve complex solutions by brute force");
+		nodes.Sort((x, y) => y.MissingLinks.CompareTo(x.MissingLinks));
+		return solve(nodes, 0);
+	}
+
+	private static void solveSingleSolutions(List<Node> nodes)
 	{
 		Console.Error.WriteLine("Solving all single solution parts");
 		bool runAgain;
@@ -75,10 +112,6 @@ class Player
 				}
 			}
 		} while (runAgain);
-
-		Console.Error.WriteLine("Trying to solve complex solutions by brute force");
-		nodes.Sort((x, y) => y.MissingLinks.CompareTo(x.MissingLinks));
-		return solve(nodes, 0);
 	}
 
 	private static IEnumerable<Tuple<Node, int>> singleSolution(Node node, IEnumerable<Node> nodes)
@@ -113,7 +146,7 @@ class Player
 		else
 		{
 			var targets = targetsFor(node, nodes).ToArray();
-			//Console.Error.WriteLine("Targets: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
+			Console.Error.WriteLine("Targets: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
 			foreach (var target in targets)
 			{
 				attach(node, target.Item1);
@@ -142,16 +175,52 @@ class Player
 	}
 
 
-	private static IEnumerable<Tuple<Node, int>> targetsFor(Node node, IEnumerable<Node> enumerable)
+	private static IEnumerable<Tuple<Node, int>> targetsFor(Node node, IEnumerable<Node> allNodes)
 	{
-		return adjacentNodes(node, enumerable)
+		return adjacentNodes(node, allNodes)
 			.Select(target =>
 			{
 				var existingLinks = target.Links.Where(l => l == node).Count();
 				var linksLeft = Math.Min(2 - existingLinks, target.MissingLinks);
+				if (linksLeft > 0 && crossesExistingLinks(node, target, allNodes))
+					linksLeft = 0;
 				return new Tuple<Node, int>(target, linksLeft);
 			})
 			.Where(tuple => tuple.Item2 > 0);
+	}
+
+	private static bool crossesExistingLinks(Node node, Node target, IEnumerable<Node> allNodes)
+	{
+		if (target.X == node.X)
+		{
+			var y1 = Math.Min(target.Y, node.Y);
+			var y2 = Math.Max(target.Y, node.Y);
+			var isTrue = allNodes.Where(n => n.Y > y1 && n.Y < y2)
+				.SelectMany(n => n.Links.Select(l => new { Node = n, Link = l }))
+				.Select(x => new { x1 = Math.Min(x.Node.X, x.Link.X), x2 = Math.Max(x.Node.X, x.Link.X) })
+				.Where(x => x.x1 < node.X && x.x2 > node.X)
+				.Any();
+			if (isTrue)
+			{
+				Console.Error.WriteLine("Not testing link {0}-{1} because it crosses a horizontal link", node, target);
+			}
+			return isTrue;
+		}
+		else
+		{
+			var x1 = Math.Min(target.X, node.X);
+			var x2 = Math.Max(target.X, node.X);
+			var isTrue = allNodes.Where(n => n.X > x1 && n.X < x2)
+				.SelectMany(n => n.Links.Select(l => new { Node = n, Link = l }))
+				.Select(x => new { y1 = Math.Min(x.Node.Y, x.Link.Y), y2 = Math.Max(x.Node.Y, x.Link.Y) })
+				.Where(x => x.y1 < node.Y && x.y2 > node.Y)
+				.Any();
+			if (isTrue)
+			{
+				Console.Error.WriteLine("Not testing link {0}-{1} because it crosses a vertical link", node, target);
+			}
+			return isTrue;
+		}
 	}
 
 	private static IEnumerable<Node> adjacentNodes(Node node, IEnumerable<Node> enumerable)
