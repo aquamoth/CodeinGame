@@ -82,11 +82,30 @@ class Player
 
 	private static bool solve(List<Node> nodes)
 	{
+		solveEssentialLinks(nodes);
 		solveSingleSolutions(nodes);
 
 		Console.Error.WriteLine("Trying to solve complex solutions by brute force");
 		nodes.Sort((x, y) => y.MissingLinks.CompareTo(x.MissingLinks));
 		return solve(nodes, 0);
+	}
+
+	private static void solveEssentialLinks(List<Node> nodes)
+	{
+		Console.Error.WriteLine("Solving all essential links");
+		foreach (var node in nodes)
+		{
+			var targets = targetsFor(node, nodes);
+			var availableLinks = targets.Sum(x => x.Item2);
+			if (node.MissingLinks == availableLinks)
+			{
+				attachAndPrint(node, targets, false);
+			}
+			else if (node.MissingLinks == availableLinks - 1)
+			{
+				attachAndPrint(node, targets.Where(x => x.Item2 == 2), true);
+			}
+		}
 	}
 
 	private static void solveSingleSolutions(List<Node> nodes)
@@ -101,17 +120,22 @@ class Player
 				var targets = singleSolution(node, nodes);
 				if (targets != null)
 				{
-					foreach (var target in targets)
-					{
-						print(node, target.Item1, target.Item2);
-						attach(node, target.Item1);
-						if (target.Item2 == 2)
-							attach(node, target.Item1);
-					}
+					attachAndPrint(node, targets, false);
 					runAgain = true;
 				}
 			}
 		} while (runAgain);
+	}
+
+	private static void attachAndPrint(Node node, IEnumerable<Tuple<Node, int>> targets, bool onlyOneLinkPerTarget)
+	{
+		foreach (var target in targets)
+		{
+			attach(node, target.Item1);
+			if (target.Item2 > 1 && !onlyOneLinkPerTarget)
+				attach(node, target.Item1);
+			print(node, target.Item1, onlyOneLinkPerTarget ? 1 : target.Item2);
+		}
 	}
 
 	private static IEnumerable<Tuple<Node, int>> singleSolution(Node node, IEnumerable<Node> nodes)
