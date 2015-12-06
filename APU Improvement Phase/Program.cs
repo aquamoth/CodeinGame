@@ -33,19 +33,7 @@ class Player
 		}
 		Console.Error.WriteLine("Solving");
 
-		if (solve(nodes))
-		{
-			foreach (var node in nodes)
-			{
-				foreach(var link in node.Links.ToArray())
-				{
-					Console.WriteLine("{0} {1} {2} {3} {4}", node.X, node.Y, link.X, link.Y, 1);
-					link.Links.Remove(node);
-					node.Links.Remove(link);
-				}
-			}
-		}
-		else
+		if (!solve(nodes))
 		{
 			throw new ApplicationException("No possible solutions");
 		}
@@ -57,6 +45,11 @@ class Player
 		// To debug: Console.Error.WriteLine("Debug messages...");
 
 		//Console.WriteLine("0 0 2 0 1"); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
+	}
+
+	private static void print(Node node, Node link, int count = 1)
+	{
+		Console.WriteLine("{0} {1} {2} {3} {4}", node.X, node.Y, link.X, link.Y, count);
 	}
 
 	private static bool solve(List<Node> nodes)
@@ -73,6 +66,7 @@ class Player
 				{
 					foreach (var target in targets)
 					{
+						print(node, target.Item1, target.Item2);
 						attach(node, target.Item1);
 						if (target.Item2 == 2)
 							attach(node, target.Item1);
@@ -130,7 +124,10 @@ class Player
 
 						var nextIndex = currentIndex + (node.MissingLinks == 0 ? 1 : 0);
 						if (solve(nodes, currentIndex))
+						{
+							Player.print(node, target);
 							return true;
+						}
 
 						Console.Error.WriteLine("Cleaning up link between " + node + " and " + target);
 						target.Links.Remove(node);
