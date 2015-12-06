@@ -33,11 +33,11 @@ class Player
 				}
 			}
 		}
-		Console.Error.WriteLine("Map:");
-		foreach (var  node in nodes)
-		{
-			Console.Error.WriteLine(node);
-		}
+		//Console.Error.WriteLine("Map:");
+		//foreach (var  node in nodes)
+		//{
+		//	Console.Error.WriteLine(node);
+		//}
 
 		Console.Error.WriteLine("Solving");
 		if (!solve(nodes))
@@ -87,7 +87,7 @@ class Player
 
 		Console.Error.WriteLine("Trying to solve complex solutions by brute force");
 		nodes.Sort((x, y) => y.MissingLinks.CompareTo(x.MissingLinks));
-		return solve(nodes, 0);
+		return solveBruteforce(nodes, 0);
 	}
 
 	private static void solveEssentialLinks(List<Node> nodes)
@@ -156,7 +156,7 @@ class Player
 			return null;
 	}
 
-	private static bool solve(List<Node> nodes, int currentIndex)
+	private static bool solveBruteforce(List<Node> nodes, int currentIndex)
 	{
 		if (currentIndex >= nodes.Count)
 			return true;
@@ -165,7 +165,7 @@ class Player
 		Console.Error.WriteLine("Solving for #" + currentIndex + ": " + node);
 		if (node.MissingLinks == 0)
 		{
-			return solve(nodes, currentIndex + 1);
+			return solveBruteforce(nodes, currentIndex + 1);
 		}
 		else
 		{
@@ -175,11 +175,18 @@ class Player
 			{
 				attach(node, target.Item1);
 
-				var nextIndex = currentIndex + (node.MissingLinks == 0 ? 1 : 0);
-				if (solve(nodes, currentIndex))
+				if (!detectClosedLoop(node, nodes))
 				{
-					Player.print(node, target.Item1);
-					return true;
+					var nextIndex = currentIndex + (node.MissingLinks == 0 ? 1 : 0);
+					if (solveBruteforce(nodes, currentIndex))
+					{
+						Player.print(node, target.Item1);
+						return true;
+					}
+				}
+				else
+				{
+					Console.Error.WriteLine("Detecting a closed loop with current solution!");
 				}
 
 				Console.Error.WriteLine("Cleaning up link between " + node + " and " + target);
@@ -189,6 +196,34 @@ class Player
 
 			return false;
 		}
+	}
+
+	private static bool detectClosedLoop(Node node, List<Node> nodes)
+	{
+		var testedNodes = new HashSet<Node>();
+		var pendingNodes = new Queue<Node>();
+
+		testedNodes.Add(node);
+		pendingNodes.Enqueue(node);
+
+		while (pendingNodes.Any())
+		{
+			var walker = pendingNodes.Dequeue();
+			if (walker.MissingLinks > 0)
+				return false; //There is at least one free link left, so no closed loop yet
+
+			var nodesToTest = walker.Links.Where(l => !testedNodes.Contains(l));
+			foreach (var link in nodesToTest)
+			{
+				testedNodes.Add(link);
+				pendingNodes.Enqueue(link);
+			}
+
+			if (nodes.Count == testedNodes.Count)
+				return false; //All nodes are connected, so there are no closed loops
+		}
+
+		return true; //Detected a closed loop!
 	}
 
 	private static void attach(Node node, Node target)
