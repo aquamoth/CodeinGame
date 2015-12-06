@@ -169,8 +169,10 @@ class Player
 		}
 		else
 		{
-			var targets = targetsFor(node, nodes).ToArray();
-			Console.Error.WriteLine("Targets: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
+			var targets = targetsFor(node, nodes)
+				.OrderBy(x => Math.Abs(x.Item1.X - node.X) + Math.Abs(x.Item1.Y - node.Y))
+				.ToArray();
+			//Console.Error.WriteLine("Targets: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
 			foreach (var target in targets)
 			{
 				attach(node, target.Item1);
@@ -186,7 +188,7 @@ class Player
 				}
 				else
 				{
-					Console.Error.WriteLine("Detecting a closed loop with current solution!");
+					Console.Error.WriteLine("Detected a closed loop.");
 				}
 
 				Console.Error.WriteLine("Cleaning up link between " + node + " and " + target);
