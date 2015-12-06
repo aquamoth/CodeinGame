@@ -67,6 +67,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokerChipRace", "PokerChipR
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlatinumRift2", "PlatinumRift2\PlatinumRift2.csproj", "{8529EAC5-5491-4BE5-9C50-46EC44B6972A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "APU Improvement Phase", "APU Improvement Phase\APU Improvement Phase.csproj", "{3884FA8C-71C0-483F-937B-6A195F21B6A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -189,6 +191,10 @@ Global
 		{8529EAC5-5491-4BE5-9C50-46EC44B6972A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8529EAC5-5491-4BE5-9C50-46EC44B6972A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8529EAC5-5491-4BE5-9C50-46EC44B6972A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3884FA8C-71C0-483F-937B-6A195F21B6A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3884FA8C-71C0-483F-937B-6A195F21B6A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3884FA8C-71C0-483F-937B-6A195F21B6A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3884FA8C-71C0-483F-937B-6A195F21B6A5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -224,5 +230,6 @@ Global
 		{05F841CC-F236-4263-AA6B-C8B55529C33F} = {111E171B-AB1E-47F1-9306-1E0F042FA6BD}
 		{24099122-B920-48A3-AD2B-B79203D41372} = {111E171B-AB1E-47F1-9306-1E0F042FA6BD}
 		{8529EAC5-5491-4BE5-9C50-46EC44B6972A} = {111E171B-AB1E-47F1-9306-1E0F042FA6BD}
+		{3884FA8C-71C0-483F-937B-6A195F21B6A5} = {56D113F5-4A6E-4840-943C-DA213E748D39}
 	EndGlobalSection
 EndGlobal
