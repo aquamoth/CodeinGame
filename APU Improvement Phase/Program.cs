@@ -112,28 +112,22 @@ class Player
 		}
 		else
 		{
-			var targets = adjacentNodes(node, nodes).ToArray();
-			Console.Error.WriteLine("Adjacents: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
+			var targets = targetsFor(node, nodes).ToArray();
+			//Console.Error.WriteLine("Targets: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
 			foreach (var target in targets)
 			{
-				if (target.MissingLinks > 0)
+				attach(node, target.Item1);
+
+				var nextIndex = currentIndex + (node.MissingLinks == 0 ? 1 : 0);
+				if (solve(nodes, currentIndex))
 				{
-					if (target.Links.Where(l => l == node).Count() < 2)
-					{
-						attach(node, target);
-
-						var nextIndex = currentIndex + (node.MissingLinks == 0 ? 1 : 0);
-						if (solve(nodes, currentIndex))
-						{
-							Player.print(node, target);
-							return true;
-						}
-
-						Console.Error.WriteLine("Cleaning up link between " + node + " and " + target);
-						target.Links.Remove(node);
-						node.Links.Remove(target);
-					}
+					Player.print(node, target.Item1);
+					return true;
 				}
+
+				Console.Error.WriteLine("Cleaning up link between " + node + " and " + target);
+				target.Item1.Links.Remove(node);
+				node.Links.Remove(target.Item1);
 			}
 
 			return false;
@@ -151,7 +145,12 @@ class Player
 	private static IEnumerable<Tuple<Node, int>> targetsFor(Node node, IEnumerable<Node> enumerable)
 	{
 		return adjacentNodes(node, enumerable)
-			.Select(target => new Tuple<Node, int>(target, Math.Max(2, target.MissingLinks)))
+			.Select(target =>
+			{
+				var existingLinks = target.Links.Where(l => l == node).Count();
+				var linksLeft = Math.Min(2 - existingLinks, target.MissingLinks);
+				return new Tuple<Node, int>(target, linksLeft);
+			})
 			.Where(tuple => tuple.Item2 > 0);
 	}
 
