@@ -74,7 +74,7 @@ class Player
 		}
 		else
 		{
-			var targets = adjacentNodes(node, nodes.Skip(currentIndex)).ToArray();
+			var targets = adjacentNodes(node, nodes).ToArray();
 			Console.Error.WriteLine("Adjacents: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
 			foreach (var target in targets)
 			{
@@ -103,8 +103,8 @@ class Player
 
 	private static IEnumerable<Node> adjacentNodes(Node node, IEnumerable<Node> enumerable)
 	{
-		var onX = enumerable.Where(e => e.X == node.X).OrderBy(e=>e.Y);
-		var onY = enumerable.Where(e => e.Y == node.Y).OrderBy(e=>e.X);
+		var onX = enumerable.Where(e => e.X == node.X).OrderBy(e => e.Y);
+		var onY = enumerable.Where(e => e.Y == node.Y).OrderBy(e => e.X);
 		var above = onX.Where(e => e.Y < node.Y).LastOrDefault();
 		var below = onX.Where(e => e.Y > node.Y).FirstOrDefault();
 		var toLeft = onY.Where(e => e.X < node.X).LastOrDefault();
