@@ -33,9 +33,7 @@ class Player
 		}
 		Console.Error.WriteLine("Solving");
 
-		nodes.Sort((x, y) => y.RequiredConnections.CompareTo(x.RequiredConnections));
-
-		if (solve(nodes, 0))
+		if (solve(nodes))
 		{
 			foreach (var node in nodes)
 			{
@@ -61,6 +59,52 @@ class Player
 		//Console.WriteLine("0 0 2 0 1"); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
 	}
 
+	private static bool solve(List<Node> nodes)
+	{
+		Console.Error.WriteLine("Solving all single solution parts");
+		bool runAgain;
+		do
+		{
+			runAgain = false;
+			foreach (var node in nodes)
+			{
+				var targets = singleSolution(node, nodes);
+				if (targets != null)
+				{
+					foreach (var target in targets)
+					{
+						attach(node, target.Item1);
+						if (target.Item2 == 2)
+							attach(node, target.Item1);
+					}
+					runAgain = true;
+				}
+			}
+		} while (runAgain);
+
+		Console.Error.WriteLine("Trying to solve complex solutions by brute force");
+		nodes.Sort((x, y) => y.MissingLinks.CompareTo(x.MissingLinks));
+		return solve(nodes, 0);
+	}
+
+	private static IEnumerable<Tuple<Node, int>> singleSolution(Node node, IEnumerable<Node> nodes)
+	{
+		if (node.MissingLinks == 0)
+			return null;
+
+		var availableLinks = targetsFor(node, nodes).ToArray();
+		if (availableLinks.Count() == 1)
+		{
+			var target = availableLinks[0].Item1;
+			var count = Math.Min(node.MissingLinks, availableLinks[0].Item2);
+			return new[] { new Tuple<Node, int>(target, count) };
+		}
+		else if (availableLinks.Sum(x => x.Item2) == node.MissingLinks)
+			return availableLinks;
+		else
+			return null;
+	}
+
 	private static bool solve(List<Node> nodes, int currentIndex)
 	{
 		if (currentIndex >= nodes.Count)
@@ -68,7 +112,7 @@ class Player
 
 		var node = nodes[currentIndex];
 		Console.Error.WriteLine("Solving for #" + currentIndex + ": " + node);
-		if (node.RequiredConnections == node.Links.Count)
+		if (node.MissingLinks == 0)
 		{
 			return solve(nodes, currentIndex + 1);
 		}
@@ -78,15 +122,13 @@ class Player
 			Console.Error.WriteLine("Adjacents: " + string.Join(", ", targets.Select(x => x.ToString()).ToArray()));
 			foreach (var target in targets)
 			{
-				if (target.RequiredConnections > target.Links.Count)
+				if (target.MissingLinks > 0)
 				{
 					if (target.Links.Where(l => l == node).Count() < 2)
 					{
-						Console.Error.WriteLine("Adding link between " + node + " and " + target);
-						target.Links.Add(node);
-						node.Links.Add(target);
+						attach(node, target);
 
-						var nextIndex = currentIndex + (node.RequiredConnections == node.Links.Count ? 1 : 0);
+						var nextIndex = currentIndex + (node.MissingLinks == 0 ? 1 : 0);
 						if (solve(nodes, currentIndex))
 							return true;
 
@@ -99,6 +141,21 @@ class Player
 
 			return false;
 		}
+	}
+
+	private static void attach(Node node, Node target)
+	{
+		Console.Error.WriteLine("Adding link between " + node + " and " + target);
+		target.Links.Add(node);
+		node.Links.Add(target);
+	}
+
+
+	private static IEnumerable<Tuple<Node, int>> targetsFor(Node node, IEnumerable<Node> enumerable)
+	{
+		return adjacentNodes(node, enumerable)
+			.Select(target => new Tuple<Node, int>(target, Math.Max(2, target.MissingLinks)))
+			.Where(tuple => tuple.Item2 > 0);
 	}
 
 	private static IEnumerable<Node> adjacentNodes(Node node, IEnumerable<Node> enumerable)
@@ -119,6 +176,7 @@ public class Node
 	public int Y { get; set; }
 	public int RequiredConnections { get; set; }
 	public List<Node> Links { get; private set; }
+	public int MissingLinks { get { return RequiredConnections - Links.Count; } }
 
 	public Node()
 	{
