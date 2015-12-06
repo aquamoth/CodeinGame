@@ -80,17 +80,20 @@ class Player
 			{
 				if (target.RequiredConnections > target.Links.Count)
 				{
-					Console.Error.WriteLine("Adding link between " + node + " and " + target);
-					target.Links.Add(node);
-					node.Links.Add(target);
+					if (target.Links.Where(l => l == node).Count() < 2)
+					{
+						Console.Error.WriteLine("Adding link between " + node + " and " + target);
+						target.Links.Add(node);
+						node.Links.Add(target);
 
-					var nextIndex = currentIndex + (node.RequiredConnections == node.Links.Count ? 1 : 0);
-					if (solve(nodes, currentIndex))
-						return true;
+						var nextIndex = currentIndex + (node.RequiredConnections == node.Links.Count ? 1 : 0);
+						if (solve(nodes, currentIndex))
+							return true;
 
-					Console.Error.WriteLine("Cleaning up link between " + node + " and " + target);
-					target.Links.Remove(node);
-					node.Links.Remove(target);
+						Console.Error.WriteLine("Cleaning up link between " + node + " and " + target);
+						target.Links.Remove(node);
+						node.Links.Remove(target);
+					}
 				}
 			}
 
