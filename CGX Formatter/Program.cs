@@ -21,21 +21,7 @@ class Solution
 			raw.AppendLine(cGXLine);
 		}
 
-		Element temp = null;
-		Element dom = null;
-		do
-		{
-			temp = Element.From(raw, dom);
-			if (temp != null)
-				dom = temp;
-		} while (temp != null);
-
-
-
-
-		// Write an action using Console.WriteLine()
-		// To debug: Console.Error.WriteLine("Debug messages...");
-
+		var dom = Element.From(raw);
 		Console.WriteLine(dom.Print());
 	}
 }
@@ -43,7 +29,7 @@ class Solution
 
 abstract class Element
 {
-	public static Element From(StringBuilder raw, Element lastDom)
+	public static Element From(StringBuilder raw)
 	{
 		LTrim(raw);
 
@@ -59,9 +45,6 @@ abstract class Element
 				break;
 
 			default:
-				if (lastDom != null)
-					throw new ArgumentException("Primitive types does not have a left hand expression");
-
 				element = PRIMITIVE_TYPE.From(raw);
 				break;
 		}
@@ -70,9 +53,6 @@ abstract class Element
 
 		if (raw.Length > 0 && raw[0] == KEY_VALUE.DELIMITER)
 			element = new KEY_VALUE(raw, element);
-
-
-
 
 		return element;
 	}
@@ -116,7 +96,7 @@ class KEY_VALUE : Element
 			throw new ArgumentException("KEY_VALUE expected delimiter token");
 		raw.Remove(0, 1);
 
-		Value = Element.From(raw, null);
+		Value = Element.From(raw);
 	}
 
 	public override string Print(int indentation = 0)
@@ -162,7 +142,7 @@ class BLOCK : Element
 
 			if (raw[0] != BLOCK_SEPARATOR)
 			{
-				var element = Element.From(raw, null);
+				var element = Element.From(raw);
 				_elements.Add(element);
 				LTrim(raw);
 			}
