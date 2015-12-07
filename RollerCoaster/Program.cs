@@ -14,48 +14,41 @@ class Solution
 {
 	static void Main(string[] args)
 	{
-		var sw = new Stopwatch();
-
-		var queue = new Queue<CustomerGroup>();
-
 		string[] inputs = Console.ReadLine().Split(' ');
 		int numberOfSeatsOnRide = int.Parse(inputs[0]);
 		int numberOfRidesPerDay = int.Parse(inputs[1]);
 		int N = int.Parse(inputs[2]);
+		var customerGroup = new int[N];
 		for (int i = 0; i < N; i++)
 		{
-			int pi = int.Parse(Console.ReadLine());
-			queue.Enqueue(new CustomerGroup { Size = pi });
+			customerGroup[i] = int.Parse(Console.ReadLine());
 		}
 
+		var queuePointer = 0;
 		var totalEarnings = 0L;
 
+		var sw = new Stopwatch();
 		sw.Start();
 		Console.Error.WriteLine("{0}: Starting simulation", sw.ElapsedMilliseconds);
 		for (int i = 0; i < numberOfRidesPerDay; i++)
 		{
-			var seatedGroups = new List<CustomerGroup>();
-			var seatedPersons = 0;
+			var startPointer = queuePointer;
+			var emptySeats = numberOfSeatsOnRide;
 
-			while (queue.Any() && seatedPersons + queue.Peek().Size <= numberOfSeatsOnRide)
+			do
 			{
-				var group = queue.Dequeue();
-				seatedGroups.Add(group);
-				seatedPersons += group.Size;
+				emptySeats -= customerGroup[queuePointer];
+				queuePointer++;
+				if (queuePointer == customerGroup.Length)
+					queuePointer = 0;
 			}
+			while (startPointer != queuePointer && emptySeats >= customerGroup[queuePointer]);
 
-			totalEarnings += 1 * seatedPersons;
-			foreach (var group in seatedGroups)
-				queue.Enqueue(group);
-
-			if (i % 100000 == 0)
-				Console.Error.WriteLine("{0}: Processed {1} rides = {2} rides/s", sw.ElapsedMilliseconds, i, (double)i / sw.ElapsedMilliseconds * 1000);
+			totalEarnings += (numberOfSeatsOnRide - emptySeats);
 		}
 
-
-		// Write an action using Console.WriteLine()
-		// To debug: Console.Error.WriteLine("Debug messages...");
-
+		sw.Stop();
+		Console.Error.WriteLine("{0}: Processed {1} rides = {2} rides/s", sw.ElapsedMilliseconds, numberOfRidesPerDay, (double)numberOfRidesPerDay / sw.ElapsedMilliseconds * 1000);
 		Console.WriteLine(totalEarnings);
 	}
 }
