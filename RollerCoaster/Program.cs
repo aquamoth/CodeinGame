@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -13,6 +14,8 @@ class Solution
 {
 	static void Main(string[] args)
 	{
+		var sw = new Stopwatch();
+
 		var queue = new Queue<CustomerGroup>();
 
 		string[] inputs = Console.ReadLine().Split(' ');
@@ -27,12 +30,14 @@ class Solution
 
 		var totalEarnings = 0L;
 
+		sw.Start();
+		Console.Error.WriteLine("{0}: Starting simulation", sw.ElapsedMilliseconds);
 		for (int i = 0; i < numberOfRidesPerDay; i++)
 		{
 			var seatedGroups = new List<CustomerGroup>();
 			var seatedPersons = 0;
 
-			while(queue.Any() && seatedPersons+queue.Peek().Size <= numberOfSeatsOnRide)
+			while (queue.Any() && seatedPersons + queue.Peek().Size <= numberOfSeatsOnRide)
 			{
 				var group = queue.Dequeue();
 				seatedGroups.Add(group);
@@ -42,6 +47,9 @@ class Solution
 			totalEarnings += 1 * seatedPersons;
 			foreach (var group in seatedGroups)
 				queue.Enqueue(group);
+
+			if (i % 100000 == 0)
+				Console.Error.WriteLine("{0}: Processed {1} rides = {2} rides/s", sw.ElapsedMilliseconds, i, (double)i / sw.ElapsedMilliseconds * 1000);
 		}
 
 
