@@ -560,19 +560,19 @@ public class EdgeFinder : BaseSquad
 		if (TargetZone == null)
 		{
 			//Log("EdgeFinder at #{0} needs to determine where to go.", ZoneId);
-			var dfs = new Dijkstra(gameState.Zones, this.ZoneId);
+			var bfs = new Dijkstra(gameState.Zones, this.ZoneId);
 
 			//Try to move to the closest unexplored area
 			var possibleTargets = gameState.Zones
 				.Where(zone => isValidTarget(gameState, zone))
 				.ToArray();
-			var target = closestTargetOf(dfs, possibleTargets);
+			var target = closestTargetOf(bfs, possibleTargets);
 
 			//... and secondary to the closest active MazeRunner
 			if (target == null)
 			{
 				possibleTargets = gameState.Squads.OfType<MazeRunner>().Select(x => gameState.Zones[x.ZoneId]).ToArray();
-				target = closestTargetOf(dfs, possibleTargets);
+				target = closestTargetOf(bfs, possibleTargets);
 			}
 
 			if (target == null)
@@ -589,11 +589,10 @@ public class EdgeFinder : BaseSquad
 		}
 	}
 
-	private static Tuple<Zone, int[]> closestTargetOf(Dijkstra dfs, Zone[] possibleTargets)
+	private static Tuple<Zone, int[]> closestTargetOf(Dijkstra bfs, Zone[] possibleTargets)
 	{
-
 		var target = possibleTargets
-			.Select(zone => new Tuple<Zone, int[]>(zone, dfs.Path(zone.Id)))
+			.Select(zone => new Tuple<Zone, int[]>(zone, bfs.Path(zone.Id)))
 			.Where(x => x.Item2 != null)
 			.OrderBy(x => x.Item2.Length)
 			.FirstOrDefault();
@@ -742,10 +741,10 @@ public class WallKeeper : BaseSquad
 
 	private static IEnumerable<int[]> pathsFrom(GameState gameState, int from)
 	{
-		var dfs = new Dijkstra(gameState.Zones, from);
+		var bfs = new Dijkstra(gameState.Zones, from);
 		for (var i = 0; i < gameState.Zones.Length; i++)
 		{
-			yield return dfs.Path(i);
+			yield return bfs.Path(i);
 		}
 	}
 }
