@@ -66,6 +66,14 @@ abstract class Element
 				break;
 		}
 
+		LTrim(raw);
+
+		if (raw.Length > 0 && raw[0] == KEY_VALUE.DELIMITER)
+			element = new KEY_VALUE(raw, element);
+
+
+
+
 		return element;
 	}
 
@@ -89,6 +97,45 @@ abstract class Element
 	{
 		return string.Join("", Enumerable.Repeat(' ', indentation).ToArray());
 	}
+}
+
+class KEY_VALUE : Element
+{
+	public const char DELIMITER = '=';
+
+	public Element Key { get; private set; }
+	public Element Value { get; private set; }
+
+	public KEY_VALUE(StringBuilder raw, Element key)
+	{
+		if (key == null)
+			throw new ArgumentException("KEY_VALUE expects an ELEMENT to the left of the equal sign.");
+		Key = key;
+
+		if (raw[0] != DELIMITER)
+			throw new ArgumentException("KEY_VALUE expected delimiter token");
+		raw.Remove(0, 1);
+
+		Value = Element.From(raw, null);
+	}
+
+	public override string Print(int indentation = 0)
+	{
+		var sb = new StringBuilder();
+		sb.Append(Key.Print(indentation));
+		sb.Append(DELIMITER.ToString());
+		if (Value is PRIMITIVE_TYPE)
+		{
+			sb.Append(Value.Print(0));
+		}
+		else
+		{
+			sb.AppendLine();
+			sb.Append(Value.Print(indentation));
+		}
+		return sb.ToString();
+	}
+
 }
 
 class BLOCK : Element
