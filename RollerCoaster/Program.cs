@@ -17,9 +17,9 @@ class Solution
 		string[] inputs = Console.ReadLine().Split(' ');
 		int numberOfSeatsOnRide = int.Parse(inputs[0]);
 		int numberOfRidesPerDay = int.Parse(inputs[1]);
-		int N = int.Parse(inputs[2]);
-		var customerGroup = new int[N];
-		for (int i = 0; i < N; i++)
+		int numberOfCustomerGroups = int.Parse(inputs[2]);
+		var customerGroup = new int[numberOfCustomerGroups];
+		for (int i = 0; i < numberOfCustomerGroups; i++)
 		{
 			customerGroup[i] = int.Parse(Console.ReadLine());
 		}
@@ -27,28 +27,37 @@ class Solution
 		var queuePointer = 0;
 		var totalEarnings = 0L;
 
-		var sw = new Stopwatch();
-		sw.Start();
-		Console.Error.WriteLine("{0}: Starting simulation", sw.ElapsedMilliseconds);
-		for (int i = 0; i < numberOfRidesPerDay; i++)
+		//var sw = new Stopwatch();
+		//sw.Start();
+		//Console.Error.WriteLine("{0}: Starting simulation", sw.ElapsedMilliseconds);
+
+
+		if (numberOfSeatsOnRide >= customerGroup.Sum())
 		{
-			var startPointer = queuePointer;
-			var emptySeats = numberOfSeatsOnRide;
-
-			do
-			{
-				emptySeats -= customerGroup[queuePointer];
-				queuePointer++;
-				if (queuePointer == customerGroup.Length)
-					queuePointer = 0;
-			}
-			while (startPointer != queuePointer && emptySeats >= customerGroup[queuePointer]);
-
-			totalEarnings += (numberOfSeatsOnRide - emptySeats);
+			totalEarnings = customerGroup.Sum() * numberOfRidesPerDay;
 		}
+		else
+		{
+			for (int i = 0; i < numberOfRidesPerDay; i++)
+			{
+				var emptySeats = numberOfSeatsOnRide;
+				do
+				{
+					emptySeats -= customerGroup[queuePointer];
+					queuePointer++;
+					if (queuePointer == numberOfCustomerGroups)
+						queuePointer = 0;
+				}
+				while (emptySeats >= customerGroup[queuePointer]);
+				totalEarnings = totalEarnings + numberOfSeatsOnRide - emptySeats;
 
-		sw.Stop();
-		Console.Error.WriteLine("{0}: Processed {1} rides = {2} rides/s", sw.ElapsedMilliseconds, numberOfRidesPerDay, (double)numberOfRidesPerDay / sw.ElapsedMilliseconds * 1000);
+				//if (i % 100000 == 0)
+				//	Console.Error.WriteLine("{0}: Processed {1} rides", sw.ElapsedMilliseconds, i);
+			}
+		}
+		//sw.Stop();
+		//Console.Error.WriteLine("{0}: Processed {1} rides = {2} rides/s", sw.ElapsedMilliseconds, numberOfRidesPerDay, (double)numberOfRidesPerDay / sw.ElapsedMilliseconds * 1000);
+
 		Console.WriteLine(totalEarnings);
 	}
 }
