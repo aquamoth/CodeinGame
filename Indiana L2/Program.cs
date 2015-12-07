@@ -48,14 +48,23 @@ class Player
 			}
 
 			//TODO: Add rocks to DFS
-			Console.Error.WriteLine("Indy is at " + indy + " from the " + indy.Position);
+			Console.Error.WriteLine("Indy is at " + indy + " from the " + indy.Position + " which is tile #" + dfs.RoomTypeAt(indy));
 			var path = dfs.To(indy, exit);
+	
 			Console.WriteLine(path);
+
 			if (path != "WAIT")
 			{
 				var s = path.Split(' ');
 				var pos = new Point(int.Parse(s[0]), int.Parse(s[1]), directionOf(s[2]));
-				dfs.Rotate(pos, (int)pos.Position);
+
+				var oldType = dfs.RoomTypeAt(pos);
+				dfs.Rotate(pos, 4 - (int)pos.Position);
+				Console.Error.WriteLine("Storing change of tile at " + pos + " from a #" + oldType + " to a #" + dfs.RoomTypeAt(pos));
+			}
+			else
+			{
+				Console.Error.WriteLine("Indy waited");
 			}
 		}
 	}
@@ -95,14 +104,14 @@ public class DFS
 
 	private string[] TestPaths(Point from, Point to, int distance)
 	{
-		Console.Error.WriteLine("Entered into " + from);
+		Console.Error.WriteLine("TestPaths for " + from + " from " + from.Position);
 
 		if (from.X == to.X && from.Y == to.Y)
 			return new string[0];
 
 		var thisRoomType = RoomTypeAt(from);
 		var exitDirection = nextStepOf(thisRoomType, from.Position);
-		Console.Error.WriteLine("...exit from " + from + " is to " + exitDirection);
+		Console.Error.WriteLine("\tExiting to " + exitDirection);
 		var nextRoom = from + exitDirection;
 		if (!IsInsideMap(nextRoom))
 			return null;
@@ -112,11 +121,11 @@ public class DFS
 		//No rotation
 		if (IsValidEntry(nextRoom))
 		{
-			Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
+			//Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
 			path = TestPaths(nextRoom, to, distance + 1);
 			if (path != null)
 			{
-				Console.Error.WriteLine("...Unchanged path is a success: " + string.Join(", ", path.ToArray()));
+				//Console.Error.WriteLine("...Unchanged path is a success: " + string.Join(", ", path.ToArray()));
 				return path;
 			}
 		}
@@ -151,24 +160,24 @@ public class DFS
 	{
 		Rotate(nextRoom, rotation);
 
-		Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
+		//Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
 		var path = IsValidEntry(nextRoom)
 			? TestPaths(nextRoom, to, distance)
 			: null;
 	
 		Rotate(nextRoom, 4 - rotation);
 
-		if (path != null)
-		{
-			Console.Error.WriteLine("...Path is a success: " + string.Join(", ", path.ToArray()));
-		}
+		//if (path != null)
+		//{
+		//	Console.Error.WriteLine("...Path is a success: " + string.Join(", ", path.ToArray()));
+		//}
 
 		return path;
 	}
 
 	private bool IsInsideMap(Point position)
 	{
-		//CHeck if outside map
+		//Check if outside map
 		if (position.Y < 0 || position.Y >= _map.Count)
 			return false;
 		if (position.X < 0 || position.X >= _map[0].Length)
@@ -216,8 +225,8 @@ public class DFS
 					throw new NotSupportedException();
 			}
 		}
-		if (numberOfTurnsToLeft > 0)
-			Console.Error.WriteLine("Rotating tile at " + from + " from a #" + oldType + " to a #" + type);
+		//if (numberOfTurnsToLeft > 0)
+		//	Console.Error.WriteLine("Rotating tile at " + from + " from a #" + oldType + " to a #" + type);
 		_map[from.Y][from.X] = type;
 	}
 
@@ -242,14 +251,14 @@ public class DFS
 	//	}
 	//}
 
-	private int RoomTypeAt(Point walker)
+	public int RoomTypeAt(Point position)
 	{
-		return Math.Abs(RawRoomType(walker));
+		return Math.Abs(RawRoomType(position));
 	}
 
-	private bool IsRoomLockedAt(Point walker)
+	private bool IsRoomLockedAt(Point position)
 	{
-		return RawRoomType(walker) < 0;
+		return RawRoomType(position) < 0;
 	}
 
 	private int RawRoomType(Point walker)
@@ -337,6 +346,7 @@ public class DFS
 			case 55: return Direction.BOTTOM;
 
 			default:
+				Console.Error.WriteLine("Next step from " + position + " of tile #" + type + " is not defined!");
 				return Direction.NoEntry;
 		}
 	}
