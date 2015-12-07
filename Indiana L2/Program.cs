@@ -49,7 +49,7 @@ class Player
 
 			//TODO: Add rocks to DFS
 			Console.Error.WriteLine("Indy is at " + indy + " from the " + indy.Position + " which is tile #" + dfs.RoomTypeAt(indy));
-			var path = dfs.To(indy, exit);
+			var path = dfs.To(indy, exit, rocks);
 	
 			Console.WriteLine(path);
 
@@ -85,9 +85,9 @@ public class DFS
 		_map = map;
 	}
 
-	public string To(Point from, Point to)
+	public string To(Point from, Point to, Point[] rocks)
 	{
-		var path = TestPaths(from, to, 0);
+		var path = TestPaths(from, to, 0, rocks);
 		if (path == null)
 		{
 			throw new NotImplementedException("Could not find a valid path");
@@ -102,9 +102,15 @@ public class DFS
 		}
 	}
 
-	private string[] TestPaths(Point from, Point to, int distance)
+	private string[] TestPaths(Point from, Point to, int distance, Point[] rocks)
 	{
 		Console.Error.WriteLine("TestPaths for " + from + " from " + from.Position);
+
+		if (rocks.Any(rock => rock.X == from.X && rock.Y == from.Y))
+		{
+			Console.Error.WriteLine("Indy would be hit by a rock at " + from);
+			return null;
+		}
 
 		if (from.X == to.X && from.Y == to.Y)
 			return new string[0];
@@ -120,7 +126,7 @@ public class DFS
 		var testedDirections = new List<Direction>();
 
 		//No rotation
-		path = PathWithRotation(nextRoom, 0, to, distance + 1, testedDirections);
+		path = PathWithRotation(nextRoom, 0, to, distance + 1, testedDirections, rocks);
 		if (path != null)
 			return path;
 
@@ -128,19 +134,19 @@ public class DFS
 		if (!isNextRoomLocked)
 		{
 			//Rotate left
-			path = PathWithRotation(nextRoom, 1, to, distance, testedDirections);
+			path = PathWithRotation(nextRoom, 1, to, distance, testedDirections, rocks);
 			if (path != null)
 				return new[] { nextRoom + " LEFT" }.Concat(path).ToArray();
 
 			//Rotate right
-			path = PathWithRotation(nextRoom, 3, to, distance, testedDirections);
+			path = PathWithRotation(nextRoom, 3, to, distance, testedDirections, rocks);
 			if (path != null)
 				return new[] { nextRoom + " RIGHT" }.Concat(path).ToArray();
 
 			if (distance > 1)
 			{
 				//Rotate 180
-				path = PathWithRotation(nextRoom, 2, to, distance, testedDirections);
+				path = PathWithRotation(nextRoom, 2, to, distance, testedDirections, rocks);
 				if (path != null)
 					return new[] { nextRoom + " LEFT", nextRoom + " LEFT" }.Concat(path).ToArray();
 			}
@@ -150,15 +156,15 @@ public class DFS
 		return null;
 	}
 
-	private string[] PathWithRotation(Point nextRoom, int rotation, Point to, int distance, List<Direction> testedDirections)
+	private string[] PathWithRotation(Point nextRoom, int rotation, Point to, int distance, List<Direction> testedDirections, Point[] rocks)
 	{
 		string[] path;
 
 		Rotate(nextRoom, rotation);
 
-
 		var direction = nextStepOf(RoomTypeAt(nextRoom), nextRoom.Position);
-		if (testedDirections.Contains(direction)){
+		if (testedDirections.Contains(direction))
+		{
 			Console.Error.WriteLine("Exiting room " + nextRoom + " at " + nextRoom.Position + " has already been tested.");
 			path = null; //Already tested, so short circuit
 		}
@@ -166,18 +172,24 @@ public class DFS
 		{
 			testedDirections.Add(direction);
 			//Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
-			path = IsValidEntry(nextRoom)
-				? TestPaths(nextRoom, to, distance)
-				: null;
+			if (!IsValidEntry(nextRoom))
+			{
+				path = null;
+			}
+			else
+			{
+				var newRocks = rocks.Select(rock =>
+				{
+					var newRock = rock + nextStepOf(RoomTypeAt(rock), rock.Position);
+					Console.Error.WriteLine("Rock moved from " + rock + " to " + newRock);
+					return newRock;
+				}).ToArray();
+
+				path = TestPaths(nextRoom, to, distance, newRocks);
+			}
 		}
 
 		Rotate(nextRoom, 4 - rotation);
-
-		//if (path != null)
-		//{
-		//	Console.Error.WriteLine("...Path is a success: " + string.Join(", ", path.ToArray()));
-		//}
-
 		return path;
 	}
 
