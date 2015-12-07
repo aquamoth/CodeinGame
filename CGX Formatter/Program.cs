@@ -36,7 +36,7 @@ class Solution
 		// Write an action using Console.WriteLine()
 		// To debug: Console.Error.WriteLine("Debug messages...");
 
-		Console.WriteLine(dom.ToString());
+		Console.WriteLine(dom.Print());
 	}
 }
 
@@ -54,20 +54,22 @@ abstract class Element
 		var nextChar = raw[0];
 		switch (nextChar)
 		{
-
+			case '(':
+				element = new BLOCK(raw);
+				break;
 
 			default:
 				if (lastDom != null)
 					throw new ArgumentException("Primitive types does not have a left hand expression");
 
-				element = new PRIMITIVE_TYPE(raw);
+				element = PRIMITIVE_TYPE.From(raw);
 				break;
 		}
 
 		return element;
 	}
 
-	private static void LTrim(StringBuilder raw)
+	protected static void LTrim(StringBuilder raw)
 	{
 		int index = 0;
 		while (index < raw.Length)
@@ -81,56 +83,202 @@ abstract class Element
 			raw.Remove(0, index);
 	}
 
+	public abstract string Print(int indentation = 0);
+
+	protected string indent(int indentation)
+	{
+		return string.Join("", Enumerable.Repeat(' ', indentation).ToArray());
+	}
 }
 
-class PRIMITIVE_TYPE : Element
+class BLOCK : Element
 {
-	const char STRING_DELIMITER = '\'';
+	const char BLOCK_START = '(';
+	const char BLOCK_SEPARATOR = ';';
+	const char BLOCK_END = ')';
 
+	readonly List<Element> _elements = new List<Element>();
 
-	public string Value { get; protected set; }
-
-	public PRIMITIVE_TYPE(StringBuilder raw)
+	public BLOCK(StringBuilder raw)
 	{
-		bool isInString = raw[0] == STRING_DELIMITER;
-		var index = isInString ? 1 : 0;
+		if (raw[0] != BLOCK_START)
+			throw new ArgumentException("Expected block start token");
 
+		do
+		{
+			raw.Remove(0, 1);
+			LTrim(raw);
+
+			//TODO: Special case, test for empty block
+			if (raw[0] == BLOCK_END)
+				break;
+
+			if (raw[0] != BLOCK_SEPARATOR)
+			{
+				var element = Element.From(raw, null);
+				_elements.Add(element);
+				LTrim(raw);
+			}
+		}
+		while (raw[0] == BLOCK_SEPARATOR);
+
+		if (raw[0] != BLOCK_END)
+			throw new ArgumentException("Expected end of block");
+
+		raw.Remove(0, 1);
+	}
+
+	public override string Print(int indentation = 0)
+	{
+		var sb = new StringBuilder();
+		sb.Append(indent(indentation));
+		sb.AppendLine("(");
+
+		for (int i = 0; i < _elements.Count; i++)
+		{
+			var element = _elements[i];
+			sb.Append(element.Print(indentation + 4));
+			if (i < _elements.Count - 1)
+				sb.Append(BLOCK_SEPARATOR);
+			sb.AppendLine();
+		}
+
+		sb.Append(indent(indentation));
+		sb.Append(")");
+		return sb.ToString();
+	}
+}
+
+
+#region PRIMITIVE_TYPE
+
+class PRIMITIVE_STRING : PRIMITIVE_TYPE
+{
+	public const char DELIMITER = '\'';
+
+	public PRIMITIVE_STRING(StringBuilder raw)
+	{
+		var index = 1;
 		while (index < raw.Length)
 		{
-			var c = raw[index];
-
-			if (isEndOfElement(c, isInString))
+			var nextChar = raw[index];
+			if (nextChar == DELIMITER)
 				break;
 
 			index++;
 		}
 
 		if (index == raw.Length)
-			throw new ApplicationException("Found End of Stream while parsing PRIMITIVE_TYPE");
+			throw new ApplicationException("Found End of Stream while parsing PRIMITIVE_STRING");
 
-		if (isInString)
-			index++;
+		index++;
 
 		Value = raw.ToString(0, index);
 		raw.Remove(0, index);
 	}
+}
 
-	public override string ToString()
+class PRIMITIVE_NUMBER : PRIMITIVE_TYPE
+{
+	public PRIMITIVE_NUMBER(StringBuilder raw)
 	{
-		return Value;
-	}
+		var index = 0;
+		while (index < raw.Length)
+		{
+			var nextChar = raw[index];
+			if (!Char.IsNumber(nextChar))
+				break;
 
-	private bool isEndOfElement(char nextChar, bool isInString)
-	{
-		if (isInString)
-		{
-			return nextChar == STRING_DELIMITER;
+			index++;
 		}
-		else
-		{
-			if (Char.IsWhiteSpace(nextChar) || nextChar == ';')
-				return true;
-			return false;
-		}
+
+		if (index == raw.Length)
+			throw new ApplicationException("Found End of Stream while parsing PRIMITIVE_NUMBER");
+
+		Value = raw.ToString(0, index);
+		raw.Remove(0, index);
 	}
 }
+
+class PRIMITIVE_BOOL : PRIMITIVE_TYPE
+{
+	public const string TRUE_TOKEN = "true";
+	public const string FALSE_TOKEN = "false";
+
+	public PRIMITIVE_BOOL(StringBuilder raw)
+	{
+		if (tryRead(raw, TRUE_TOKEN))
+			return;
+		if (tryRead(raw, FALSE_TOKEN))
+			return;
+
+		throw new ArgumentException("PRIMITIVE_BOOL expected true or false");
+	}
+
+	public static bool CanParse(StringBuilder raw)
+	{
+		if (startsWith(raw, TRUE_TOKEN))
+			return true;
+		if (startsWith(raw, FALSE_TOKEN))
+			return true;
+		return false;
+	}
+
+	private bool tryRead(StringBuilder raw, string token)
+	{
+		if (startsWith(raw, token))
+		{
+			Value = token;
+			raw.Remove(0, token.Length);
+			return true;
+		}
+		return false;
+	}
+
+	private static bool startsWith(StringBuilder raw, string token)
+	{
+		return (raw.Length >= token.Length && raw.ToString(0, token.Length) == token);
+	}
+}
+
+abstract class PRIMITIVE_TYPE : Element
+{
+	public string Value { get; protected set; }
+
+	public static Element From(StringBuilder raw)
+	{
+		switch (dataTypeOf(raw))
+		{
+			case dataType.Number: return new PRIMITIVE_NUMBER(raw);
+			case dataType.String: return new PRIMITIVE_STRING(raw);
+			case dataType.Boolean: return new PRIMITIVE_BOOL(raw);
+			default:
+				throw new NotSupportedException();
+		}
+	}
+
+	static dataType dataTypeOf(StringBuilder raw)
+	{
+		if (raw[0] == PRIMITIVE_STRING.DELIMITER)
+			return dataType.String;
+		if (Char.IsNumber(raw[0]))
+			return dataType.Number;
+		if (PRIMITIVE_BOOL.CanParse(raw))
+			return dataType.Boolean;
+		throw new ArgumentException("Unsupported data type");
+	}
+
+	enum dataType
+	{
+		Number,
+		String,
+		Boolean
+	}
+
+	public override string Print(int indentation = 0)
+	{
+		return indent(indentation) + Value;
+	}
+}
+
+#endregion PRIMITIVE_TYPE
