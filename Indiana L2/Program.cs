@@ -87,7 +87,7 @@ public class DFS
 
 	public string To(Point from, Point to)
 	{
-		var path = TestPaths(from, to, 0).ToArray();
+		var path = TestPaths(from, to, 0);
 		if (path == null)
 		{
 			throw new NotImplementedException("Could not find a valid path");
@@ -116,37 +116,31 @@ public class DFS
 		if (!IsInsideMap(nextRoom))
 			return null;
 
-		string[] path = null; 
+		string[] path = null;
+		var testedDirections = new List<Direction>();
 
 		//No rotation
-		if (IsValidEntry(nextRoom))
-		{
-			//Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
-			path = TestPaths(nextRoom, to, distance + 1);
-			if (path != null)
-			{
-				//Console.Error.WriteLine("...Unchanged path is a success: " + string.Join(", ", path.ToArray()));
-				return path;
-			}
-		}
+		path = PathWithRotation(nextRoom, 0, to, distance + 1, testedDirections);
+		if (path != null)
+			return path;
 
 		var isNextRoomLocked = nextRoom == to || IsRoomLockedAt(nextRoom);
 		if (!isNextRoomLocked)
 		{
 			//Rotate left
-			path = PathWithRotation(nextRoom, 1, to, distance);
+			path = PathWithRotation(nextRoom, 1, to, distance, testedDirections);
 			if (path != null)
 				return new[] { nextRoom + " LEFT" }.Concat(path).ToArray();
 
 			//Rotate right
-			path = PathWithRotation(nextRoom, 3, to, distance);
+			path = PathWithRotation(nextRoom, 3, to, distance, testedDirections);
 			if (path != null)
 				return new[] { nextRoom + " RIGHT" }.Concat(path).ToArray();
 
 			if (distance > 1)
 			{
 				//Rotate 180
-				path = PathWithRotation(nextRoom, 2, to, distance);
+				path = PathWithRotation(nextRoom, 2, to, distance, testedDirections);
 				if (path != null)
 					return new[] { nextRoom + " LEFT", nextRoom + " LEFT" }.Concat(path).ToArray();
 			}
@@ -156,15 +150,27 @@ public class DFS
 		return null;
 	}
 
-	private string[] PathWithRotation(Point nextRoom, int rotation, Point to, int distance)
+	private string[] PathWithRotation(Point nextRoom, int rotation, Point to, int distance, List<Direction> testedDirections)
 	{
+		string[] path;
+
 		Rotate(nextRoom, rotation);
 
-		//Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
-		var path = IsValidEntry(nextRoom)
-			? TestPaths(nextRoom, to, distance)
-			: null;
-	
+
+		var direction = nextStepOf(RoomTypeAt(nextRoom), nextRoom.Position);
+		if (testedDirections.Contains(direction)){
+			Console.Error.WriteLine("Exiting room " + nextRoom + " at " + nextRoom.Position + " has already been tested.");
+			path = null; //Already tested, so short circuit
+		}
+		else
+		{
+			testedDirections.Add(direction);
+			//Console.Error.WriteLine("Testing " + nextRoom + " from " + nextRoom.Position + " as tile #" + RoomTypeAt(nextRoom));
+			path = IsValidEntry(nextRoom)
+				? TestPaths(nextRoom, to, distance)
+				: null;
+		}
+
 		Rotate(nextRoom, 4 - rotation);
 
 		//if (path != null)
