@@ -69,7 +69,6 @@ class VoxDei
 {
 	int _width, _height;
 	List<Node> _nodes;
-	//List<MapPoint> _map;
 	string[] _map;
 
 	public VoxDei(int width, int height, List<Node> nodes, string[] map)
@@ -82,8 +81,6 @@ class VoxDei
 
 	public Point[] Solve(int maxDepth)
 	{
-		//_map = createMap();
-
 		var nodesLeft = _nodes.Where(node=>!node.IsPassive).ToList();
 		var solution = solve(nodesLeft, maxDepth);
 
