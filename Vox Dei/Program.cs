@@ -11,14 +11,25 @@ using System.Collections.Generic;
  **/
 class Player
 {
+	public const char ACTIVE_NODE = '@';
 	public const char PASSIVE_NODE = '#';
 	public const char EMPTY_POS = '.';
+
+	public const char EMPTY_BLAST_3 = 'A';
+	public const char EMPTY_BLAST_2 = 'B';
+	public const char EMPTY_BLAST_1 = 'C';
+
+	public const char ACTIVE_BLAST_3 = '3';
+	public const char ACTIVE_BLAST_2 = '2';
+	public const char ACTIVE_BLAST_1 = '1';
+
+	public const int BOMB_TIMEOUT = 3;
+	public const int BLAST_RANGE = 3;
+
 
 	static void Main(string[] args)
 	{
 		var map = new List<string>();
-
-		var nodes = new List<Node>();
 
 		string[] inputs;
 		inputs = Console.ReadLine().Split(' ');
@@ -28,20 +39,12 @@ class Player
 		{
 			var line = Console.ReadLine();
 			map.Add(line);
-			for (int x = 0; x < width; x++)
-			{
-				if (line[x] == '@')
-					nodes.Add(new Node(x, y, false));
-				else if (line[x] == PASSIVE_NODE)
-					nodes.Add(new Node(x, y, true));
-			}
 		}
 
-		var voxdei = new VoxDei(width, height, nodes, map.ToArray());
+		var voxdei = new VoxDei(width, height, map.ToArray());
 
 		Queue<Point> solution = null;
 		// game loop
-		//var currentRound = 0;
 		while (true)
 		{
 			inputs = Console.ReadLine().Split(' ');
@@ -49,14 +52,17 @@ class Player
 			int bombs = int.Parse(inputs[1]); // number of bombs left
 
 			if (solution == null)
-				solution = new Queue<Point>(voxdei.Solve(bombs));
+				solution = new Queue<Point>(voxdei.Solve(rounds, bombs));
 
 			if (!solution.Any())
 				Console.WriteLine("WAIT");
 			else
 			{
 				var bomb = solution.Dequeue();
-				Console.WriteLine(bomb);
+				if (bomb == null)
+					Console.WriteLine("WAIT");
+				else
+					Console.WriteLine(bomb);
 			}
 
 			//currentRound++;
@@ -68,22 +74,18 @@ class Player
 class VoxDei
 {
 	int _width, _height;
-	List<Node> _nodes;
-	string[] _map;
+	char[] _map;
 
-	public VoxDei(int width, int height, List<Node> nodes, string[] map)
+	public VoxDei(int width, int height, string[] map)
 	{
 		_width = width;
 		_height = height;
-		_nodes = nodes;
-		_map = map;
+		_map = map.SelectMany(x => x.ToCharArray()).ToArray();
 	}
 
-	public Point[] Solve(int maxDepth)
+	public Point[] Solve(int rounds, int bombs)
 	{
-		var nodesLeft = _nodes.Where(node=>!node.IsPassive).ToList();
-		var solution = solve(nodesLeft, maxDepth);
-
+		var solution = solve(rounds, bombs, (char[])_map.Clone());
 		if (solution == null)
 		{
 			throw new ApplicationException("Unable to find a kill solution!");
@@ -91,71 +93,168 @@ class VoxDei
 		return solution;
 	}
 
-	Point[] solve(List<Node> nodesLeft, int maxDepth)
+	Point[] solve(int rounds, int bombs, char[] map)
 	{
-		if (nodesLeft.Count == 0)
+		var nodesLeft = activeNodesOf(map, _width);
+
+		if (nodesLeft.Length == 0)
 			return new Point[0];
 
-		if (maxDepth == 0)
+		if (rounds < Player.BOMB_TIMEOUT || bombs == 0)
 			return null;
 
-		var nextNode = nodesLeft.First();
-		var pointsToTest = kills(nextNode);
-		foreach (var p in pointsToTest)
+		//Decrease bomb timers
+		decreaseBombTimers(map);
+
+		//Try to kill any of the remaining nodes on this round
+		var testedBombPoints = new List<Point> ();
+		foreach (var nextNode in nodesLeft)
 		{
-			Console.Error.WriteLine(string.Join("", Enumerable.Repeat(" ", 10-maxDepth).ToArray()) + "Testing bomb depth {0} at: {1}", maxDepth, p);
-			var unaffectedNodes = nodesLeft.Where(node => !kills(node).Contains(p)).ToList();//Any(point => point == p)
-			Console.Error.WriteLine(string.Join("", Enumerable.Repeat(" ", 10 - maxDepth).ToArray()) + "Survivors: {0}", string.Join(", ", unaffectedNodes.Select(n=>n.ToString()).ToArray()));
-			var points = solve(unaffectedNodes, maxDepth - 1);
-			if (points != null)
+			//Console.Error.WriteLine("Testing round {0}/{1} by killing: {2}", rounds, bombs, nextNode);
+
+			//Try to kill it from any available kill position
+			var killPointsToTest = kills(map, nextNode).Where(point => !testedBombPoints.Contains(point)).ToArray();
+			var killEffects = killPointsToTest.Select(p =>
 			{
-				return new[] { p }.Concat(points).ToArray();
+				var killedNodes = nodesLeft.Where(node => {
+					var killedPoints = kills(map, node);
+					return killedPoints.Contains(p);
+				}).ToList();
+				return new Tuple<Point, List<Point>>(p, killedNodes);
+			}).ToArray();
+
+			var tuplesToTest = unique(killEffects);
+			foreach (var tuple in tuplesToTest)
+			{
+				Console.Error.WriteLine("Testing round {0}/{1} at: {2}", rounds, bombs, tuple.Item1);
+				var killedNodes = tuple.Item2;// nodesLeft.Where(node => kills(map, node).Contains(point)).ToList();
+				//Console.Error.WriteLine("  Killing: {0}", string.Join(", ", killedNodes.Select(n => n.ToString()).ToArray()));
+				var unaffectedNodes = nodesLeft.Except(killedNodes);
+				//Console.Error.WriteLine("  Survivors: {0}", string.Join(", ", unaffectedNodes.Select(n => n.ToString()).ToArray()));
+
+				var bombTimer = Player.ACTIVE_BLAST_3;//TODO
+				var newMap = (char[])map.Clone();
+				foreach (var node in killedNodes)
+					newMap[node.Y * _width + node.X] = bombTimer;
+
+
+
+				var points = solve(rounds - 1, bombs - 1, (char[])newMap.Clone());
+				if (points != null)
+				{
+					var bombsUsed = points.Where(x => x != null).Count();
+					if (bombsUsed >= bombs)
+					{
+						Console.Error.WriteLine("TOO MANY BOMBS WERE USED! Skipping solution!");
+						return null;
+					}
+
+					var commands = new[] { tuple.Item1 }.Concat(points).ToArray();
+					return commands;
+				}
+				else
+				{
+					testedBombPoints.Add(tuple.Item1);
+				}
 			}
 		}
+
+		//Finally try to just WAIT to next round (if there are bombs counting down)
+		Console.Error.WriteLine("Trying to solve by WAITing on round {0}", rounds);
+		var partialSolution = solve(rounds - 1, bombs, (char[])map.Clone());
+		if (partialSolution != null)
+		{
+			var commands = new Point[] { null }.Concat(partialSolution).ToArray();
+			return commands;
+		}
+
 
 		return null;
 	}
 
-	private IEnumerable<Point> kills(Node node)
+	private Tuple<Point, List<Point>>[] unique(Tuple<Point, List<Point>>[] killPoints)
 	{
-		var minX = Math.Max(0, node.X - 3);
-		for (int x = node.X - 1; x >= minX; x--)
+		var uniqueEffects = new List<Tuple<Point, List<Point>>>();
+		foreach (var killPoint in killPoints.OrderByDescending(t=>t.Item2.Count))
 		{
-			var token = _map[node.Y][x];
+			var isCoveredByExistingPoint = 
+				uniqueEffects.Any(existingKillPoint =>
+					killPoint.Item2.All(p=> existingKillPoint.Item2.Contains(p))
+				);
+
+			if (!isCoveredByExistingPoint)
+			{
+				//Console.Error.WriteLine("    + Adding test of {0}", killPoint.Item1);
+				uniqueEffects.Add(killPoint);
+			}
+			else
+			{
+				//Console.Error.WriteLine("    - Skipping test of {0}", killPoint.Item1);
+			}
+		}
+		return uniqueEffects.ToArray();
+	}
+
+	private Point[] activeNodesOf(char[] map, int width)
+	{
+		return map
+			.Select((ch, index) => ch == Player.ACTIVE_NODE ? index : -1)
+			.Where(index => index >= 0)
+			.Select(index => new Point { X = index % width, Y = index / width })
+			.ToArray();
+	}
+
+	private static void decreaseBombTimers(char[] map)
+	{
+		for (var i = 0; i < map.Length; i++)
+		{
+			if (map[i] == '3') map[i] = '2';
+			else if (map[i] == '2') map[i] = '1';
+			else if (map[i] == '1') map[i] = '0';
+			else if (map[i] == '0') map[i] = '.';
+		}
+	}
+
+	private IEnumerable<Point> kills(char[] map, Point point)
+	{
+		var minX = Math.Max(0, point.X - Player.BLAST_RANGE);
+		for (int x = point.X - 1; x >= minX; x--)
+		{
+			var token = map[point.Y * _width + x];
 			if (token == Player.PASSIVE_NODE)
 				break;
-			else if (token == Player.EMPTY_POS)
-				yield return new Point { X = x, Y = node.Y };
+			else if (token == Player.EMPTY_POS) //TODO: TRACK IF EMPTY POS IS IN A DECREASING BOMB BLAST
+				yield return new Point { X = x, Y = point.Y };
 		}
 
-		var maxX = Math.Min(_width-1, node.X + 3);
-		for (int x = node.X+1; x <= maxX; x++)
+		var maxX = Math.Min(_width - 1, point.X + Player.BLAST_RANGE);
+		for (int x = point.X+1; x <= maxX; x++)
 		{
-			var token = _map[node.Y][x];
+			var token = map[point.Y * _width + x];
 			if (token == Player.PASSIVE_NODE)
 				break;
-			else if (token == Player.EMPTY_POS)
-				yield return new Point { X = x, Y = node.Y };
+			else if (token == Player.EMPTY_POS) //TODO: TRACK IF EMPTY POS IS IN A DECREASING BOMB BLAST
+				yield return new Point { X = x, Y = point.Y };
 		}
 
-		var minY = Math.Max(0, node.Y - 3);
-		for (int y = node.Y - 1; y >= minY; y--)
+		var minY = Math.Max(0, point.Y - Player.BLAST_RANGE);
+		for (int y = point.Y - 1; y >= minY; y--)
 		{
-			var token = _map[y][node.X];
+			var token = map[y * _width + point.X];
 			if (token == Player.PASSIVE_NODE)
 				break;
-			else if (token == Player.EMPTY_POS)
-				yield return new Point { X = node.X, Y = y };
+			else if (token == Player.EMPTY_POS) //TODO: TRACK IF EMPTY POS IS IN A DECREASING BOMB BLAST
+				yield return new Point { X = point.X, Y = y };
 		}
 
-		var maxY = Math.Min(_height-1, node.Y + 3);
-		for (int y = node.Y + 1; y <= maxY; y++)
+		var maxY = Math.Min(_height - 1, point.Y + Player.BLAST_RANGE);
+		for (int y = point.Y + 1; y <= maxY; y++)
 		{
-			var token = _map[y][node.X];
+			var token = map[y * _width + point.X];
 			if (token == Player.PASSIVE_NODE)
 				break;
-			else if (token == Player.EMPTY_POS)
-				yield return new Point { X = node.X, Y = y };
+			else if (token == Player.EMPTY_POS) //TODO: TRACK IF EMPTY POS IS IN A DECREASING BOMB BLAST
+				yield return new Point { X = point.X, Y = y };
 		}
 	}
 
