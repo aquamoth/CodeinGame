@@ -23,31 +23,20 @@ class Solution
 			works[i] = new Work { Starts = J, Ends = J + D - 1 };
 		}
 
-		var sortedWorks = works.OrderBy(x => x.Starts).ThenBy(x => x.Ends).ToArray();
+		var sortedWorks = works.OrderBy(x => x.Ends).ThenBy(x => x.Starts).ToArray();
 
-		var maxSolutions = solutions(0, sortedWorks);
-
-
-		// Write an action using Console.WriteLine()
-		// To debug: Console.Error.WriteLine("Debug messages...");
-
-		Console.WriteLine(maxSolutions);
-	}
-
-	private static int solutions(int lastOccupiedDay, Work[] works)
-	{
-		var max = 0;
-		for (var i = 0; i < works.Count(); i++)
+		var lastEnd = 0;
+		var count = 0;
+		for (int i = 0; i < sortedWorks.Length; i++)
 		{
-			var work = works[i];
-			if (work.Starts > lastOccupiedDay)
+			if (sortedWorks[i].Starts > lastEnd)
 			{
-				var count = solutions(work.Ends, works.Skip(i + 1).ToArray()) + 1;
-				if (count > max)
-					max = count;
+				count++;
+				lastEnd = sortedWorks[i].Ends;
 			}
 		}
-		return max;
+
+		Console.WriteLine(count);
 	}
 }
 
