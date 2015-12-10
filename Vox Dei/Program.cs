@@ -85,7 +85,7 @@ class VoxDei
 
 	public Point[] Solve(int rounds, int bombs)
 	{
-		var solution = solve(rounds, bombs, (char[])_map.Clone());
+		var solution = solve(rounds, bombs, (char[])_map.Clone(), null);
 		if (solution == null)
 		{
 			throw new ApplicationException("Unable to find a kill solution!");
@@ -93,7 +93,7 @@ class VoxDei
 		return solution;
 	}
 
-	Point[] solve(int rounds, int bombs, char[] map)
+	Point[] solve(int rounds, int bombs, char[] map, Point[] pointsNotToTest)
 	{
 		var nodesLeft = activeNodesOf(map, _width);
 
@@ -107,7 +107,7 @@ class VoxDei
 		decreaseBombTimers(map);
 
 		//Try to kill any of the remaining nodes on this round
-		var testedBombPoints = new List<Point> ();
+		var testedBombPoints = new List<Point>(pointsNotToTest ?? new Point[0]);
 		foreach (var nextNode in nodesLeft)
 		{
 			//Console.Error.WriteLine("Testing round {0}/{1} by killing: {2}", rounds, bombs, nextNode);
@@ -124,6 +124,10 @@ class VoxDei
 			}).ToArray();
 
 			var tuplesToTest = unique(killEffects);
+			
+			var InferiorkillPoints = killPointsToTest.Where(x => !tuplesToTest.Any(t => t.Item1 == x));
+			testedBombPoints.AddRange(InferiorkillPoints);
+
 			foreach (var tuple in tuplesToTest)
 			{
 				Console.Error.WriteLine("Testing round {0}/{1} at: {2}", rounds, bombs, tuple.Item1);
@@ -139,7 +143,7 @@ class VoxDei
 
 
 
-				var points = solve(rounds - 1, bombs - 1, (char[])newMap.Clone());
+				var points = solve(rounds - 1, bombs - 1, (char[])newMap.Clone(), testedBombPoints.ToArray());
 				if (points != null)
 				{
 					var bombsUsed = points.Where(x => x != null).Count();
@@ -161,7 +165,7 @@ class VoxDei
 
 		//Finally try to just WAIT to next round (if there are bombs counting down)
 		Console.Error.WriteLine("Trying to solve by WAITing on round {0}", rounds);
-		var partialSolution = solve(rounds - 1, bombs, (char[])map.Clone());
+		var partialSolution = solve(rounds - 1, bombs, (char[])map.Clone(), testedBombPoints.ToArray());
 		if (partialSolution != null)
 		{
 			var commands = new Point[] { null }.Concat(partialSolution).ToArray();
