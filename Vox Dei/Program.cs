@@ -33,11 +33,13 @@ class Player
 
 		string[] inputs;
 		inputs = Console.ReadLine().Split(' ');
+		//Console.Error.WriteLine(string.Join(" ", inputs));
 		int width = int.Parse(inputs[0]); // width of the firewall grid
 		int height = int.Parse(inputs[1]); // height of the firewall grid
 		for (int y = 0; y < height; y++)
 		{
 			var line = Console.ReadLine();
+			//Console.Error.WriteLine(line);
 			map.Add(line);
 		}
 
@@ -48,6 +50,7 @@ class Player
 		while (true)
 		{
 			inputs = Console.ReadLine().Split(' ');
+			//Console.Error.WriteLine(string.Join(" ", inputs));
 			int rounds = int.Parse(inputs[0]); // number of rounds left before the end of the game
 			int bombs = int.Parse(inputs[1]); // number of bombs left
 
@@ -108,58 +111,56 @@ class VoxDei
 
 		//Try to kill any of the remaining nodes on this round
 		var testedBombPoints = new List<Point>(pointsNotToTest ?? new Point[0]);
-		foreach (var nextNode in nodesLeft)
+
+
+		var killPoints = nodesLeft.SelectMany(node => kills(map, node)).Distinct().ToArray();
+		var killPointsToTest = killPoints.Except(testedBombPoints).ToArray();
+		var killEffects = killPointsToTest.Select(p =>
 		{
-			//Console.Error.WriteLine("Testing round {0}/{1} by killing: {2}", rounds, bombs, nextNode);
-
-			//Try to kill it from any available kill position
-			var killPointsToTest = kills(map, nextNode).Where(point => !testedBombPoints.Contains(point)).ToArray();
-			var killEffects = killPointsToTest.Select(p =>
+			var killedNodes = nodesLeft.Where(node =>
 			{
-				var killedNodes = nodesLeft.Where(node => {
-					var killedPoints = kills(map, node);
-					return killedPoints.Contains(p);
-				}).ToList();
-				return new Tuple<Point, List<Point>>(p, killedNodes);
-			}).ToArray();
+				var killedPoints = kills(map, node);
+				return killedPoints.Contains(p);
+			}).ToList();
+			return new Tuple<Point, List<Point>>(p, killedNodes);
+		}).ToArray();
 
-			var tuplesToTest = unique(killEffects);
-			
-			var InferiorkillPoints = killPointsToTest.Where(x => !tuplesToTest.Any(t => t.Item1 == x));
-			testedBombPoints.AddRange(InferiorkillPoints);
+		var tuplesToTest = unique(killEffects).ToArray();
+		//Just ignore the inferior possibilities
+		var InferiorkillPoints = killPointsToTest.Where(x => !tuplesToTest.Any(t => t.Item1 == x)).ToArray();
+		testedBombPoints.AddRange(InferiorkillPoints);
 
-			foreach (var tuple in tuplesToTest)
+		foreach (var tuple in tuplesToTest)
+		{
+			Console.Error.WriteLine("Testing round {0}/{1} at: {2}", rounds, bombs, tuple.Item1);
+			var killedNodes = tuple.Item2;// nodesLeft.Where(node => kills(map, node).Contains(point)).ToList();
+			//Console.Error.WriteLine("  Killing: {0}", string.Join(", ", killedNodes.Select(n => n.ToString()).ToArray()));
+			var unaffectedNodes = nodesLeft.Except(killedNodes);
+			//Console.Error.WriteLine("  Survivors: {0}", string.Join(", ", unaffectedNodes.Select(n => n.ToString()).ToArray()));
+
+			var bombTimer = Player.ACTIVE_BLAST_3;//TODO
+			var newMap = (char[])map.Clone();
+			foreach (var node in killedNodes)
+				newMap[node.Y * _width + node.X] = bombTimer;
+
+
+
+			var points = solve(rounds - 1, bombs - 1, (char[])newMap.Clone(), testedBombPoints.ToArray());
+			if (points != null)
 			{
-				Console.Error.WriteLine("Testing round {0}/{1} at: {2}", rounds, bombs, tuple.Item1);
-				var killedNodes = tuple.Item2;// nodesLeft.Where(node => kills(map, node).Contains(point)).ToList();
-				//Console.Error.WriteLine("  Killing: {0}", string.Join(", ", killedNodes.Select(n => n.ToString()).ToArray()));
-				var unaffectedNodes = nodesLeft.Except(killedNodes);
-				//Console.Error.WriteLine("  Survivors: {0}", string.Join(", ", unaffectedNodes.Select(n => n.ToString()).ToArray()));
-
-				var bombTimer = Player.ACTIVE_BLAST_3;//TODO
-				var newMap = (char[])map.Clone();
-				foreach (var node in killedNodes)
-					newMap[node.Y * _width + node.X] = bombTimer;
-
-
-
-				var points = solve(rounds - 1, bombs - 1, (char[])newMap.Clone(), testedBombPoints.ToArray());
-				if (points != null)
+				var bombsUsed = points.Where(x => x != null).Count();
+				if (bombsUsed >= bombs)
 				{
-					var bombsUsed = points.Where(x => x != null).Count();
-					if (bombsUsed >= bombs)
-					{
-						Console.Error.WriteLine("TOO MANY BOMBS WERE USED! Skipping solution!");
-						return null;
-					}
+					Console.Error.WriteLine("TOO MANY BOMBS WERE USED! Skipping solution!");
+					return null;
+				}
 
-					var commands = new[] { tuple.Item1 }.Concat(points).ToArray();
-					return commands;
-				}
-				else
-				{
-					testedBombPoints.Add(tuple.Item1);
-				}
+				var commands = new[] { tuple.Item1 }.Concat(points).ToArray();
+				return commands;
+			}
+			else
+			{
+				testedBombPoints.Add(tuple.Item1);
 			}
 		}
 
