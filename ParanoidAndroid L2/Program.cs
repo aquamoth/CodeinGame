@@ -38,7 +38,7 @@ class Player
 
 		var elevatorsLookup = elevators.ToLookup(x=>x.Item1, x=>x.Item2);
 
-		Console.Error.WriteLine("Having {0} additional elevators", nbAdditionalElevators);
+		//Console.Error.WriteLine("Having {0} additional elevators", nbAdditionalElevators);
 
 		Queue<Command> bestPath = null;
 
@@ -58,7 +58,7 @@ class Player
 				//Console.Error.WriteLine("Calculating paths");
 
 				//, 
-				var paths = pathsFrom(0, clonePos, direction == "RIGHT", exitFloor, exitPos, elevatorsLookup, nbAdditionalElevators).ToArray();
+				var paths = pathsFrom(0, clonePos, direction == "RIGHT", exitFloor, exitPos, elevatorsLookup, nbAdditionalElevators, nbRounds).ToArray();
 
 
 				var pathsWithDistances = paths.Select(path =>
@@ -96,12 +96,11 @@ class Player
 					};
 				}).Where(x => x != null)
 				.ToArray();
-				Console.Error.WriteLine("Considering following paths:");
-				foreach (var walker in pathsWithDistances.OrderBy(x => x.Distance))
-				//foreach (var path in paths)
-				{
-					Console.Error.WriteLine("{0}: {1}", walker.Distance, string.Join(", ", walker.Path.Select(x => x.ToString()).ToArray()));
-				}
+				//Console.Error.WriteLine("Considering following paths:");
+				//foreach (var walker in pathsWithDistances.OrderBy(x => x.Distance))
+				//{
+				//	Console.Error.WriteLine("{0}: {1}", walker.Distance, string.Join(", ", walker.Path.Select(x => x.ToString()).ToArray()));
+				//}
 
 				bestPath = new Queue<Command>(pathsWithDistances.OrderBy(x => x.Distance).First().Path);
 				//bestPath = new Queue<Command>(paths.First());
@@ -168,7 +167,7 @@ class Player
 		return (travellingRight) ^ (clonePos > Math.Abs(targetPos));
 	}
 
-	private static IEnumerable<Command[]> pathsFrom(int currentFloor, int currentPosition, bool headingRight, int exitFloor, int exitPosition, ILookup<int, int> elevatorsPerFloor, int additionalElevators)
+	private static IEnumerable<Command[]> pathsFrom(int currentFloor, int currentPosition, bool headingRight, int exitFloor, int exitPosition, ILookup<int, int> elevatorsPerFloor, int additionalElevators, int roundsLeft)
 	{
 		//Console.Error.WriteLine("Evaluating paths from {0}/{1}->{2}", currentFloor, currentPosition, headingRight ? "Right" : "Left");
 		if (currentFloor == exitFloor)
@@ -179,11 +178,18 @@ class Player
 			{
 				var exitIsToRight = exitPosition > currentPosition;
 				if (exitIsToRight ^ headingRight)
+				{
 					commands.Add(new Command(currentFloor, currentPosition, "BLOCK"));
+					roundsLeft -= 3;
+				}
 
 				commands.Add(new Command(exitFloor, exitPosition, "WAIT"));
+				roundsLeft -= Math.Abs(currentPosition - exitPosition);
 			}
-			yield return commands.ToArray();
+			if (roundsLeft >= 0)
+			{
+				yield return commands.ToArray();
+			}
 		}
 		else
 		{
@@ -193,6 +199,7 @@ class Player
 			foreach (var elevatorPosition in elevatorPositions)
 			{
 				//Console.Error.WriteLine("Evaluating elevator at {0}/{1}", currentFloor, elevatorPosition);
+				var evaluationRoundsLeft = roundsLeft;
 				var leaveFloorHeadingRight = headingRight;
 				var optionalBlockCommand = new Command[0];
 				if (currentPosition != elevatorPosition)
@@ -204,17 +211,21 @@ class Player
 							new Command(currentFloor, currentPosition, "BLOCK"), 
 						};
 						leaveFloorHeadingRight = !leaveFloorHeadingRight;
+						evaluationRoundsLeft -= 3;
 					}
 				}
 
 				var levelCommands = optionalBlockCommand
 					.Concat(new[]{ new Command(currentFloor, elevatorPosition, "WAIT") })
 					.ToArray();
-
-				var paths = pathsFrom(currentFloor + 1, elevatorPosition, leaveFloorHeadingRight, exitFloor, exitPosition, elevatorsPerFloor, additionalElevators).ToArray();
-				foreach (var path in paths)
+				evaluationRoundsLeft -= Math.Abs(elevatorPosition - currentPosition);
+				if (evaluationRoundsLeft > 0)
 				{
-					yield return levelCommands.Concat(path).ToArray();
+					var paths = pathsFrom(currentFloor + 1, elevatorPosition, leaveFloorHeadingRight, exitFloor, exitPosition, elevatorsPerFloor, additionalElevators, evaluationRoundsLeft).ToArray();
+					foreach (var path in paths)
+					{
+						yield return levelCommands.Concat(path).ToArray();
+					}
 				}
 			}
 
@@ -222,11 +233,16 @@ class Player
 			if (additionalElevators > 0)
 			{
 				//Console.Error.WriteLine("Evaluating a new elevator (of {2}) at {0}/{1}", currentFloor, currentPosition, additionalElevators);
+				var evaluationRoundsLeft = roundsLeft;
 				var levelCommands = new[] { new Command(currentFloor, currentPosition, "ELEVATOR") };
-				var paths = pathsFrom(currentFloor + 1, currentPosition, headingRight, exitFloor, exitPosition, elevatorsPerFloor, additionalElevators - 1).ToArray();
-				foreach (var path in paths)
+				evaluationRoundsLeft -= 3;
+				if (evaluationRoundsLeft > 0)
 				{
-					yield return levelCommands.Concat(path).ToArray();
+					var paths = pathsFrom(currentFloor + 1, currentPosition, headingRight, exitFloor, exitPosition, elevatorsPerFloor, additionalElevators - 1, evaluationRoundsLeft).ToArray();
+					foreach (var path in paths)
+					{
+						yield return levelCommands.Concat(path).ToArray();
+					}
 				}
 			}
 		}
