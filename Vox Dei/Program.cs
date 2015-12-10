@@ -12,6 +12,7 @@ using System.Collections.Generic;
 class Player
 {
 	public const char PASSIVE_NODE = '#';
+	public const char EMPTY_POS = '.';
 
 	static void Main(string[] args)
 	{
@@ -84,7 +85,13 @@ class VoxDei
 		//_map = createMap();
 
 		var nodesLeft = _nodes.Where(node=>!node.IsPassive).ToList();
-		return solve(nodesLeft, maxDepth);
+		var solution = solve(nodesLeft, maxDepth);
+
+		if (solution == null)
+		{
+			throw new ApplicationException("Unable to find a kill solution!");
+		}
+		return solution;
 	}
 
 	Point[] solve(List<Node> nodesLeft, int maxDepth)
@@ -96,9 +103,12 @@ class VoxDei
 			return null;
 
 		var nextNode = nodesLeft.First();
-		foreach (var p in kills(nextNode))
+		var pointsToTest = kills(nextNode);
+		foreach (var p in pointsToTest)
 		{
+			Console.Error.WriteLine(string.Join("", Enumerable.Repeat(" ", 10-maxDepth).ToArray()) + "Testing bomb depth {0} at: {1}", maxDepth, p);
 			var unaffectedNodes = nodesLeft.Where(node => !kills(node).Contains(p)).ToList();//Any(point => point == p)
+			Console.Error.WriteLine(string.Join("", Enumerable.Repeat(" ", 10 - maxDepth).ToArray()) + "Survivors: {0}", string.Join(", ", unaffectedNodes.Select(n=>n.ToString()).ToArray()));
 			var points = solve(unaffectedNodes, maxDepth - 1);
 			if (points != null)
 			{
@@ -106,7 +116,7 @@ class VoxDei
 			}
 		}
 
-		throw new ApplicationException("Unable to find a kill solution");
+		return null;
 	}
 
 	private IEnumerable<Point> kills(Node node)
@@ -114,58 +124,44 @@ class VoxDei
 		var minX = Math.Max(0, node.X - 3);
 		for (int x = node.X - 1; x >= minX; x--)
 		{
-			if (_map[node.Y][x] == Player.PASSIVE_NODE)
+			var token = _map[node.Y][x];
+			if (token == Player.PASSIVE_NODE)
 				break;
-			yield return new Point { X = x, Y = node.Y };
+			else if (token == Player.EMPTY_POS)
+				yield return new Point { X = x, Y = node.Y };
 		}
 
 		var maxX = Math.Min(_width-1, node.X + 3);
 		for (int x = node.X+1; x <= maxX; x++)
 		{
-			if (_map[node.Y][x] == Player.PASSIVE_NODE)
+			var token = _map[node.Y][x];
+			if (token == Player.PASSIVE_NODE)
 				break;
-			yield return new Point { X = x, Y = node.Y };
+			else if (token == Player.EMPTY_POS)
+				yield return new Point { X = x, Y = node.Y };
 		}
 
 		var minY = Math.Max(0, node.Y - 3);
 		for (int y = node.Y - 1; y >= minY; y--)
 		{
-			if (_map[y][node.X] == Player.PASSIVE_NODE)
+			var token = _map[y][node.X];
+			if (token == Player.PASSIVE_NODE)
 				break;
-			yield return new Point { X = node.X, Y = y };
+			else if (token == Player.EMPTY_POS)
+				yield return new Point { X = node.X, Y = y };
 		}
 
 		var maxY = Math.Min(_height-1, node.Y + 3);
 		for (int y = node.Y + 1; y <= maxY; y++)
 		{
-			if (_map[y][node.X] == Player.PASSIVE_NODE)
+			var token = _map[y][node.X];
+			if (token == Player.PASSIVE_NODE)
 				break;
-			yield return new Point { X = node.X, Y = y };
+			else if (token == Player.EMPTY_POS)
+				yield return new Point { X = node.X, Y = y };
 		}
 	}
 
-
-	//private List<MapPoint> createMap()
-	//{
-	//	var map = new List<MapPoint>();
-	//	//for (int y = 0; y < _height; y++)
-	//	//{
-	//	//	for (int x = 0; x < _width; x++)
-	//	//	{
-	//	//		var nodesInRange = _nodes.Any(node => node.X == x && node.Y == y)
-	//	//			? new Node[0]
-	//	//			: _nodes
-	//	//				.Where(node => !node.IsPassive)
-	//	//				.Where(node => node.InRangeOf(x, y))
-	//	//				.ToArray();
-
-	//	//		map.Add(new MapPoint(x, y, nodesInRange));
-	//	//	}
-	//	//}
-
-	//	//map.Sort((a, b) => b.NodesInRange.Length.CompareTo(a.NodesInRange.Length));
-	//	return map;
-	//}
 }
 
 class Point
@@ -192,42 +188,14 @@ class Point
 	}
 }
 
-//class MapPoint : Point
-//{
-//	public Node[] NodesInRange { get; set; }
-
-//	public MapPoint(int x, int y, Node[] nodesInRange)
-//	{
-//		X = x;
-//		Y = y;
-//		NodesInRange = nodesInRange;
-//	}
-//}
-
 class Node : Point
 {
 	public bool IsPassive { get; set; }
-
-	public bool InRangeOf(int x, int y)
-	{
-		//TODO: Check if shielded by passive node
-		if (X == x)
-			return Math.Abs(Y - y) <= 3;
-		else if (Y == y)
-			return Math.Abs(X - x) <= 3;
-		else 
-			return false;
-	}
 
 	public Node(int x, int y, bool isPassive)
 	{
 		X = x;
 		Y = y;
 		IsPassive = isPassive;
-	}
-
-	public IEnumerable<Point> KilledFrom(List<Node> _nodes)
-	{
-		throw new NotImplementedException();
 	}
 }
