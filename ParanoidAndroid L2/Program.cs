@@ -61,7 +61,11 @@ class Player
 				else if (elevatorsLookup[cloneFloor].Any())
 				{
 					Console.Error.WriteLine("Floor has {0} elevators", elevatorsLookup[cloneFloor].Count());
-					targetPos = elevatorsLookup[cloneFloor].First();
+					targetPos = elevatorsLookup[cloneFloor]
+						.Select(x => new { Pos = x, Distance = Math.Abs(clonePos - x) })
+						.OrderBy(x => x.Distance)
+						.First()
+						.Pos;
 				}
 				else
 				{
