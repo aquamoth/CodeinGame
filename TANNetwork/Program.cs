@@ -41,14 +41,14 @@ class Solution
 		var path = bfs.Path(endPoint);
 		timer.Stop();
 
-		Console.Error.WriteLine("Total time: " + timer.ElapsedMilliseconds);
-		Console.Error.WriteLine("Remove item: " + bfs.Timer1.ElapsedMilliseconds);
-		Console.Error.WriteLine("Insert item: " + bfs.Timer2.ElapsedMilliseconds);
-		Console.Error.WriteLine("Find Neighbours: " + bfs.Timer3.ElapsedMilliseconds);
-		Console.Error.WriteLine("Main loop: " + bfs.Timer4.ElapsedMilliseconds);
-		Console.Error.WriteLine("Finding first: " + bfs.Timer5.ElapsedMilliseconds);
-		Console.Error.WriteLine("Removing first: " + bfs.Timer6.ElapsedMilliseconds);
-		Console.Error.WriteLine("Total inserts {0}, Removes {1}", bfs.countInserts, bfs.countRemoves);
+		//Console.Error.WriteLine("Total time: " + timer.ElapsedMilliseconds);
+		//Console.Error.WriteLine("Remove item: " + bfs.Timer1.ElapsedMilliseconds);
+		//Console.Error.WriteLine("Insert item: " + bfs.Timer2.ElapsedMilliseconds);
+		//Console.Error.WriteLine("Find Neighbours: " + bfs.Timer3.ElapsedMilliseconds);
+		//Console.Error.WriteLine("Main loop: " + bfs.Timer4.ElapsedMilliseconds);
+		//Console.Error.WriteLine("Finding first: " + bfs.Timer5.ElapsedMilliseconds);
+		//Console.Error.WriteLine("Removing first: " + bfs.Timer6.ElapsedMilliseconds);
+		//Console.Error.WriteLine("Total inserts {0}, Removes {1}", bfs.countInserts, bfs.countRemoves);
 
 		if (path == null)
 		{
@@ -94,6 +94,11 @@ public class Address : Dijkstra.Node
 		Longitude = double.Parse(parts[4], System.Globalization.CultureInfo.InvariantCulture);
 	}
 
+	public override string ToString()
+	{
+		return string.Format("{0} ({1} from {2})", this.Id, this.Distance, this.From);
+	}
+
 	public override double DistanceTo(Dijkstra.Node neighbour)
 	{
 		var node2 = neighbour as Address;
@@ -134,7 +139,7 @@ public class Dijkstra
 		public string Id { get; set; }
 		public string[] Neighbours { get; set; }
 		public bool Visited { get; set; }
-		public string[] Path { get; set; }
+		public string From { get; set; }
 		public double Distance { get; set; }
 
 		public virtual double DistanceTo(Node node) { return 1.0; }
@@ -142,8 +147,7 @@ public class Dijkstra
 
 	Dictionary<string, Node> _nodes;
 	public string From { get; private set; }
-	List<Node> unvisitedNodes = new List<Node>();
-	int unvisitedNodesIndex;
+	LinkedList<Node> unvisitedNodes = new LinkedList<Node>();
 
 	public Dijkstra(Node[] zones, string from)
 	{
@@ -161,18 +165,17 @@ public class Dijkstra
 	{
 		foreach (var node in _nodes.Values)
 		{
-			node.Path = null;
+			node.From = null;
 			node.Distance = double.MaxValue;
 			node.Visited = false;
 		}
 		unvisitedNodes.Clear();
 
 		this.From = from;
-		_nodes[from].Path = new string[] { from };
+		_nodes[from].From = "";
 		_nodes[from].Distance = 0;
-		unvisitedNodes.Add(_nodes[from]);
-		unvisitedNodesIndex = 0;
-		countInserts++;
+
+		unvisitedNodes.AddFirst(_nodes[from]);
 	}
 
 	public string[] Path(string to)
@@ -180,22 +183,23 @@ public class Dijkstra
 		if (!_nodes.ContainsKey(to))
 			return null;//No paths to the destination at all
 
-		if (_nodes[to].Path != null)
-			return _nodes[to].Path;
+		if (_nodes[to].From != null)
+			return pathTo(to);
 
-		while (unvisitedNodesIndex < unvisitedNodes.Count)
+		while (unvisitedNodes.Count > 0)
 		{
 			Timer5.Start();
-			var currentNode = unvisitedNodes[unvisitedNodesIndex];
+			var currentNode = unvisitedNodes.First();
 			Timer5.Stop();
+
+			//Console.Error.WriteLine("Processing {0} with {1} unvisited nodes", currentNode, unvisitedNodes.Count);
 
 			if (currentNode.Id == to)
 				break;
 
 			Timer6.Start();
-			unvisitedNodesIndex++;
-			countRemoves++;
 			currentNode.Visited = true;
+			unvisitedNodes.Remove(currentNode);
 			Timer6.Stop();
 
 			Timer3.Start();
@@ -212,47 +216,52 @@ public class Dijkstra
 			foreach (var neighbour in unvisitedNeighbours)
 			{
 				var tentativeDistance = currentNode.Distance + neighbour.RelativeDistance;
+				var addToUnvistedQueue = neighbour.Node.From == null;
 				if (neighbour.Node.Distance > tentativeDistance)
 				{
-					if (neighbour.Node.Path != null)
+					if (neighbour.Node.From != null)
 					{
-						Timer1.Start();
 						unvisitedNodes.Remove(neighbour.Node);
-						countRemoves++;
-						Timer1.Stop();
+						addToUnvistedQueue = true;
 					}
-					neighbour.Node.Path = currentNode.Path.Concat(new[] { neighbour.Node.Id }).ToArray();
+					neighbour.Node.From = currentNode.Id;
 					neighbour.Node.Distance = tentativeDistance;
 				}
-				Timer2.Start();
-				insertUnvisited(neighbour.Node, unvisitedNodesIndex);
-				countInserts++;
-				Timer2.Stop();
+
+				if (addToUnvistedQueue)
+				{
+					Timer2.Start();
+					var beforeNode = unvisitedNodes.Where(node => node.Distance > neighbour.Node.Distance).FirstOrDefault();
+					if (beforeNode == null)
+						unvisitedNodes.AddLast(neighbour.Node);
+					else
+					{
+						var lln = unvisitedNodes.Find(beforeNode);
+						unvisitedNodes.AddBefore(lln, neighbour.Node);
+					}
+					Timer2.Stop();
+				}
 			}
 			Timer4.Stop();
 		}
 
-		return _nodes[to].Path;
+		return pathTo(to);
 	}
 
-	private void insertUnvisited(Node neighbour, int minIndex = 0)
+	private string[] pathTo(string to)
 	{
-		var maxIndex = unvisitedNodes.Count;
-		while (minIndex < maxIndex)
-		{
-			var index = (minIndex + maxIndex) / 2;
-			var distance = unvisitedNodes[index].Distance;
-			if (neighbour.Distance < distance)
-			{
-				maxIndex = index;
-			}
-			else
-			{
-				minIndex = index + 1;
-			}
-		}
+		if (_nodes[to].From == null)
+			return null;
 
-		unvisitedNodes.Insert(minIndex, neighbour);
+		var path = new Stack<string>();
+		var walker = to;
+		while (walker != From)
+		{
+			path.Push(walker);
+			walker = _nodes[walker].From;
+		}
+		path.Push(From);
+		return path.ToArray();
 	}
 }
 
@@ -301,4 +310,5 @@ public class Link
 }
 
 #endregion Helpers
+
 
