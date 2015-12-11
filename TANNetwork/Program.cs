@@ -34,8 +34,20 @@ class Solution
 		// Write an action using Console.WriteLine()
 		// To debug: Console.Error.WriteLine("Debug messages...");
 		build(links, addresses);
-		var bfs = new Dijkstra(addresses);
-		var path = bfs.Path(startPoint, endPoint);
+		var bfs = new Dijkstra(addresses, startPoint);
+
+		var timer = new System.Diagnostics.Stopwatch();
+		timer.Start();
+		var path = bfs.Path(endPoint);
+		timer.Stop();
+
+		Console.Error.WriteLine("Total time: " + timer.ElapsedMilliseconds);
+		Console.Error.WriteLine("Remove item: " + bfs.Timer1.ElapsedMilliseconds);
+		Console.Error.WriteLine("Insert item: " + bfs.Timer2.ElapsedMilliseconds);
+		Console.Error.WriteLine("Find Neighbours: " + bfs.Timer3.ElapsedMilliseconds);
+		Console.Error.WriteLine("Main loop: " + bfs.Timer4.ElapsedMilliseconds);
+		Console.Error.WriteLine("Finding first: " + bfs.Timer5.ElapsedMilliseconds);
+		Console.Error.WriteLine("Removing first: " + bfs.Timer6.ElapsedMilliseconds);
 
 		if (path == null)
 		{
@@ -43,7 +55,7 @@ class Solution
 		}
 		else
 		{
-			var addressDictionary = addresses.ToDictionary(x => x.Name);
+			var addressDictionary = addresses.ToDictionary(x => x.Id);
 			foreach (var stopArea in path)
 			{
 				var address = addressDictionary[stopArea];
@@ -55,12 +67,12 @@ class Solution
 
 	private static void build(Link[] links, Address[] addresses)
 	{
-		var nodes = addresses.ToDictionary(x => x.Name);
+		var nodes = addresses.ToDictionary(x => x.Id);
 
 		foreach (var link in links.GroupBy(x=>x.A))
 		{
 			var node = nodes[link.Key];
-			node.Neighbours = link.Select(x => nodes[x.B]).ToArray();
+			node.Neighbours = link.Select(x => x.B).ToArray();
 		}
 	}
 }
@@ -74,7 +86,7 @@ public class Address : Dijkstra.Node
 	public Address(string addressLine)
 	{
 		var parts = addressLine.Split(new[] { ',' });
-		this.Name = parts[0].Substring(9);
+		this.Id = parts[0].Substring(9);
 		Fullname = parts[1].Substring(1, parts[1].Length - 2);
 
 		Latitude = double.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture);
@@ -85,11 +97,10 @@ public class Address : Dijkstra.Node
 	{
 		var node2 = neighbour as Address;
 
-
-
 		var x = radians(node2.Longitude - this.Longitude) * Math.Cos(radians(this.Latitude + node2.Latitude) / 2);
 		var y = radians(node2.Latitude - this.Latitude);
 		var d = Math.Sqrt(x * x + y * y) * 6371;
+
 		return d;
 	}
 
@@ -103,86 +114,169 @@ public class Address : Dijkstra.Node
 #region Helpers
 
 
+#region Helpers
+
 public class Dijkstra
 {
+	public System.Diagnostics.Stopwatch Timer1 { get; set; }
+	public System.Diagnostics.Stopwatch Timer2 { get; set; }
+	public System.Diagnostics.Stopwatch Timer3 { get; set; }
+	public System.Diagnostics.Stopwatch Timer4 { get; set; }
+	public System.Diagnostics.Stopwatch Timer5 { get; set; }
+	public System.Diagnostics.Stopwatch Timer6 { get; set; }
+
 	public class Node
 	{
-		protected Node()
-		{
-			Distance = int.MaxValue;
-
-		}
-
-		public Node(string name)
-			: base()
-		{
-			Name = name;
-		}
-
-		public string Name { get; protected set; }
-		public Node[] Neighbours { get; set; }
-		public string ShortestPath { get; set; }
-		public double Distance { get; set; }
+		public string Id { get; set; }
+		public string[] Neighbours { get; set; }
 		public bool Visited { get; set; }
+		public string[] Path { get; set; }
+		public double Distance { get; set; }
 
-		public virtual double DistanceTo(Node neighbour)
-		{
-			return 1.0;
-		}
+		public virtual double DistanceTo(Node node) { return 1.0; }
 	}
 
-	IDictionary<string, Node> _nodes;
+	Dictionary<string, Node> _nodes;
+	public string From { get; private set; }
+	List<Node> unvisitedNodes = new List<Node>();
 
-	public Dijkstra(IEnumerable<Node> nodes)
+	public Dijkstra(Node[] zones, string from)
 	{
-		_nodes = nodes.ToDictionary(x => x.Name);
+		_nodes = zones.ToDictionary(x => x.Id);// zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
+		Reset(from);
+		Timer1 = new System.Diagnostics.Stopwatch();
+		Timer2 = new System.Diagnostics.Stopwatch();
+		Timer3 = new System.Diagnostics.Stopwatch();
+		Timer4 = new System.Diagnostics.Stopwatch();
+		Timer5 = new System.Diagnostics.Stopwatch();
+		Timer6 = new System.Diagnostics.Stopwatch();
 	}
 
-	public string[] Path(string from, string to)
+	public void Reset(string from)
+	{
+		foreach (var node in _nodes.Values)
+		{
+			node.Path = null;
+			node.Distance = double.MaxValue;
+			node.Visited = false;
+		}
+		unvisitedNodes.Clear();
+
+		this.From = from;
+		_nodes[from].Path = new string[] { from };
+		_nodes[from].Distance = 0;
+		unvisitedNodes.Add(_nodes[from]);
+	}
+
+	public string[] Path(string to)
 	{
 		if (!_nodes.ContainsKey(to))
 			return null;//No paths to the destination at all
 
-		if (!_nodes.ContainsKey(from))
-			return null;//No paths from the source at all
+		if (_nodes[to].Path != null)
+			return _nodes[to].Path;
 
-
-		//Initialize the traversal
-		var currentNode = _nodes[from];
-		currentNode.Distance = 0;
-		var unvisitedNodes = new List<Node>(_nodes.Values);
-
-		do
+		while (unvisitedNodes.Any())
 		{
-			var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
+			Timer5.Start();
+			var currentNode = unvisitedNodes.Last();
+			Timer5.Stop();
+
+			if (currentNode.Id == to)
+				break;
+
+			Timer6.Start();
+			unvisitedNodes.RemoveAt(unvisitedNodes.Count - 1);
+			currentNode.Visited = true;
+			Timer6.Stop();
+
+			Timer3.Start();
+			var unvisitedNeighbours = currentNode.Neighbours.Select(id => _nodes[id]).Where(node => !node.Visited);
+			Timer3.Stop();
+			Timer4.Start();
 			foreach (var neighbour in unvisitedNeighbours)
 			{
 				var tentativeDistance = currentNode.Distance + currentNode.DistanceTo(neighbour);
 				if (neighbour.Distance > tentativeDistance)
 				{
+					if (neighbour.Path != null)
+					{
+						Timer1.Start();
+						unvisitedNodes.Remove(neighbour);
+						Timer1.Stop();
+					}
+					neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
 					neighbour.Distance = tentativeDistance;
-					neighbour.ShortestPath = currentNode.ShortestPath + " " + currentNode.Name;
+				}
+				Timer2.Start();
+				insertUnvisited(neighbour);
+				Timer2.Stop();
+			}
+			Timer4.Stop();
+		}
+
+		return _nodes[to].Path;
+	}
+
+	private void insertUnvisited(Node neighbour)
+	{
+		if (unvisitedNodes.Count == 0)
+		{
+			unvisitedNodes.Add(neighbour);
+		}
+		else
+		{
+			var minIndex = 0;
+			var maxIndex = unvisitedNodes.Count;
+			while (minIndex < maxIndex)
+			{
+				var index = (minIndex + maxIndex) / 2;
+				var distance = unvisitedNodes[index].Distance;
+				if (neighbour.Distance > distance)
+				{
+					maxIndex = index;
+				}
+				else
+				{
+					minIndex = index + 1;
 				}
 			}
 
-			currentNode.Visited = true;
-			unvisitedNodes.Remove(currentNode);
-
-			if (currentNode.Name == to)
-				break;
-
-			currentNode = unvisitedNodes.OrderBy(x => x.Distance).FirstOrDefault();
+			unvisitedNodes.Insert(minIndex, neighbour);
 		}
-		while (currentNode != null && currentNode.Distance != int.MaxValue);
-
-		//Determine output
-		var toNode = _nodes[to];
-		if (toNode.Distance == int.MaxValue)
-			return null; // No path to this gateway exists
-		else
-			return (currentNode.ShortestPath + " " + currentNode.Name).TrimStart().Split(' ');
 	}
 }
+
+
+/// <summary>
+/// Comparer for comparing two keys, handling equality as beeing greater
+/// Use this Comparer e.g. with SortedLists or SortedDictionaries, that don't allow duplicate keys
+/// </summary>
+/// <typeparam name="TKey"></typeparam>
+public class DuplicateKeyComparer<TKey> : IComparer<TKey> 
+	where TKey : IComparable
+{
+	#region IComparer<TKey> Members
+
+	public int Compare(TKey x, TKey y)
+	{
+		int result = x.CompareTo(y);
+
+		if (result == 0)
+			return 1;   // Handle equality as beeing greater
+		else
+			return result;
+	}
+
+	#endregion
+}
+
+#endregion Helpers
+
+
+
+
+
 
 public class Link
 {
