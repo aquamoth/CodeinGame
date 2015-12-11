@@ -48,6 +48,7 @@ class Solution
 		Console.Error.WriteLine("Main loop: " + bfs.Timer4.ElapsedMilliseconds);
 		Console.Error.WriteLine("Finding first: " + bfs.Timer5.ElapsedMilliseconds);
 		Console.Error.WriteLine("Removing first: " + bfs.Timer6.ElapsedMilliseconds);
+		Console.Error.WriteLine("Total inserts {0}, Removes {1}", bfs.countInserts, bfs.countRemoves);
 
 		if (path == null)
 		{
@@ -124,6 +125,9 @@ public class Dijkstra
 	public System.Diagnostics.Stopwatch Timer4 { get; set; }
 	public System.Diagnostics.Stopwatch Timer5 { get; set; }
 	public System.Diagnostics.Stopwatch Timer6 { get; set; }
+	public int countInserts = 0;
+	public int countRemoves = 0;
+
 
 	public class Node
 	{
@@ -168,6 +172,7 @@ public class Dijkstra
 		_nodes[from].Distance = 0;
 		unvisitedNodes.Add(_nodes[from]);
 		unvisitedNodesIndex = 0;
+		countInserts++;
 	}
 
 	public string[] Path(string to)
@@ -189,29 +194,39 @@ public class Dijkstra
 
 			Timer6.Start();
 			unvisitedNodesIndex++;
+			countRemoves++;
 			currentNode.Visited = true;
 			Timer6.Stop();
 
 			Timer3.Start();
-			var unvisitedNeighbours = currentNode.Neighbours.Select(id => _nodes[id]).Where(node => !node.Visited);
+			var unvisitedNeighbours = currentNode.Neighbours
+				.Select(id => _nodes[id]).Where(node => !node.Visited)
+				.Select(node => new
+				{
+					Node = node,
+					RelativeDistance = currentNode.DistanceTo(node)
+				}).OrderBy(x => x.RelativeDistance)
+				.ToArray();
 			Timer3.Stop();
 			Timer4.Start();
 			foreach (var neighbour in unvisitedNeighbours)
 			{
-				var tentativeDistance = currentNode.Distance + currentNode.DistanceTo(neighbour);
-				if (neighbour.Distance > tentativeDistance)
+				var tentativeDistance = currentNode.Distance + neighbour.RelativeDistance;
+				if (neighbour.Node.Distance > tentativeDistance)
 				{
-					if (neighbour.Path != null)
+					if (neighbour.Node.Path != null)
 					{
 						Timer1.Start();
-						unvisitedNodes.Remove(neighbour);
+						unvisitedNodes.Remove(neighbour.Node);
+						countRemoves++;
 						Timer1.Stop();
 					}
-					neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
-					neighbour.Distance = tentativeDistance;
+					neighbour.Node.Path = currentNode.Path.Concat(new[] { neighbour.Node.Id }).ToArray();
+					neighbour.Node.Distance = tentativeDistance;
 				}
 				Timer2.Start();
-				insertUnvisited(neighbour, unvisitedNodesIndex);
+				insertUnvisited(neighbour.Node, unvisitedNodesIndex);
+				countInserts++;
 				Timer2.Stop();
 			}
 			Timer4.Stop();
