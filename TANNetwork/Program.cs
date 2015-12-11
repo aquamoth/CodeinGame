@@ -139,6 +139,7 @@ public class Dijkstra
 	Dictionary<string, Node> _nodes;
 	public string From { get; private set; }
 	List<Node> unvisitedNodes = new List<Node>();
+	int unvisitedNodesIndex;
 
 	public Dijkstra(Node[] zones, string from)
 	{
@@ -166,6 +167,7 @@ public class Dijkstra
 		_nodes[from].Path = new string[] { from };
 		_nodes[from].Distance = 0;
 		unvisitedNodes.Add(_nodes[from]);
+		unvisitedNodesIndex = 0;
 	}
 
 	public string[] Path(string to)
@@ -176,17 +178,17 @@ public class Dijkstra
 		if (_nodes[to].Path != null)
 			return _nodes[to].Path;
 
-		while (unvisitedNodes.Any())
+		while (unvisitedNodesIndex < unvisitedNodes.Count)
 		{
 			Timer5.Start();
-			var currentNode = unvisitedNodes.Last();
+			var currentNode = unvisitedNodes[unvisitedNodesIndex];
 			Timer5.Stop();
 
 			if (currentNode.Id == to)
 				break;
 
 			Timer6.Start();
-			unvisitedNodes.RemoveAt(unvisitedNodes.Count - 1);
+			unvisitedNodesIndex++;
 			currentNode.Visited = true;
 			Timer6.Stop();
 
@@ -209,7 +211,7 @@ public class Dijkstra
 					neighbour.Distance = tentativeDistance;
 				}
 				Timer2.Start();
-				insertUnvisited(neighbour);
+				insertUnvisited(neighbour, unvisitedNodesIndex);
 				Timer2.Stop();
 			}
 			Timer4.Stop();
@@ -218,32 +220,24 @@ public class Dijkstra
 		return _nodes[to].Path;
 	}
 
-	private void insertUnvisited(Node neighbour)
+	private void insertUnvisited(Node neighbour, int minIndex = 0)
 	{
-		if (unvisitedNodes.Count == 0)
+		var maxIndex = unvisitedNodes.Count;
+		while (minIndex < maxIndex)
 		{
-			unvisitedNodes.Add(neighbour);
-		}
-		else
-		{
-			var minIndex = 0;
-			var maxIndex = unvisitedNodes.Count;
-			while (minIndex < maxIndex)
+			var index = (minIndex + maxIndex) / 2;
+			var distance = unvisitedNodes[index].Distance;
+			if (neighbour.Distance < distance)
 			{
-				var index = (minIndex + maxIndex) / 2;
-				var distance = unvisitedNodes[index].Distance;
-				if (neighbour.Distance > distance)
-				{
-					maxIndex = index;
-				}
-				else
-				{
-					minIndex = index + 1;
-				}
+				maxIndex = index;
 			}
-
-			unvisitedNodes.Insert(minIndex, neighbour);
+			else
+			{
+				minIndex = index + 1;
+			}
 		}
+
+		unvisitedNodes.Insert(minIndex, neighbour);
 	}
 }
 
