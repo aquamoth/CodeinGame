@@ -33,7 +33,8 @@ class Solution
 
 		// Write an action using Console.WriteLine()
 		// To debug: Console.Error.WriteLine("Debug messages...");
-		var bfs = new Dijkstra(links);
+		build(links, addresses);
+		var bfs = new Dijkstra(addresses);
 		var path = bfs.Path(startPoint, endPoint);
 
 		if (path == null)
@@ -42,27 +43,59 @@ class Solution
 		}
 		else
 		{
-			var addressDictionary = addresses.ToDictionary(x => x.StopArea);
+			var addressDictionary = addresses.ToDictionary(x => x.Name);
 			foreach (var stopArea in path)
 			{
 				var address = addressDictionary[stopArea];
-				Console.WriteLine(address.Name);
+				Console.WriteLine(address.Fullname);
 			}
 		}
 
 	}
+
+	private static void build(Link[] links, Address[] addresses)
+	{
+		var nodes = addresses.ToDictionary(x => x.Name);
+
+		foreach (var link in links.GroupBy(x=>x.A))
+		{
+			var node = nodes[link.Key];
+			node.Neighbours = link.Select(x => nodes[x.B]).ToArray();
+		}
+	}
 }
 
-class Address
+public class Address : Dijkstra.Node
 {
-	public string StopArea { get; set; }
-	public string Name { get; set; }
+	public string Fullname { get; set; }
+	public double Longitude { get; set; }
+	public double Latitude { get; set; }
 
 	public Address(string addressLine)
 	{
 		var parts = addressLine.Split(new[] { ',' });
-		StopArea = parts[0].Substring(9);
-		Name = parts[1].Substring(1, parts[1].Length - 2);
+		this.Name = parts[0].Substring(9);
+		Fullname = parts[1].Substring(1, parts[1].Length - 2);
+
+		Latitude = double.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture);
+		Longitude = double.Parse(parts[4], System.Globalization.CultureInfo.InvariantCulture);
+	}
+
+	public override double DistanceTo(Dijkstra.Node neighbour)
+	{
+		var node2 = neighbour as Address;
+
+
+
+		var x = radians(node2.Longitude - this.Longitude) * Math.Cos(radians(this.Latitude + node2.Latitude) / 2);
+		var y = radians(node2.Latitude - this.Latitude);
+		var d = Math.Sqrt(x * x + y * y) * 6371;
+		return d;
+	}
+
+	private double radians(double degrees)
+	{
+		return Math.PI / 180.0 * degrees;
 	}
 }
 
@@ -70,40 +103,39 @@ class Address
 #region Helpers
 
 
-class Dijkstra
+public class Dijkstra
 {
-	class Node
+	public class Node
 	{
-		public Node(string name)
+		protected Node()
 		{
-			Name = name;
 			Distance = int.MaxValue;
+
 		}
 
-		public string Name { get; private set; }
+		public Node(string name)
+			: base()
+		{
+			Name = name;
+		}
+
+		public string Name { get; protected set; }
 		public Node[] Neighbours { get; set; }
 		public string ShortestPath { get; set; }
-		public int Distance { get; set; }
+		public double Distance { get; set; }
 		public bool Visited { get; set; }
+
+		public virtual double DistanceTo(Node neighbour)
+		{
+			return 1.0;
+		}
 	}
 
 	IDictionary<string, Node> _nodes;
 
-	public Dijkstra(IEnumerable<Link> links)
+	public Dijkstra(IEnumerable<Node> nodes)
 	{
-		_nodes = links
-			.SelectMany(link => link.Nodes)
-			.Distinct()
-			.Select(name => new Node(name))
-			.ToDictionary(x => x.Name);
-
-		foreach (var node in _nodes.Values)
-		{
-			node.Neighbours = links.Where(link => link.A == node.Name).Select(link => link.B)
-					.Union(links.Where(link => link.B == node.Name).Select(link => link.A))
-					.Select(name => _nodes[name])
-					.ToArray();
-		}
+		_nodes = nodes.ToDictionary(x => x.Name);
 	}
 
 	public string[] Path(string from, string to)
@@ -122,11 +154,10 @@ class Dijkstra
 
 		do
 		{
-			var tentativeDistance = currentNode.Distance + 1;
 			var unvisitedNeighbours = currentNode.Neighbours.Where(x => !x.Visited);
-
 			foreach (var neighbour in unvisitedNeighbours)
 			{
+				var tentativeDistance = currentNode.Distance + currentNode.DistanceTo(neighbour);
 				if (neighbour.Distance > tentativeDistance)
 				{
 					neighbour.Distance = tentativeDistance;
@@ -163,19 +194,6 @@ public class Link
 	public override string ToString()
 	{
 		return A + " " + B;
-	}
-}
-
-public class Node
-{
-	public string Name { get; set; }
-	public Link[] Links { get; set; }
-	public string[] Path { get; set; }
-	public double Score { get; set; }
-
-	public override string ToString()
-	{
-		return string.Format("{0} ({1} pts)", Name, Score);
 	}
 }
 
