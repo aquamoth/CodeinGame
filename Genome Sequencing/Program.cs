@@ -51,10 +51,14 @@ class Solution
 
 	private static string combine(string s1, string s2)
 	{
+		if (s1.Contains(s2))
+			return s1;
+		else if (s2.Contains(s1))
+			return s2;
+
+
 		int result1 = overlap(s2, s1);
 		int result2 = overlap(s1, s2);
-
-
 		if (result2 + s1.Length < result1 + s2.Length)
 		{
 			return s2.Substring(0, result2) + s1;
