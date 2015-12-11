@@ -31,24 +31,11 @@ class Solution
 			links[i] = new Link { A = nodes[0], B = nodes[1] };
 		}
 
-		// Write an action using Console.WriteLine()
-		// To debug: Console.Error.WriteLine("Debug messages...");
+
 		build(links, addresses);
 		var bfs = new Dijkstra(addresses, startPoint);
-
-		var timer = new System.Diagnostics.Stopwatch();
-		timer.Start();
 		var path = bfs.Path(endPoint);
-		timer.Stop();
 
-		//Console.Error.WriteLine("Total time: " + timer.ElapsedMilliseconds);
-		//Console.Error.WriteLine("Remove item: " + bfs.Timer1.ElapsedMilliseconds);
-		//Console.Error.WriteLine("Insert item: " + bfs.Timer2.ElapsedMilliseconds);
-		//Console.Error.WriteLine("Find Neighbours: " + bfs.Timer3.ElapsedMilliseconds);
-		//Console.Error.WriteLine("Main loop: " + bfs.Timer4.ElapsedMilliseconds);
-		//Console.Error.WriteLine("Finding first: " + bfs.Timer5.ElapsedMilliseconds);
-		//Console.Error.WriteLine("Removing first: " + bfs.Timer6.ElapsedMilliseconds);
-		//Console.Error.WriteLine("Total inserts {0}, Removes {1}", bfs.countInserts, bfs.countRemoves);
 
 		if (path == null)
 		{
@@ -116,24 +103,10 @@ public class Address : Dijkstra.Node
 	}
 }
 
-
-#region Helpers
-
-
 #region Helpers
 
 public class Dijkstra
 {
-	public System.Diagnostics.Stopwatch Timer1 { get; set; }
-	public System.Diagnostics.Stopwatch Timer2 { get; set; }
-	public System.Diagnostics.Stopwatch Timer3 { get; set; }
-	public System.Diagnostics.Stopwatch Timer4 { get; set; }
-	public System.Diagnostics.Stopwatch Timer5 { get; set; }
-	public System.Diagnostics.Stopwatch Timer6 { get; set; }
-	public int countInserts = 0;
-	public int countRemoves = 0;
-
-
 	public class Node
 	{
 		public string Id { get; set; }
@@ -151,14 +124,8 @@ public class Dijkstra
 
 	public Dijkstra(Node[] zones, string from)
 	{
-		_nodes = zones.ToDictionary(x => x.Id);// zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
+		_nodes = zones.ToDictionary(x => x.Id);
 		Reset(from);
-		Timer1 = new System.Diagnostics.Stopwatch();
-		Timer2 = new System.Diagnostics.Stopwatch();
-		Timer3 = new System.Diagnostics.Stopwatch();
-		Timer4 = new System.Diagnostics.Stopwatch();
-		Timer5 = new System.Diagnostics.Stopwatch();
-		Timer6 = new System.Diagnostics.Stopwatch();
 	}
 
 	public void Reset(string from)
@@ -188,21 +155,14 @@ public class Dijkstra
 
 		while (unvisitedNodes.Count > 0)
 		{
-			Timer5.Start();
 			var currentNode = unvisitedNodes.First();
-			Timer5.Stop();
-
-			//Console.Error.WriteLine("Processing {0} with {1} unvisited nodes", currentNode, unvisitedNodes.Count);
-
 			if (currentNode.Id == to)
 				break;
 
-			Timer6.Start();
+			//Console.Error.WriteLine("Processing {0} with {1} unvisited nodes", currentNode, unvisitedNodes.Count);
 			currentNode.Visited = true;
 			unvisitedNodes.Remove(currentNode);
-			Timer6.Stop();
 
-			Timer3.Start();
 			var unvisitedNeighbours = currentNode.Neighbours
 				.Select(id => _nodes[id]).Where(node => !node.Visited)
 				.Select(node => new
@@ -211,8 +171,7 @@ public class Dijkstra
 					RelativeDistance = currentNode.DistanceTo(node)
 				}).OrderBy(x => x.RelativeDistance)
 				.ToArray();
-			Timer3.Stop();
-			Timer4.Start();
+
 			foreach (var neighbour in unvisitedNeighbours)
 			{
 				var tentativeDistance = currentNode.Distance + neighbour.RelativeDistance;
@@ -230,7 +189,6 @@ public class Dijkstra
 
 				if (addToUnvistedQueue)
 				{
-					Timer2.Start();
 					var beforeNode = unvisitedNodes.Where(node => node.Distance > neighbour.Node.Distance).FirstOrDefault();
 					if (beforeNode == null)
 						unvisitedNodes.AddLast(neighbour.Node);
@@ -239,10 +197,8 @@ public class Dijkstra
 						var lln = unvisitedNodes.Find(beforeNode);
 						unvisitedNodes.AddBefore(lln, neighbour.Node);
 					}
-					Timer2.Stop();
 				}
 			}
-			Timer4.Stop();
 		}
 
 		return pathTo(to);
@@ -264,37 +220,6 @@ public class Dijkstra
 		return path.ToArray();
 	}
 }
-
-
-/// <summary>
-/// Comparer for comparing two keys, handling equality as beeing greater
-/// Use this Comparer e.g. with SortedLists or SortedDictionaries, that don't allow duplicate keys
-/// </summary>
-/// <typeparam name="TKey"></typeparam>
-public class DuplicateKeyComparer<TKey> : IComparer<TKey> 
-	where TKey : IComparable
-{
-	#region IComparer<TKey> Members
-
-	public int Compare(TKey x, TKey y)
-	{
-		int result = x.CompareTo(y);
-
-		if (result == 0)
-			return 1;   // Handle equality as beeing greater
-		else
-			return result;
-	}
-
-	#endregion
-}
-
-#endregion Helpers
-
-
-
-
-
 
 public class Link
 {
