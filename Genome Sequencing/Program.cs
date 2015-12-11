@@ -33,9 +33,17 @@ class Solution
 			.ToArray();
 
 		var sequence = orderedSequences.First();
-		foreach (var subseq in orderedSequences.Skip(1))
+		var partsToProcess = orderedSequences.Skip(1).ToList();
+
+		while (partsToProcess.Any())
 		{
-			sequence = combine(sequence, subseq);
+			var nextResult = partsToProcess
+				.Select(p => new { Part = p, Sequence = combine(sequence, p) })
+				.OrderBy(x => x.Sequence.Length)
+				.First();
+
+			sequence = nextResult.Sequence;
+			partsToProcess.Remove(nextResult.Part);
 		}
 
 		return sequence;
@@ -43,25 +51,35 @@ class Solution
 
 	private static string combine(string s1, string s2)
 	{
-		var s2AfterS1Length = 1;
-		while (s2AfterS1Length < s2.Length && s1.EndsWith(s2.Substring(0, s2AfterS1Length)))
-		{
-			s2AfterS1Length++;
-		}
+		int result1 = overlap(s2, s1);
+		int result2 = overlap(s1, s2);
 
-		var s1AfterS2Length = 1;
-		while (s1AfterS2Length < s1.Length && s2.EndsWith(s1.Substring(0, s1AfterS2Length)))
-		{
-			s1AfterS2Length++;
-		}
 
-		if (s1AfterS2Length > s2AfterS1Length)
+		if (result2 + s1.Length < result1 + s2.Length)
 		{
-			return s2 + s1.Substring(s1AfterS2Length - 1);
+			return s2.Substring(0, result2) + s1;
 		}
 		else
 		{
-			return s1 + s2.Substring(s2AfterS1Length - 1);
+			return s1.Substring(0, result1) + s2;
 		}
+	}
+
+	//private static string lastStringOf(string s, int length)
+	//{
+	//	return s.Substring(s.Length - length);
+	//}
+
+	private static int overlap(string s1, string s2)
+	{
+		for (var i = 0; i < s2.Length; i++)
+		{
+			if (s1.StartsWith(s2.Substring(i)))
+			{
+				return i;
+			}
+		}
+
+		return s2.Length;
 	}
 }
