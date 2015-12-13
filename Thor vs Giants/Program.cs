@@ -41,14 +41,15 @@ class Player
 				.OrderBy(x => x.Distance)
 				.ToArray();
 
-			foreach (var giant in giantsInfo)
-			{
-				Console.Error.WriteLine("Distance from {0} to {1} is {2} to {3}", thor, giant.Giant, giant.Distance, giant.Direction);
-			}
+			//foreach (var giant in giantsInfo)
+			//{
+			//	Console.Error.WriteLine("Distance from {0} to {1} is {2} to {3}", thor, giant.Giant, giant.Distance, giant.Direction);
+			//}
 
 
 			if (giantsInfo.All(giant => giant.Distance <= 4))
 			{
+				Console.Error.WriteLine("Thor strikes to kill all giants left");
 				thorStrike();
 			}
 			else
@@ -68,7 +69,7 @@ class Player
 
 				possibleDirections = excludeWalkingOffMap(thor, possibleDirections);
 
-				var criticalDirections = giantsInfo.Where(giant=>giant.Distance<=2).Select(giant=>giant.Direction).ToArray();
+				var criticalDirections = giantsInfo.Where(giant => giant.Distance <= 2).Select(giant => giant.Direction).ToArray();
 				foreach (var direction in criticalDirections)
 					possibleDirections = exclude(possibleDirections, direction);
 
@@ -86,7 +87,7 @@ class Player
 					Console.Error.WriteLine("Thor can move to: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
 					moveThorTo(thor, nextDirections.First());
 				}
-				else if (giantsInfo[0].Distance > 2)
+				else if (giantsInfo[0].Distance > 1)
 					thorWaits();
 				else
 					thorStrike();
