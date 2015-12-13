@@ -17,24 +17,9 @@ class P{static void Main(){
 	{
 		var r2 = Console.ReadLine().Split(' ');
 		var r = r2.Take(2).Select(x => int.Parse(x)).ToArray();
-
-		int cloneFloor = r[0]; 
-		int clonePos = r[1];
+		int f = r[0];
+		int p = r[1];
 		string direction = r2.Last();
-		var index = cloneFloor + 1;
-		string s;
-		if (cloneFloor == -1 || clonePos == e[cloneFloor])
-		{
-			s ="WAIT";
-		}
-		else if ((direction == "RIGHT") ^ (clonePos > e[cloneFloor]))
-		{
-			s ="WAIT";
-		}
-		else
-		{
-			s = "BLOCK";
-		}
-		Console.WriteLine(s);
+		Console.WriteLine((f == -1 || p == e[f] || (direction == "RIGHT") ^ (p > e[f])) ? "WAIT" : "BLOCK");
 	}
 }}
