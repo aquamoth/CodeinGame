@@ -73,6 +73,8 @@ class Player
 				foreach (var direction in criticalDirections)
 					possibleDirections = exclude(possibleDirections, direction);
 
+				Console.Error.WriteLine("Thor's non-critical directions: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
+
 				var nextDirections = possibleDirections;
 				foreach (var giant in giantsInfo)
 				{
@@ -84,7 +86,7 @@ class Player
 
 				if (nextDirections.Any())
 				{
-					Console.Error.WriteLine("Thor can move to: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
+					Console.Error.WriteLine("Thor can move to: {0}", string.Join(", ", nextDirections.Select(d => d.ToString()).ToArray()));
 					moveThorTo(thor, nextDirections.First());
 				}
 				else if (giantsInfo[0].Distance > 1)
