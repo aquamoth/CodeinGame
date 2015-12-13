@@ -12,7 +12,7 @@ class P{static void Main(){
 		var b = Console.ReadLine().Split(' ').Select(x => int.Parse(x)).ToArray();
 		e.Add(b[0], b[1]);
 	}
-	e.Add(-1, -1);
+	e.Add(exitFloor, exitPos);
 	while (true)
 	{
 		var r2 = Console.ReadLine().Split(' ');
@@ -21,19 +21,20 @@ class P{static void Main(){
 		int cloneFloor = r[0]; 
 		int clonePos = r[1];
 		string direction = r2.Last();
-
-		var targetPos = exitFloor == cloneFloor ? exitPos : e[cloneFloor];
-		if (cloneFloor == -1 || clonePos == targetPos)
+		var index = cloneFloor + 1;
+		string s;
+		if (cloneFloor == -1 || clonePos == e[cloneFloor])
 		{
-			Console.WriteLine("WAIT");
+			s ="WAIT";
 		}
-		else if ((direction == "RIGHT") ^ (clonePos > targetPos))
+		else if ((direction == "RIGHT") ^ (clonePos > e[cloneFloor]))
 		{
-			Console.WriteLine("WAIT");
+			s ="WAIT";
 		}
 		else
 		{
-			Console.WriteLine("BLOCK");
+			s = "BLOCK";
 		}
+		Console.WriteLine(s);
 	}
 }}
