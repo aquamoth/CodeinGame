@@ -38,30 +38,25 @@ class Player
 
 			// Write an action using Console.WriteLine()
 			// To debug: Console.Error.WriteLine("Debug messages...");
-			var xx = giants.Select(x => new { Giant = x, Direction = x.DirectionTo(thor), Distance = x.DistanceTo(thor) }).ToArray();
+			var giantsInfo = giants
+				.Select(x => new { Giant = x, Direction = x.DirectionTo(thor), Distance = x.DistanceTo(thor) })
+				.OrderBy(x => x.Distance)
+				.ToArray();
 
-			foreach (var giant in xx)
+			//foreach (var giant in xx)
+			//{
+			//	Console.Error.WriteLine("Distance from {0} to {1} is {2} to {3}", thor, giant.Giant, giant.Distance, giant.Direction);
+			//}
+
+			if (giantsInfo[0].Distance > 2)
 			{
-				Console.Error.WriteLine("Distance from {0} to {1} is {2} to {3}", thor, giant.Giant, giant.Distance, giant.Direction);
+				moveThorTo(thor, giantsInfo[0].Direction);
 			}
-
-			var closestGiant = xx.OrderBy(x => x.Distance).First();
-			if (closestGiant.Distance > 2)
+			else if (giantsInfo.Length > 1
+				&& isOpposite(giantsInfo[0].Direction, giantsInfo[1].Direction)
+				&& giantsInfo[1].Distance > 2)
 			{
-				Console.WriteLine(closestGiant.Direction.ToString());
-				switch (closestGiant.Direction)
-				{
-					case Direction.NW: thor.Y--; thor.X--; break;
-					case Direction.N: thor.Y--; break;
-					case Direction.NE: thor.Y--; thor.X++; break;
-					case Direction.W: thor.X--; break;
-					case Direction.E: thor.X++; break;
-					case Direction.SW: thor.Y++; thor.X--; break;
-					case Direction.S: thor.Y++; break;
-					case Direction.SE: thor.Y++; thor.X++; break;
-					default:
-						throw new NotSupportedException();
-				}
+				moveThorTo(thor, giantsInfo[1].Direction);
 			}
 			else
 			{
@@ -69,6 +64,29 @@ class Player
 			}
 
 			//Console.WriteLine("WAIT"); // The movement or action to be carried out: WAIT STRIKE N NE E SE S SW W or N
+		}
+	}
+
+	private static bool isOpposite(Direction direction1, Direction direction2)
+	{
+		return false;
+	}
+
+	private static void moveThorTo(Point thor, Direction moveTo)
+	{
+		Console.WriteLine(moveTo.ToString());
+		switch (moveTo)
+		{
+			case Direction.NW: thor.Y--; thor.X--; break;
+			case Direction.N: thor.Y--; break;
+			case Direction.NE: thor.Y--; thor.X++; break;
+			case Direction.W: thor.X--; break;
+			case Direction.E: thor.X++; break;
+			case Direction.SW: thor.Y++; thor.X--; break;
+			case Direction.S: thor.Y++; break;
+			case Direction.SE: thor.Y++; thor.X++; break;
+			default:
+				throw new NotSupportedException();
 		}
 	}
 }
