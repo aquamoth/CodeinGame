@@ -67,8 +67,18 @@ class Player
 		}
 	}
 
-	private static bool isOpposite(Direction direction1, Direction direction2)
+	private static bool isOpposite(Direction d1, Direction d2)
 	{
+		if (d1.HasFlag(Direction.N) && d2.HasFlag(Direction.S))
+			return true;
+		if (d1.HasFlag(Direction.S) && d2.HasFlag(Direction.N))
+			return true;
+
+		if (d1.HasFlag(Direction.W) && d2.HasFlag(Direction.E))
+			return true;
+		if (d1.HasFlag(Direction.E) && d2.HasFlag(Direction.W))
+			return true;
+
 		return false;
 	}
 
@@ -111,21 +121,26 @@ class Point
 	{
 		var dx = X - p.X;
 		var dy = Y - p.Y;
-		var d = 4 + 3 * Math.Sign(dy) + Math.Sign(dx);
+
+		var d = (int)(dx == 0 ? Direction.NONE : dx < 0 ? Direction.W : Direction.E)
+			+ (int)(dy == 0 ? Direction.NONE : dy < 0 ? Direction.N : Direction.S);
+
 		return (Direction)d;
 	}
 }
 
+[Flags]
 public enum Direction
 {
-	NW = 0,
-	N = 1,
-	NE = 2,
+	NONE= 0,
 
-	W = 3,
-	E = 5,
-	
-	SW = 6,
-	S = 7,
-	SE = 8,
+	N = 1,
+	S = 2,
+	E = 4,
+	W = 8,
+
+	NE = 5,
+	SE = 6,
+	NW = 9,
+	SW = 10,
 }
