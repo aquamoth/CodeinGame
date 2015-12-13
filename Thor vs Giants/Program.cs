@@ -41,13 +41,13 @@ class Player
 				.OrderBy(x => x.Distance)
 				.ToArray();
 
-			//foreach (var giant in xx)
-			//{
-			//	Console.Error.WriteLine("Distance from {0} to {1} is {2} to {3}", thor, giant.Giant, giant.Distance, giant.Direction);
-			//}
+			foreach (var giant in giantsInfo)
+			{
+				Console.Error.WriteLine("Distance from {0} to {1} is {2} to {3}", thor, giant.Giant, giant.Distance, giant.Direction);
+			}
 
 
-			if (giantsInfo.All(giant=>giant.Distance<=4))
+			if (giantsInfo.All(giant => giant.Distance <= 4))
 			{
 				thorStrike();
 			}
@@ -68,46 +68,28 @@ class Player
 
 				possibleDirections = excludeWalkingOffMap(thor, possibleDirections);
 
-				var veryCloseGiants = giantsInfo.Where(x => x.Distance < 2);
-				foreach(var giant in veryCloseGiants){
+				var criticalDirections = giantsInfo.Where(giant=>giant.Distance<=2).Select(giant=>giant.Direction).ToArray();
+				foreach (var direction in criticalDirections)
+					possibleDirections = exclude(possibleDirections, direction);
+
+				var nextDirections = possibleDirections;
+				foreach (var giant in giantsInfo)
+				{
 					possibleDirections = exclude(possibleDirections, giant.Direction);
+					if (!possibleDirections.Any())
+						break;
+					nextDirections = possibleDirections;
 				}
 
-
-
-				if (possibleDirections.Length > 0)
+				if (nextDirections.Any())
 				{
-					moveThorTo(thor, possibleDirections.First());
+					Console.Error.WriteLine("Thor can move to: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
+					moveThorTo(thor, nextDirections.First());
 				}
+				else if (giantsInfo[0].Distance > 2)
+					thorWaits();
 				else
-				{
 					thorStrike();
-				}
-
-				//if (giantsInfo[0].Distance > 2)
-				//{
-				//	moveThorTo(thor, giantsInfo[0].Direction);
-				//}
-				//else if (giantsInfo.Length > 1
-				//	&& isOpposite(giantsInfo[0].Direction, giantsInfo[1].Direction)
-				//	&& giantsInfo[1].Distance > 2)
-				//{
-				//	moveThorTo(thor, giantsInfo[1].Direction);
-				//}
-				//else
-				//{
-				//	Console.WriteLine("STRIKE");
-				//}
-
-				//Console.WriteLine("WAIT"); // The movement or action to be carried out: WAIT STRIKE N NE E SE S SW W or N
-
-
-
-
-
-
-
-
 			}
 
 
@@ -115,18 +97,21 @@ class Player
 		}
 	}
 
-	private static Direction[] exclude(Direction[] possibleDirections, Direction direction)
+	private static Direction[] exclude(Direction[] possibleDirections, Direction giant)
 	{
 		IEnumerable<Direction> result = possibleDirections.AsEnumerable();
-		if (direction.HasFlag(Direction.N))
-			result = result.Where(d => !d.HasFlag(Direction.N));
-		if (direction.HasFlag(Direction.E))
-			result = result.Where(d => !d.HasFlag(Direction.E));
-		if (direction.HasFlag(Direction.S))
-			result = result.Where(d => !d.HasFlag(Direction.S));
-		if (direction.HasFlag(Direction.W))
-			result = result.Where(d => !d.HasFlag(Direction.W));
+		result = tryExclude(giant, result, Direction.N);
+		result = tryExclude(giant, result, Direction.E);
+		result = tryExclude(giant, result, Direction.S);
+		result = tryExclude(giant, result, Direction.W);
 		return result.ToArray();
+	}
+
+	private static IEnumerable<Direction> tryExclude(Direction giant, IEnumerable<Direction> result, Direction directionToTry)
+	{
+		if (giant.HasFlag(directionToTry))
+			result = result.Where(d => !d.HasFlag(directionToTry));
+		return result;
 	}
 
 	private static Direction[] excludeWalkingOffMap(Point thor, Direction[] possibleDirections)
@@ -145,6 +130,11 @@ class Player
 	private static void thorStrike()
 	{
 		Console.WriteLine("STRIKE");
+	}
+
+	private static void thorWaits()
+	{
+		Console.WriteLine("WAIT");
 	}
 
 	private static bool isOpposite(Direction d1, Direction d2)
