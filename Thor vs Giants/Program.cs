@@ -13,7 +13,7 @@ class Player
 {
 	static void Main(string[] args)
 	{
-		tdd();
+		//tdd();
 
 		string[] inputs;
 		inputs = Console.ReadLine().Split(' ');
@@ -38,15 +38,9 @@ class Player
 				giants[i] = new Point { X = X, Y = Y };
 			}
 
-			var giantsInfo = giants
-				.Select(x => new { 
-					Giant = x, 
-					Direction = x.DirectionTo(thor),
-					Distance = x.DistanceTo(thor) 
-				})
-				.ToArray();
 
-			if (giantsInfo.All(giant => giant.Giant.InKillZoneOf(thor)))
+
+			if (giants.All(giant => giant.InKillZoneOf(thor)))
 			{
 				Console.Error.WriteLine("Thor strikes to kill all giants left");
 				thorStrike();
@@ -55,20 +49,9 @@ class Player
 			{
 				var possibleDirections = excludeWalkingOffMap(thor, allDirections());
 
-				var criticalDirections = giantsInfo.SelectMany(info => critical(thor, info.Giant)).ToArray();
-
-				foreach (var giant in giantsInfo)
-				{
-					Console.Error.WriteLine("{0} = {1}*{2}: {3}",
-						new Point { X = thor.X - giant.Giant.X, Y = thor.Y - giant.Giant.Y },
-						giant.Distance,
-						giant.Direction,
-						string.Join(", ", critical(thor, giant.Giant).ToArray())
-						);
-				}
+				var criticalDirections = giants.SelectMany(giant => critical(thor, giant)).ToArray();
 				possibleDirections = possibleDirections.Except(criticalDirections).ToArray();
-
-				Console.Error.WriteLine("Thor's non-critical directions: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
+				Console.Error.WriteLine("Thor's survives to: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
 
 				if (!possibleDirections.Any())
 				{
@@ -78,13 +61,11 @@ class Player
 				else
 				{
 					var target = calculateGiantsMedianPoint(giants);
-					var targetDirection = target.DirectionTo(thor);
-					Console.Error.WriteLine("Thor's target at {0} is to: {1}", target, targetDirection);
+					Console.Error.WriteLine("Thor's target location is at {0}", target);
 
 					var scoredDirections = possibleDirections
 						.Select(d => new { Direction = d, Score = scoreDirection(d, thor, target) })
-						.OrderByDescending(x => x.Score)
-						.ToArray();
+						.OrderByDescending(x => x.Score);
 
 					var nextDirection = scoredDirections.Select(x => x.Direction).First();
 					Console.Error.WriteLine("Thor's best move is to: {0}", nextDirection);
@@ -286,13 +267,6 @@ class Player
 		}
 	}
 
-	private static int scoreDirection(Direction targetDirection, Direction evaluatedDirection)
-	{
-		var value1 = (8 + evaluatedDirection - targetDirection) % 8;
-		var value2 = (8 + targetDirection - evaluatedDirection) % 8;
-		return Math.Min(value1, value2);
-	}
-
 	private static Direction[] allDirections()
 	{
 		var possibleDirections = new[] 
@@ -324,23 +298,6 @@ class Player
 		return target;
 	}
 
-	private static Direction[] exclude(Direction[] possibleDirections, Direction giant, bool onlyKeepOppositeDirections)
-	{
-		var directionsToExclude = new[] { giant };
-		if (onlyKeepOppositeDirections)
-		{
-			directionsToExclude = directionsToExclude.Concat(new[] { rotate(giant, 1), rotate(giant, -1) }).ToArray();
-		}
-		return possibleDirections.Except(directionsToExclude).ToArray();
-	}
-
-	private static Direction rotate(Direction d, int steps) {
-		if (d == Direction.WAIT)
-			return d;
-		else
-			return (Direction)((d - 1) + steps % 8) + 1;
-	}
-
 	private static Direction[] excludeWalkingOffMap(Point thor, Direction[] possibleDirections)
 	{
 		if (thor.X == 0)
@@ -359,10 +316,10 @@ class Player
 		Console.WriteLine("STRIKE");
 	}
 
-	private static void thorWaits()
-	{
-		Console.WriteLine("WAIT");
-	}
+	//private static void thorWaits()
+	//{
+	//	Console.WriteLine("WAIT");
+	//}
 
 	private static void moveThorTo(Point thor, Direction moveTo)
 	{
@@ -383,120 +340,121 @@ class Player
 		}
 	}
 
-	private static void tdd()
-	{
-		assertChoiceOfDirection();
+	//private static void tdd()
+	//{
+	//	assertChoiceOfDirection();
 
-		tdd1(Direction.NW, Direction.NW, 0);
-		tdd1(Direction.NW, Direction.N, 1);
-		tdd1(Direction.NW, Direction.W, 1);
-		tdd1(Direction.NW, Direction.NE, 2);
-		tdd1(Direction.NW, Direction.SW, 2);
-		tdd1(Direction.NW, Direction.E, 3);
-		tdd1(Direction.NW, Direction.S, 3);
-		tdd1(Direction.NW, Direction.SE, 4);
+	//	tdd1(Direction.NW, Direction.NW, 0);
+	//	tdd1(Direction.NW, Direction.N, 1);
+	//	tdd1(Direction.NW, Direction.W, 1);
+	//	tdd1(Direction.NW, Direction.NE, 2);
+	//	tdd1(Direction.NW, Direction.SW, 2);
+	//	tdd1(Direction.NW, Direction.E, 3);
+	//	tdd1(Direction.NW, Direction.S, 3);
+	//	tdd1(Direction.NW, Direction.SE, 4);
 
-		var thor = new Point { X = 4, Y = 7 };
+	//	var thor = new Point { X = 4, Y = 7 };
 
 
-		collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 4 }), new Direction[] { });
-		collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 5 }), new[] { Direction.NW }, "nw*2");
-		collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 6 }), new[] { Direction.W, Direction.NW }, "w-nw");
-		collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 7 }), new[] { Direction.SW, Direction.W, Direction.NW }, "w*2");
-		collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 8 }), new[] { Direction.SW, Direction.W }, "w-sw");
-		collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 9 }), new[] { Direction.SW }, "sw*2");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 4 }), new Direction[] { });
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 5 }), new[] { Direction.NW }, "nw*2");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 6 }), new[] { Direction.W, Direction.NW }, "w-nw");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 7 }), new[] { Direction.SW, Direction.W, Direction.NW }, "w*2");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 8 }), new[] { Direction.SW, Direction.W }, "w-sw");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 2, Y = 9 }), new[] { Direction.SW }, "sw*2");
 
-		collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 4 }), new Direction[] { });
-		collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 5 }), new[] { Direction.NW, Direction.N }, "n-nw");
-		collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 6 }), new[] { Direction.W, Direction.NW, Direction.N }, "nw");
-		collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 7 }), new[] { Direction.S, Direction.SW, Direction.W, Direction.NW, Direction.N }, "w");
-		collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 8 }), new[] { Direction.S, Direction.SW, Direction.W }, "sw");
-		collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 9 }), new[] { Direction.S, Direction.SW }, "s-sw");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 4 }), new Direction[] { });
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 5 }), new[] { Direction.NW, Direction.N }, "n-nw");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 6 }), new[] { Direction.W, Direction.NW, Direction.N }, "nw");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 7 }), new[] { Direction.S, Direction.SW, Direction.W, Direction.NW, Direction.N }, "w");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 8 }), new[] { Direction.S, Direction.SW, Direction.W }, "sw");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 3, Y = 9 }), new[] { Direction.S, Direction.SW }, "s-sw");
 
-		collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 4 }), new Direction[] { });
-		collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 5 }), new[] { Direction.NW, Direction.N, Direction.NE }, "n*2");
-		collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 6 }), new[] { Direction.W, Direction.NW, Direction.N, Direction.NE, Direction.E }, "n");
-		//collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 7 }), new[] { }, "wait");
-		collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 8 }), new[] { Direction.W, Direction.SW, Direction.S, Direction.SE, Direction.E }, "s");
-		collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 9 }), new[] { Direction.SW, Direction.S, Direction.SE }, "s*2");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 4 }), new Direction[] { });
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 5 }), new[] { Direction.NW, Direction.N, Direction.NE }, "n*2");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 6 }), new[] { Direction.W, Direction.NW, Direction.N, Direction.NE, Direction.E }, "n");
+	//	//collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 7 }), new[] { }, "wait");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 8 }), new[] { Direction.W, Direction.SW, Direction.S, Direction.SE, Direction.E }, "s");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 4, Y = 9 }), new[] { Direction.SW, Direction.S, Direction.SE }, "s*2");
 
-		collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 4 }), new Direction[] { });
-		collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 5 }), new[] { Direction.NE, Direction.N }, "n-ne");
-		collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 6 }), new[] { Direction.E, Direction.NE, Direction.N }, "ne");
-		collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 7 }), new[] { Direction.S, Direction.SE, Direction.E, Direction.NE, Direction.N }, "e");
-		collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 8 }), new[] { Direction.S, Direction.SE, Direction.E }, "se");
-		collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 9 }), new[] { Direction.S, Direction.SE }, "s-se");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 4 }), new Direction[] { });
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 5 }), new[] { Direction.NE, Direction.N }, "n-ne");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 6 }), new[] { Direction.E, Direction.NE, Direction.N }, "ne");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 7 }), new[] { Direction.S, Direction.SE, Direction.E, Direction.NE, Direction.N }, "e");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 8 }), new[] { Direction.S, Direction.SE, Direction.E }, "se");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 5, Y = 9 }), new[] { Direction.S, Direction.SE }, "s-se");
 
-		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 4 }), new Direction[] { });
-		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 5 }), new[] { Direction.NE }, "ne*2");
-		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 6 }), new[] { Direction.E, Direction.NE }, "e-ne");
-		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 7 }), new[] { Direction.SE, Direction.E, Direction.NE }, "e*2");
-		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 8 }), new[] { Direction.SE, Direction.E }, "e-se");
-		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 9 }), new[] { Direction.SE }, "se*2");
-	}
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 4 }), new Direction[] { });
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 5 }), new[] { Direction.NE }, "ne*2");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 6 }), new[] { Direction.E, Direction.NE }, "e-ne");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 7 }), new[] { Direction.SE, Direction.E, Direction.NE }, "e*2");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 8 }), new[] { Direction.SE, Direction.E }, "e-se");
+	//	collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 9 }), new[] { Direction.SE }, "se*2");
+	//}
 
-	private static void assertChoiceOfDirection()
-	{
-		var thor = new Point { X = 5, Y = 5 };
-		var giants = new[] { new Point { X = 4, Y = 6 }, new Point { X = 3, Y = 6 }, new Point { X = 2, Y = 6 }, new Point { X = 1, Y = 6 } };
-		var possibleDirections = excludeWalkingOffMap(thor, allDirections());
+	//private static void assertChoiceOfDirection()
+	//{
+	//	var thor = new Point { X = 5, Y = 5 };
+	//	var giants = new[] { new Point { X = 4, Y = 6 }, new Point { X = 3, Y = 6 }, new Point { X = 2, Y = 6 }, new Point { X = 1, Y = 6 } };
+	//	var possibleDirections = excludeWalkingOffMap(thor, allDirections());
 
-		var criticalDirections = giants.SelectMany(g => critical(thor, g)).ToArray();
+	//	var criticalDirections = giants.SelectMany(g => critical(thor, g)).ToArray();
 
-		foreach (var giant in giants)
-		{
-			Console.Error.WriteLine("{0}: {1}",
-				new Point { X = thor.X - giant.X, Y = thor.Y - giant.Y },
-				string.Join(", ", critical(thor, giant).ToArray())
-				);
-		}
-		possibleDirections = possibleDirections.Except(criticalDirections).ToArray();
-		Console.Error.WriteLine("Thor's non-critical directions: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
+	//	foreach (var giant in giants)
+	//	{
+	//		Console.Error.WriteLine("{0}: {1}",
+	//			new Point { X = thor.X - giant.X, Y = thor.Y - giant.Y },
+	//			string.Join(", ", critical(thor, giant).ToArray())
+	//			);
+	//	}
+	//	possibleDirections = possibleDirections.Except(criticalDirections).ToArray();
+	//	Console.Error.WriteLine("Thor's non-critical directions: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
 
-		var target = calculateGiantsMedianPoint(giants);
-		//var targetDirection = target.DirectionTo(thor);
-		Console.Error.WriteLine("Thor's {0} targets {1}", thor, target);
+	//	var target = calculateGiantsMedianPoint(giants);
+	//	//var targetDirection = target.DirectionTo(thor);
+	//	Console.Error.WriteLine("Thor's {0} targets {1}", thor, target);
 
-		var scoredDirections = possibleDirections
-			.Select(d => { 
-				var result = new { Direction = d, Score = scoreDirection(d, thor, target) }; 
-				Console.Error.WriteLine("{0} scores {1}", result.Direction, result.Score); 
-				return result; 
-			}).OrderByDescending(x => x.Score)
-			.ToArray();
+	//	var scoredDirections = possibleDirections
+	//		.Select(d => { 
+	//			var result = new { Direction = d, Score = scoreDirection(d, thor, target) }; 
+	//			Console.Error.WriteLine("{0} scores {1}", result.Direction, result.Score); 
+	//			return result; 
+	//		}).OrderByDescending(x => x.Score)
+	//		.ToArray();
 
-		var nextDirection = scoredDirections.Select(x => x.Direction).First();
-		Console.Error.WriteLine("Thor's best move is to: {0}", nextDirection);
+	//	var nextDirection = scoredDirections.Select(x => x.Direction).First();
+	//	Console.Error.WriteLine("Thor's best move is to: {0}", nextDirection);
 
-	}
+	//}
 
-	private static void collectionAssert<T>(IEnumerable<T> actual, IEnumerable<T> expected, string message = null)
-		where T : IComparable
-	{
-		if (actual.Count() == expected.Count())
-		{
-			if (actual.Select((x, index) => expected.ToArray()[index].Equals(x)).All(x => x == true))
-				return;
-		}
+	//private static void collectionAssert<T>(IEnumerable<T> actual, IEnumerable<T> expected, string message = null)
+	//	where T : IComparable
+	//{
+	//	if (actual.Count() == expected.Count())
+	//	{
+	//		if (actual.Select((x, index) => expected.ToArray()[index].Equals(x)).All(x => x == true))
+	//			return;
+	//	}
 
-		if (message != null)
-		{
-			Console.Error.WriteLine(message);
-		}
-		Console.Error.WriteLine("Expected: " + string.Join(", ", expected.Select(x => x.ToString()).ToArray()));
-		Console.Error.WriteLine("Actual: " + string.Join(", ", actual.Select(x => x.ToString()).ToArray()));
-		throw new ApplicationException("Assertion failed");
-	}
+	//	if (message != null)
+	//	{
+	//		Console.Error.WriteLine(message);
+	//	}
+	//	Console.Error.WriteLine("Expected: " + string.Join(", ", expected.Select(x => x.ToString()).ToArray()));
+	//	Console.Error.WriteLine("Actual: " + string.Join(", ", actual.Select(x => x.ToString()).ToArray()));
+	//	throw new ApplicationException("Assertion failed");
+	//}
 
-	static void tdd1(Direction d1, Direction d2, int expected)
-	{
-		var actual = scoreDirection(d1, d2);
-		if (expected != actual)
-		{
-			Console.Error.WriteLine("{0}<->{1}, expecting {2}, got {3}.", d1, d2, expected, actual);
-			throw new ArgumentException(string.Format("{0}<->{1}, expecting {2}, got {3}.", d1, d2, expected, actual));
-		}
-	}
+	//static void tdd1(Direction d1, Direction d2, int expected)
+	//{
+	//	var actual = scoreDirection(d1, d2);
+	//	if (expected != actual)
+	//	{
+	//		Console.Error.WriteLine("{0}<->{1}, expecting {2}, got {3}.", d1, d2, expected, actual);
+	//		throw new ArgumentException(string.Format("{0}<->{1}, expecting {2}, got {3}.", d1, d2, expected, actual));
+	//	}
+	//}
+
 }
 
 class Point
@@ -508,36 +466,6 @@ class Point
 	{
 		return string.Format("({0}, {1})", X, Y);
 	}
-	public int DistanceTo(Point p)
-	{
-		var dx = X - p.X;
-		var dy = Y - p.Y;
-		return Math.Max(Math.Abs(dx), Math.Abs(dy));
-	}
-
-	public Direction DirectionTo(Point p)
-	{
-		var dx = X - p.X;
-		var dy = Y - p.Y;
-		if (dx < 0)
-		{
-			if (dy < 0) return Direction.NW;
-			else if (dy > 0) return Direction.SW;
-			else return Direction.W;
-		}
-		else if (dx > 0)
-		{
-			if (dy < 0) return Direction.NE;
-			else if (dy > 0) return Direction.SE;
-			else return Direction.E;
-		}
-		else
-		{
-			if (dy < 0) return Direction.N;
-			else if (dy > 0) return Direction.S;
-			else return Direction.WAIT;
-		}
-	}
 
 	public bool InKillZoneOf(Point p)
 	{
@@ -548,7 +476,6 @@ class Point
 	}
 }
 
-//[Flags]
 public enum Direction
 {
 	WAIT = 0,
