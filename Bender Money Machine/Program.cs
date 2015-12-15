@@ -14,12 +14,16 @@ class Solution
 {
 	public static Stopwatch T1 = new Stopwatch();
 	public static Stopwatch T2 = new Stopwatch();
+	public static Stopwatch T3 = new Stopwatch();
+	public static Stopwatch T4 = new Stopwatch();
+	public static Stopwatch T5 = new Stopwatch();
+	public static Stopwatch T6 = new Stopwatch();
+	public static Stopwatch T7 = new Stopwatch();
 
 	static void Main(string[] args)
 	{
 		var sw0 = new Stopwatch();
 		var sw1 = new Stopwatch();
-		var sw2 = new Stopwatch();
 
 
 		sw0.Start();
@@ -44,15 +48,31 @@ class Solution
 		sw1.Start();
 
 		var leafs = new Queue<Node>();
-		var allNodes = new HashSet<Node>();
 
-		var node = new Node { Room = rooms[0] };
-		allNodes.Add(node);
+		var node = createNodeFor(rooms[0]);
 		leafs.Enqueue(node);
 
+		long lastPrintMs = sw1.ElapsedMilliseconds;
 		int bestPathMoney = 0;
 		while (leafs.Any())
 		{
+
+			if (lastPrintMs + 1000 < sw1.ElapsedMilliseconds)
+			{
+				Console.Error.WriteLine("Timer0: {0}", sw0.ElapsedMilliseconds);
+				Console.Error.WriteLine("Timer1: {0}", sw1.ElapsedMilliseconds);
+				Console.Error.WriteLine("HasParent: {0}", Solution.T1.ElapsedMilliseconds);
+				Console.Error.WriteLine("FindShorterPath: {0}", Solution.T2.ElapsedMilliseconds);
+				Console.Error.WriteLine("FindShorterPath (inner 1): {0}", Solution.T6.ElapsedMilliseconds);
+				Console.Error.WriteLine("FindShorterPath (inner 2): {0}", Solution.T7.ElapsedMilliseconds);
+				Console.Error.WriteLine("Calculating Money: {0}", Solution.T3.ElapsedMilliseconds);
+				Console.Error.WriteLine("Move branch: {0}", Solution.T4.ElapsedMilliseconds);
+				Console.Error.WriteLine("Unlink branch: {0}", Solution.T5.ElapsedMilliseconds);
+
+				lastPrintMs = sw1.ElapsedMilliseconds;
+			}
+
+
 			var walker = leafs.Dequeue();
 			if (walker.IsDisposed)
 				continue;
@@ -63,7 +83,7 @@ class Solution
 			{
 				if (childRoom.Id == -1)
 				{
-					//TODO: Store path for later summation
+					T3.Start();
 					foundValidChild = true;
 					var money = 0;
 					while (walker != null)
@@ -75,29 +95,31 @@ class Solution
 					{
 						bestPathMoney = money;
 					}
+					T3.Stop();
 				}
 				else if (!walker.HasParent(childRoom))
 				{
 					foundValidChild = true;
-					var newLeaf = addChildNode(walker, childRoom);
-					var existingBranch = findShorterBranch(newLeaf, allNodes);
+					var existingBranch = findShorterBranch(walker, childRoom);
 					if (existingBranch == null)
 					{
-						allNodes.Add(newLeaf);
+						var newLeaf = addChildNode(walker, childRoom);
 						leafs.Enqueue(newLeaf);
 					}
 					else
 					{
-						replace(newLeaf, existingBranch);
+						move(walker, existingBranch);
 					}
 				}
 			}
 			if (!foundValidChild)
 			{
+				T5.Start();
 				//TODO: Unlink this branch since it has no valid exit
 				while (walker.Parent != null && walker.Parent.Children.Count == 1)
 					walker = walker.Parent;
 				walker.Dispose();
+				T5.Stop();
 			}
 		}
 
@@ -106,22 +128,39 @@ class Solution
 
 		Console.Error.WriteLine("Timer0: {0}", sw0.ElapsedMilliseconds);
 		Console.Error.WriteLine("Timer1: {0}", sw1.ElapsedMilliseconds);
-		Console.Error.WriteLine("Timer2: {0}", sw2.ElapsedMilliseconds);
 		Console.Error.WriteLine("HasParent: {0}", Solution.T1.ElapsedMilliseconds);
 		Console.Error.WriteLine("FindShorterPath: {0}", Solution.T2.ElapsedMilliseconds);
+		Console.Error.WriteLine("FindShorterPath (inner 1): {0}", Solution.T6.ElapsedMilliseconds);
+		Console.Error.WriteLine("FindShorterPath (inner 2): {0}", Solution.T7.ElapsedMilliseconds);
+		Console.Error.WriteLine("Calculating Money: {0}", Solution.T3.ElapsedMilliseconds);
+		Console.Error.WriteLine("Move: {0}", Solution.T4.ElapsedMilliseconds);
+		Console.Error.WriteLine("Unlink branch: {0}", Solution.T5.ElapsedMilliseconds);
 
 		Console.WriteLine(bestPathMoney);
 	}
 
-	private static void replace(Node newLeaf, Node existingBranch)
+	private static Node createNodeFor(Room room)
 	{
-		newLeaf.Parent.Children.Remove(newLeaf);
-		existingBranch.Parent.Children.Remove(existingBranch);
-		newLeaf.Parent.Children.Add(existingBranch);
-		existingBranch.Parent = newLeaf.Parent;
-		newLeaf.Parent = null;
+		var node = new Node { Room = room };
+		room.ReferencedBy.Add(node);
+		return node;
+	}
 
-		pruneInvalidChildren(existingBranch);
+	private static void move(Node newParent, Node existingBranch)
+	{
+		Solution.T4.Start();
+		try
+		{
+			existingBranch.Parent.Children.Remove(existingBranch);
+			newParent.Children.Add(existingBranch);
+			existingBranch.Parent = newParent;
+
+			pruneInvalidChildren(existingBranch);
+		}
+		finally
+		{
+			Solution.T4.Stop();
+		}
 	}
 
 	private static void pruneInvalidChildren(Node existingBranch)
@@ -140,27 +179,35 @@ class Solution
 		}
 	}
 
-	private static Node findShorterBranch(Node newBranch, HashSet<Node> allNodes)
+	private static Node findShorterBranch(Node parentOfNewNode, Room room)
 	{
 		Solution.T2.Start();
 		try
 		{
-			var alternativeBranches = allNodes.Where(x => x.Room.Equals(newBranch.Room));
-			foreach (var alternativeBranch in alternativeBranches)
+			foreach (var alternativeBranch in room.ReferencedBy)
 			{
-				var nodeOnNewBranch = newBranch;
-				var nodeOnAlternativeBranch = alternativeBranch;
-				while (nodeOnAlternativeBranch != null)
+				var newNodeWalker = parentOfNewNode;
+				var branchWalker = alternativeBranch.Parent;
+				while (branchWalker != null)
 				{
-					while (nodeOnNewBranch != null && !nodeOnNewBranch.Room.Equals(nodeOnAlternativeBranch.Room))
+					Solution.T6.Start();
+					try
 					{
-						nodeOnNewBranch = nodeOnNewBranch.Parent;
+						Solution.T7.Start();
+						while (newNodeWalker != null && !newNodeWalker.Room.Equals(branchWalker.Room))
+							newNodeWalker = newNodeWalker.Parent;
+						Solution.T7.Stop();
+
+						if (newNodeWalker == null)
+							break;
+						branchWalker = branchWalker.Parent;
+						if (branchWalker == null)
+							return alternativeBranch;
 					}
-					if (nodeOnNewBranch == null)
-						break;
-					nodeOnAlternativeBranch = nodeOnAlternativeBranch.Parent;
-					if (nodeOnAlternativeBranch == null)
-						return alternativeBranch;
+					finally
+					{
+						Solution.T6.Stop();
+					}
 				}
 			}
 			return null;
@@ -173,9 +220,10 @@ class Solution
 
 	private static Node addChildNode(Node parent, Room room)
 	{
-		var child = new Node { Room = room, Parent = parent };
-		parent.Children.Add(child);
-		return child;
+		var node = createNodeFor(room);
+		node.Parent = parent;
+		parent.Children.Add(node);
+		return node;
 	}
 }
 
@@ -187,11 +235,14 @@ public class Room
 	public Room[] Exits { get; set; }
 	public int Money { get; set; }
 
+	public List<Node> ReferencedBy { get; private set; }
+
 	public Room()
 	{
-
+		ReferencedBy = new List<Node>();
 	}
-	public Room(string addressLine):this()
+	public Room(string addressLine)
+		:this()
 	{
 		var parts = addressLine.Split(' ');
 		this.Id = parts[0] == "E" ? -1 : int.Parse(parts[0]);
@@ -214,7 +265,7 @@ public class Room
 	}
 }
 
-class Node
+public class Node
 {
 	public Room Room { get; set; }
 
@@ -229,12 +280,25 @@ class Node
 
 	internal void Dispose()
 	{
+		if (this.Room != null)
+		{
+			this.Room.ReferencedBy.Remove(this);
+			this.Room = null;
+		}
+
 		if (this.Parent != null)
 		{
 			this.Parent.Children.Remove(this);
 			this.Parent = null;
 		}
-		this.Children = null;
+
+		if (this.Children != null)
+		{
+			foreach (var child in Children)
+				child.Dispose();
+			this.Children = null;
+		}
+
 		IsDisposed = true;
 	}
 
