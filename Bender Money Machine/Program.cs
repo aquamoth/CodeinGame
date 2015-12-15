@@ -43,10 +43,11 @@ class Solution
 		var leafs = new Queue<Node>();
 		var allNodes = new HashSet<Node>();
 
-		var node = new Node { Id = 0 };
+		var node = new Node { Room = rooms[0] };
 		allNodes.Add(node);
 		leafs.Enqueue(node);
 
+		int bestPathMoney = 0;
 		while (leafs.Any())
 		{
 			var walker = leafs.Dequeue();
@@ -54,19 +55,28 @@ class Solution
 				continue;
 
 			//Find possible children
-			var room = rooms[walker.Id];
 			bool foundValidChild = false;
-			foreach (var childRoom in room.Exits)
+			foreach (var childRoom in walker.Room.Exits)
 			{
 				if (childRoom.Id == -1)
 				{
 					//TODO: Store path for later summation
 					foundValidChild = true;
+					var money = 0;
+					while (walker != null)
+					{
+						money += walker.Room.Money;
+						walker = walker.Parent;
+					}
+					if (money > bestPathMoney)
+					{
+						bestPathMoney = money;
+					}
 				}
-				else if (!isParent(walker, childRoom.Id))
+				else if (!isParent(walker, childRoom))
 				{
 					foundValidChild = true;
-					var newLeaf = addChildNode(walker, childRoom.Id);
+					var newLeaf = addChildNode(walker, childRoom);
 					var existingBranch = findShorterBranch(newLeaf, allNodes);
 					if (existingBranch == null)
 					{
@@ -95,7 +105,7 @@ class Solution
 		Console.Error.WriteLine("Timer1: {0}", sw1.ElapsedMilliseconds);
 		Console.Error.WriteLine("Timer2: {0}", sw2.ElapsedMilliseconds);
 
-		Console.WriteLine("answer");
+		Console.WriteLine(bestPathMoney);
 	}
 
 	private static void replace(Node newLeaf, Node existingBranch)
@@ -118,7 +128,7 @@ class Solution
 		while (untestedChildren.Any())
 		{
 			var testBranch = untestedChildren.Dequeue();
-			if (isParent(existingBranch, testBranch.Id))
+			if (isParent(existingBranch, testBranch.Room))
 			{
 				testBranch.Dispose();
 			}
@@ -127,14 +137,14 @@ class Solution
 
 	private static Node findShorterBranch(Node newBranch, HashSet<Node> allNodes)
 	{
-		var alternativeBranches = allNodes.Where(x => x.Id == newBranch.Id);
+		var alternativeBranches = allNodes.Where(x => x.Room.Equals(newBranch.Room));
 		foreach(var alternativeBranch in alternativeBranches)
 		{
 			var nodeOnNewBranch = newBranch;
 			var nodeOnAlternativeBranch = alternativeBranch;
 			while (nodeOnAlternativeBranch != null)
 			{
-				while (nodeOnNewBranch != null && nodeOnNewBranch.Id != nodeOnAlternativeBranch.Id)
+				while (nodeOnNewBranch != null && !nodeOnNewBranch.Room.Equals(nodeOnAlternativeBranch.Room))
 				{
 					nodeOnNewBranch = nodeOnNewBranch.Parent;
 				}
@@ -148,18 +158,18 @@ class Solution
 		return null;
 	}
 
-	private static Node addChildNode(Node parent, int id)
+	private static Node addChildNode(Node parent, Room room)
 	{
-		var child = new Node { Id = id, Parent = parent };
+		var child = new Node { Room = room, Parent = parent };
 		parent.Children.Add(child);
 		return child;
 	}
 
-	private static bool isParent(Node walker, int id)
+	private static bool isParent(Node walker, Room room)
 	{
 		while (walker != null)
 		{
-			if (walker.Id == id)
+			if (walker.Room == room)
 				return true;
 			walker = walker.Parent;
 		}
@@ -204,7 +214,8 @@ public class Room
 
 class Node
 {
-	public int Id { get; set; }
+	public Room Room { get; set; }
+
 	public Node Parent { get; set; }
 	public List<Node> Children { get; private set; }
 	public bool IsDisposed { get; private set; }
