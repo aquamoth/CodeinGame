@@ -12,6 +12,9 @@ using System.Diagnostics;
  **/
 class Solution
 {
+	public static Stopwatch T1 = new Stopwatch();
+	public static Stopwatch T2 = new Stopwatch();
+
 	static void Main(string[] args)
 	{
 		var sw0 = new Stopwatch();
@@ -73,7 +76,7 @@ class Solution
 						bestPathMoney = money;
 					}
 				}
-				else if (!isParent(walker, childRoom))
+				else if (!walker.HasParent(childRoom))
 				{
 					foundValidChild = true;
 					var newLeaf = addChildNode(walker, childRoom);
@@ -104,6 +107,8 @@ class Solution
 		Console.Error.WriteLine("Timer0: {0}", sw0.ElapsedMilliseconds);
 		Console.Error.WriteLine("Timer1: {0}", sw1.ElapsedMilliseconds);
 		Console.Error.WriteLine("Timer2: {0}", sw2.ElapsedMilliseconds);
+		Console.Error.WriteLine("HasParent: {0}", Solution.T1.ElapsedMilliseconds);
+		Console.Error.WriteLine("FindShorterPath: {0}", Solution.T2.ElapsedMilliseconds);
 
 		Console.WriteLine(bestPathMoney);
 	}
@@ -128,7 +133,7 @@ class Solution
 		while (untestedChildren.Any())
 		{
 			var testBranch = untestedChildren.Dequeue();
-			if (isParent(existingBranch, testBranch.Room))
+			if (existingBranch.HasParent(testBranch.Room))
 			{
 				testBranch.Dispose();
 			}
@@ -137,25 +142,33 @@ class Solution
 
 	private static Node findShorterBranch(Node newBranch, HashSet<Node> allNodes)
 	{
-		var alternativeBranches = allNodes.Where(x => x.Room.Equals(newBranch.Room));
-		foreach(var alternativeBranch in alternativeBranches)
+		Solution.T2.Start();
+		try
 		{
-			var nodeOnNewBranch = newBranch;
-			var nodeOnAlternativeBranch = alternativeBranch;
-			while (nodeOnAlternativeBranch != null)
+			var alternativeBranches = allNodes.Where(x => x.Room.Equals(newBranch.Room));
+			foreach (var alternativeBranch in alternativeBranches)
 			{
-				while (nodeOnNewBranch != null && !nodeOnNewBranch.Room.Equals(nodeOnAlternativeBranch.Room))
+				var nodeOnNewBranch = newBranch;
+				var nodeOnAlternativeBranch = alternativeBranch;
+				while (nodeOnAlternativeBranch != null)
 				{
-					nodeOnNewBranch = nodeOnNewBranch.Parent;
+					while (nodeOnNewBranch != null && !nodeOnNewBranch.Room.Equals(nodeOnAlternativeBranch.Room))
+					{
+						nodeOnNewBranch = nodeOnNewBranch.Parent;
+					}
+					if (nodeOnNewBranch == null)
+						break;
+					nodeOnAlternativeBranch = nodeOnAlternativeBranch.Parent;
+					if (nodeOnAlternativeBranch == null)
+						return alternativeBranch;
 				}
-				if (nodeOnNewBranch == null)
-					break;
-				nodeOnAlternativeBranch = nodeOnAlternativeBranch.Parent;
-				if (nodeOnAlternativeBranch == null)
-					return alternativeBranch;
 			}
+			return null;
 		}
-		return null;
+		finally
+		{
+			Solution.T2.Stop();
+		}
 	}
 
 	private static Node addChildNode(Node parent, Room room)
@@ -163,17 +176,6 @@ class Solution
 		var child = new Node { Room = room, Parent = parent };
 		parent.Children.Add(child);
 		return child;
-	}
-
-	private static bool isParent(Node walker, Room room)
-	{
-		while (walker != null)
-		{
-			if (walker.Room == room)
-				return true;
-			walker = walker.Parent;
-		}
-		return false;
 	}
 }
 
@@ -234,5 +236,25 @@ class Node
 		}
 		this.Children = null;
 		IsDisposed = true;
+	}
+
+	internal bool HasParent(Room room)
+	{
+		Solution.T1.Start();
+		try
+		{
+			var walker = this;
+			while (walker != null)
+			{
+				if (walker.Room == room)
+					return true;
+				walker = walker.Parent;
+			}
+			return false;
+		}
+		finally
+		{
+			Solution.T1.Stop();
+		}
 	}
 }
