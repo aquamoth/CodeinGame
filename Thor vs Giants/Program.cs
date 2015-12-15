@@ -82,8 +82,8 @@ class Player
 					Console.Error.WriteLine("Thor's target at {0} is to: {1}", target, targetDirection);
 
 					var scoredDirections = possibleDirections
-						.Select(d => new { Direction = d, Score = scoreDirection(targetDirection, d) })
-						.OrderBy(x => x.Score)
+						.Select(d => new { Direction = d, Score = scoreDirection(d, thor, target) })
+						.OrderByDescending(x => x.Score)
 						.ToArray();
 
 					var nextDirection = scoredDirections.Select(x => x.Direction).First();
@@ -265,6 +265,27 @@ class Player
 		}
 	}
 
+	private static int scoreDirection(Direction evaluatedDirection, Point thor, Point target)
+	{
+		var dx = thor.X - target.X;
+		var dy = thor.Y - target.Y;
+
+		switch (evaluatedDirection)
+		{
+			case Direction.WAIT: return 0;
+			case Direction.N: return dy;
+			case Direction.NE: return -dx + dy;
+			case Direction.E: return -dx;
+			case Direction.SE: return -dx - dy;
+			case Direction.S: return -dy;
+			case Direction.SW: return dx - dy;
+			case Direction.W: return dx;
+			case Direction.NW: return dx + dy;
+			default:
+				throw new NotSupportedException();
+		}
+	}
+
 	private static int scoreDirection(Direction targetDirection, Direction evaluatedDirection)
 	{
 		var value1 = (8 + evaluatedDirection - targetDirection) % 8;
@@ -364,6 +385,8 @@ class Player
 
 	private static void tdd()
 	{
+		assertChoiceOfDirection();
+
 		tdd1(Direction.NW, Direction.NW, 0);
 		tdd1(Direction.NW, Direction.N, 1);
 		tdd1(Direction.NW, Direction.W, 1);
@@ -410,6 +433,41 @@ class Player
 		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 7 }), new[] { Direction.SE, Direction.E, Direction.NE }, "e*2");
 		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 8 }), new[] { Direction.SE, Direction.E }, "e-se");
 		collectionAssert<Direction>(critical(thor, new Point { X = 6, Y = 9 }), new[] { Direction.SE }, "se*2");
+	}
+
+	private static void assertChoiceOfDirection()
+	{
+		var thor = new Point { X = 5, Y = 5 };
+		var giants = new[] { new Point { X = 4, Y = 6 }, new Point { X = 3, Y = 6 }, new Point { X = 2, Y = 6 }, new Point { X = 1, Y = 6 } };
+		var possibleDirections = excludeWalkingOffMap(thor, allDirections());
+
+		var criticalDirections = giants.SelectMany(g => critical(thor, g)).ToArray();
+
+		foreach (var giant in giants)
+		{
+			Console.Error.WriteLine("{0}: {1}",
+				new Point { X = thor.X - giant.X, Y = thor.Y - giant.Y },
+				string.Join(", ", critical(thor, giant).ToArray())
+				);
+		}
+		possibleDirections = possibleDirections.Except(criticalDirections).ToArray();
+		Console.Error.WriteLine("Thor's non-critical directions: {0}", string.Join(", ", possibleDirections.Select(d => d.ToString()).ToArray()));
+
+		var target = calculateGiantsMedianPoint(giants);
+		//var targetDirection = target.DirectionTo(thor);
+		Console.Error.WriteLine("Thor's {0} targets {1}", thor, target);
+
+		var scoredDirections = possibleDirections
+			.Select(d => { 
+				var result = new { Direction = d, Score = scoreDirection(d, thor, target) }; 
+				Console.Error.WriteLine("{0} scores {1}", result.Direction, result.Score); 
+				return result; 
+			}).OrderByDescending(x => x.Score)
+			.ToArray();
+
+		var nextDirection = scoredDirections.Select(x => x.Direction).First();
+		Console.Error.WriteLine("Thor's best move is to: {0}", nextDirection);
+
 	}
 
 	private static void collectionAssert<T>(IEnumerable<T> actual, IEnumerable<T> expected, string message = null)
