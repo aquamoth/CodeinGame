@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -13,6 +14,12 @@ class Solution
 {
 	static void Main(string[] args)
 	{
+		var sw0 = new Stopwatch();
+		var sw1 = new Stopwatch();
+		var sw2 = new Stopwatch();
+
+
+		sw0.Start();
 		int N = int.Parse(Console.ReadLine());
 		var rooms = new Room[N];
 		for (int i = 0; i < N; i++)
@@ -20,25 +27,45 @@ class Solution
 			string room = Console.ReadLine();
 			rooms[i] = new Room(room);
 		}
-
-		var untestedExits = new Queue<TestObject>();
-
-		var testObject = new TestObject { At = rooms[0], RoomsLeft = rooms.Except(new[] { rooms[0] }), MoneyFound = rooms[0].Money };
-		untestedExits.Enqueue(testObject);
-
-		TestObject bestTrack = null;
-		while (untestedExits.Any())
+		foreach (var room in rooms)
 		{
-			var position = untestedExits.Dequeue();
-			var unvisitedNeighbours = position.RoomsLeft.Where(r => position.At.Neighbours.Contains(r.Id));
+			room.Exits = room.Neighbours.Where(id => id != "E").Select(id => rooms[int.Parse(id)]).ToArray();
+		}
 
+
+		var untestedPositions = new Queue<Position>();
+
+		var startingRoom = rooms[0];
+		var position = new Position
+		{
+			At = startingRoom,
+			RoomsLeft = new HashSet<Room>(rooms.Except(new[] { startingRoom })),
+			MoneyFound = startingRoom.Money
+		};
+		untestedPositions.Enqueue(position);
+		sw0.Stop();
+
+
+		sw1.Start();
+		Position bestTrack = null;
+		while (untestedPositions.Any())
+		{
+			position = untestedPositions.Dequeue();
+			var unvisitedNeighbours = position.RoomsLeft.Where(r => position.At.Exits.Contains(r)).ToArray();
 			if (unvisitedNeighbours.Any())
 			{
-				foreach (var exit in unvisitedNeighbours)
+				sw2.Start();
+				foreach (var room in unvisitedNeighbours)
 				{
-					var nextPosition = new TestObject { At = exit, MoneyFound = position.MoneyFound + exit.Money, RoomsLeft = position.RoomsLeft.Except(new[] { exit }) };
-					untestedExits.Enqueue(nextPosition);
+					var nextPosition = new Position
+					{
+						At = room,
+						MoneyFound = position.MoneyFound + room.Money,
+						RoomsLeft = position.RoomsLeft.Except(new[] { room })
+					};
+					untestedPositions.Enqueue(nextPosition);
 				}
+				sw2.Stop();
 			}
 			else
 			{
@@ -46,16 +73,26 @@ class Solution
 					bestTrack = position;
 			}
 		}
+		sw1.Stop();
+
+		Console.Error.WriteLine("Timer0: {0}", sw0.ElapsedMilliseconds);
+		Console.Error.WriteLine("Timer1: {0}", sw1.ElapsedMilliseconds);
+		Console.Error.WriteLine("Timer2: {0}", sw2.ElapsedMilliseconds);
 
 		Console.WriteLine(bestTrack.MoneyFound);
 	}
 }
 
-public class TestObject
+public class Position
 {
 	public Room At { get; set; }
 	public IEnumerable<Room> RoomsLeft { get; set; }
 	public int MoneyFound { get; set; }
+
+	public override string ToString()
+	{
+		return string.Format("{0}, $${1} with {2} rooms left", At, MoneyFound, RoomsLeft.Count());
+	}
 }
 
 
@@ -63,6 +100,7 @@ public class Room
 {
 	public string Id { get; set; }
 	public string[] Neighbours { get; set; }
+	public Room[] Exits { get; set; }
 	public int Money { get; set; }
 
 	public Room()
@@ -77,148 +115,17 @@ public class Room
 		this.Neighbours = new[] { parts[2], parts[3] };
 	}
 
-	//public override string ToString()
-	//{
-	//	return string.Format("{0} ({1} from {2})", this.Id, this.Money, this.From);
-	//}
+	public override string ToString()
+	{
+		return string.Format("#{0} ${1}. {2}", Id, Money, string.Join(", ", Neighbours));
+	}
 
-	//public override double DistanceTo(Dijkstra.Node neighbour)
-	//{
-	//	return this.Money;
-	//}
+	public override int GetHashCode()
+	{
+		return Id.GetHashCode();
+	}
+	public override bool Equals(object obj)
+	{
+		return this.Id.Equals(((Room)obj).Id);
+	}
 }
-
-//#region Helpers
-
-//public class Dijkstra
-//{
-//	public class Node
-//	{
-//		public string Id { get; set; }
-//		public string[] Neighbours { get; set; }
-//		public bool Visited { get; set; }
-//		public string From { get; set; }
-//		public double Distance { get; set; }
-
-//		public virtual double DistanceTo(Node node) { return 1.0; }
-//	}
-
-//	Dictionary<string, Node> _nodes;
-//	public string From { get; private set; }
-//	LinkedList<Node> unvisitedNodes = new LinkedList<Node>();
-
-//	public Dijkstra(Node[] zones, string from)
-//	{
-//		_nodes = zones.ToDictionary(x => x.Id);
-//		Reset(from);
-//	}
-
-//	public void Reset(string from)
-//	{
-//		foreach (var node in _nodes.Values)
-//		{
-//			node.From = null;
-//			node.Distance = double.MaxValue;
-//			node.Visited = false;
-//		}
-//		unvisitedNodes.Clear();
-
-//		this.From = from;
-//		_nodes[from].From = "";
-//		_nodes[from].Distance = 0;
-
-//		unvisitedNodes.AddFirst(_nodes[from]);
-//	}
-
-//	public string[] Path(string to)
-//	{
-//		if (!_nodes.ContainsKey(to))
-//			return null;//No paths to the destination at all
-
-//		if (_nodes[to].From != null)
-//			return pathTo(to);
-
-//		while (unvisitedNodes.Count > 0)
-//		{
-//			var currentNode = unvisitedNodes.First();
-//			if (currentNode.Id == to)
-//				break;
-
-//			//Console.Error.WriteLine("Processing {0} with {1} unvisited nodes", currentNode, unvisitedNodes.Count);
-//			currentNode.Visited = true;
-//			unvisitedNodes.Remove(currentNode);
-
-//			var unvisitedNeighbours = currentNode.Neighbours
-//				.Select(id => _nodes[id]).Where(node => !node.Visited)
-//				.Select(node => new
-//				{
-//					Node = node,
-//					RelativeDistance = currentNode.DistanceTo(node)
-//				}).OrderBy(x => x.RelativeDistance)
-//				.ToArray();
-
-//			foreach (var neighbour in unvisitedNeighbours)
-//			{
-//				var tentativeDistance = currentNode.Distance + neighbour.RelativeDistance;
-//				var addToUnvistedQueue = neighbour.Node.From == null;
-//				if (neighbour.Node.Distance > tentativeDistance)
-//				{
-//					if (neighbour.Node.From != null)
-//					{
-//						unvisitedNodes.Remove(neighbour.Node);
-//						addToUnvistedQueue = true;
-//					}
-//					neighbour.Node.From = currentNode.Id;
-//					neighbour.Node.Distance = tentativeDistance;
-//				}
-
-//				if (addToUnvistedQueue)
-//				{
-//					var beforeNode = unvisitedNodes.Where(node => node.Distance > neighbour.Node.Distance).FirstOrDefault();
-//					if (beforeNode == null)
-//						unvisitedNodes.AddLast(neighbour.Node);
-//					else
-//					{
-//						var lln = unvisitedNodes.Find(beforeNode);
-//						unvisitedNodes.AddBefore(lln, neighbour.Node);
-//					}
-//				}
-//			}
-//		}
-
-//		return pathTo(to);
-//	}
-
-//	private string[] pathTo(string to)
-//	{
-//		if (_nodes[to].From == null)
-//			return null;
-
-//		var path = new Stack<string>();
-//		var walker = to;
-//		while (walker != From)
-//		{
-//			path.Push(walker);
-//			walker = _nodes[walker].From;
-//		}
-//		path.Push(From);
-//		return path.ToArray();
-//	}
-//}
-
-//public class Link
-//{
-//	public string A { get; set; }
-//	public string B { get; set; }
-
-//	public string[] Nodes { get { return new[] { A, B }; } }
-
-//	public override string ToString()
-//	{
-//		return A + " " + B;
-//	}
-//}
-
-//#endregion Helpers
-
-
