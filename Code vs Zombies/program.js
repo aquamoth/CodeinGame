@@ -61,7 +61,7 @@ while (true) {
 
     var zombiesToTarget = zombies.filter(function(z){
         var survivingTurns = distanceTo(z, z.closest.human) / 400;
-        var requiredTurns = distanceTo(ash, z.closest.human) / 1000 - 1;
+        var requiredTurns = distanceTo(ash, z.closest.human) / 1000 - 2;
         return requiredTurns < survivingTurns;
     })
 
