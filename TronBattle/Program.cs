@@ -16,7 +16,6 @@ class Player
 
 	static void Main(string[] args)
 	{
-
 		var map = new int?[MAP_HEIGHT * MAP_WIDTH];
 		Point[] players = null;
 
@@ -39,6 +38,8 @@ class Player
 			else
 				for (var i = 0; i < positions.Length; i++)
 				{
+					if (players[i].IsAlive && positions[i].X == -1)
+						removePlayerFromMap(map, i);
 					players[i].MoveTo(positions[i]);
 				}
 
@@ -49,22 +50,37 @@ class Player
 
 			printMap(map);
 
-			var me = players[myPlayerNumber];
-			var heading = turn(me.Heading, 1);
-			if (!isFree(map, me.NextPosition(heading)))
-			{
-				heading = me.Heading;
-				if (!isFree(map, me.NextPosition(heading)))
-					heading = turn(me.Heading, 3);
-				//if this doesn't work either we are dead anyway..
-			}
-
+			var heading = selectNextHeading(map, players[myPlayerNumber]);
 			Console.WriteLine(heading);
+		}
+	}
+
+	private static Direction selectNextHeading(int?[] map, Point me)
+	{
+		var heading = turn(me.Heading, 1);
+		if (!isFree(map, me.NextPosition(heading)))
+		{
+			heading = me.Heading;
+			if (!isFree(map, me.NextPosition(heading)))
+				heading = turn(me.Heading, 3);
+			//if this doesn't work either we are dead anyway..
+		}
+		return heading;
+	}
+
+	private static void removePlayerFromMap(int?[] map, int id)
+	{
+		Console.Error.WriteLine("Player {0} died and is removed from the map", id);
+		for (var i = 0; i < map.Length; i++)
+		{
+			if (map[i].HasValue && map[i].Value == id)
+				map[i] = null;
 		}
 	}
 
 	private static void markOnMap(int?[] map, int id, int x, int y)
 	{
+		if (x < 0) return;
 		map[y * MAP_WIDTH + x] = id;
 	}
 
@@ -85,7 +101,7 @@ class Player
 	private static Point[] readPositionsFromConsole(int N)
 	{
 		var playersTurn = Enumerable
-						 .Repeat(0, N)
+						 .Range(0, N)
 						 .Select(i =>
 						 {
 							 var inputs = Console.ReadLine().Split(' ');
@@ -120,6 +136,7 @@ public class Point
 	public int Y { get; set; }
 	public int X0 { get; private set; }
 	public int Y0 { get; private set; }
+	public bool IsAlive { get { return X >= 0; } }
 
 	public Point(int id, int x, int y, int x0, int y0)
 	{
