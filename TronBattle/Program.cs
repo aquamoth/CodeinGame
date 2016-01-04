@@ -68,15 +68,9 @@ class Player
 		return heading;
 	}
 
-	private static void removePlayerFromMap(int?[] map, int id)
-	{
-		Console.Error.WriteLine("Player {0} died and is removed from the map", id);
-		for (var i = 0; i < map.Length; i++)
-		{
-			if (map[i].HasValue && map[i].Value == id)
-				map[i] = null;
-		}
-	}
+	#region Helpers
+
+	#region Map methods
 
 	private static void markOnMap(int?[] map, int id, int x, int y)
 	{
@@ -92,6 +86,32 @@ class Player
 			return false;
 		return !map[p.X + p.Y * MAP_WIDTH].HasValue;
 	}
+
+	private static void removePlayerFromMap(int?[] map, int id)
+	{
+		Console.Error.WriteLine("Player {0} died and is removed from the map", id);
+		for (var i = 0; i < map.Length; i++)
+		{
+			if (map[i].HasValue && map[i].Value == id)
+				map[i] = null;
+		}
+	}
+
+	static void printMap(int?[] map)
+	{
+		for (var y = 0; y < MAP_HEIGHT; y++)
+		{
+			for (var x = 0; x < MAP_WIDTH; x++)
+			{
+				var value = map[y * MAP_WIDTH + x];
+				var token = value.HasValue ? value.ToString() : ".";
+				Console.Error.Write(token);
+			}
+			Console.Error.WriteLine("");
+		}
+	}
+
+	#endregion Map methods
 
 	private static Direction turn(Direction direction, int stepsToRight)
 	{
@@ -114,20 +134,10 @@ class Player
 		return playersTurn;
 	}
 
-	static void printMap(int?[] map)
-	{
-		for (var y = 0; y < MAP_HEIGHT; y++)
-		{
-			for (var x = 0; x < MAP_WIDTH; x++)
-			{
-				var value = map[y * MAP_WIDTH + x];
-				var token = value.HasValue ? value.ToString() : ".";
-				Console.Error.Write(token);
-			}
-			Console.Error.WriteLine("");
-		}
-	}
+	#endregion helpers
 }
+
+#region Classes and Enums
 
 public class Point
 {
@@ -188,3 +198,5 @@ public enum Direction
 	RIGHT = 2,
 	DOWN = 3
 }
+
+#endregion Classes and Enums
