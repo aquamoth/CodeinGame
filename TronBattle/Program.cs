@@ -29,7 +29,13 @@ class Player
 
 			var positions = readPositionsFromConsole(numberOfPlayers);
 			if (players == null)
+			{
 				players = positions;
+				foreach (var player in players.Where(p => p.X >= 0))
+				{
+					markOnMap(map, player.Id, player.X0, player.Y0);
+				}
+			}
 			else
 				for (var i = 0; i < positions.Length; i++)
 				{
@@ -38,7 +44,7 @@ class Player
 
 			foreach (var player in players.Where(p => p.X >= 0))
 			{
-				map[player.Y * MAP_WIDTH + player.X] = player.Id;
+				markOnMap(map, player.Id, player.X, player.Y);
 			}
 
 			printMap(map);
@@ -55,6 +61,11 @@ class Player
 
 			Console.WriteLine(heading);
 		}
+	}
+
+	private static void markOnMap(int?[] map, int id, int x, int y)
+	{
+		map[y * MAP_WIDTH + x] = id;
 	}
 
 	private static bool isFree(int?[] map, Point p)
