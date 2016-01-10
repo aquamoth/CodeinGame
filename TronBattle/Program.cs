@@ -57,15 +57,41 @@ class Player
 
 	private static Direction selectNextHeading(int?[] map, Point me)
 	{
-		var heading = turn(me.Heading, 1);
-		if (!isFree(map, me.NextPosition(heading)))
-		{
-			heading = me.Heading;
-			if (!isFree(map, me.NextPosition(heading)))
-				heading = turn(me.Heading, 3);
-			//if this doesn't work either we are dead anyway..
-		}
-		return heading;
+		var possibleMoves = validMoves(me, map);
+		return possibleMoves
+			.Select(move => new { Heading = move.Heading, Score = score(map, move) })
+			.OrderByDescending(x => x.Score)
+			.Select(p => p.Heading)
+			.DefaultIfEmpty(Direction.RIGHT) //If default we are dead anyway and just need to write something to die happily
+			.FirstOrDefault();
+	}
+
+	private static int score(int?[] map, Point p)
+	{
+		return 0; //TODO: Implement scoring
+	}
+
+	private static IEnumerable<Point> validMoves(Point me, int?[] map)
+	{
+		Direction heading;
+		Point p;
+
+		heading = me.Heading;
+		p = me.NextPosition(heading);
+		if (isFree(map, p))
+			yield return p;
+
+		heading = turn(me.Heading, 1);
+		p = me.NextPosition(heading);
+		if (isFree(map, p))
+			yield return p;
+
+		heading = turn(me.Heading, 3);
+		p = me.NextPosition(heading);
+		if (isFree(map, p))
+			yield return p;
+
+		yield break;
 	}
 
 	#region Helpers
