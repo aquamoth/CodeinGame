@@ -75,8 +75,10 @@ class Player
 		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)29).ToArray(), 10);
 		printMap(map);
 
-		var APs = new ArticulationPoints(map, new Point(0, 1, 4, 0, 0), true).Find();
-		
+		var startingPoint = new Point(0, 1, 4, 0, 0);
+		var AP = new ArticulationPoints(map, startingPoint, true);
+		var APs = AP.Find();
+		ArticulationPoints.printApMap(map, AP.vertexes, startingPoint);
 	}
 
 	private static Direction selectNextHeading(Map map, Point me, bool firstStep)
@@ -377,8 +379,12 @@ public class ArticulationPoints
 	public ArticulationPoints(Map map, Point startingPoint, bool firstStep)
 	{
 		vertexes = Enumerable.Repeat(0, map.Length).Select((x, index) => new Vertex(index)).ToArray();
+		var startingToken = map[startingPoint];
+		map[startingPoint] = null;
+
 		Traverse(map, vertexes, startingPoint, firstStep);
-		//printApMap(map, vertexes, new Point(0, 100, 100, 0, 0));
+	
+		map[startingPoint] = startingToken;
 	}
 
 	public bool[] Find()
@@ -427,7 +433,7 @@ public class ArticulationPoints
 		}
 	}
 
-	private static void printApMap(Map map, Vertex[] vertexes, Point point)
+	public static void printApMap(Map map, Vertex[] vertexes, Point point)
 	{
 		var pointIndex = map.IndexOf(point);
 		Player.printMap(vertexes.Select((x, index) =>
