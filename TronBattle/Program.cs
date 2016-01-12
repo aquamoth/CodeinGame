@@ -144,22 +144,22 @@ class Player
 		Point p;
 
 		p = me.NextPosition(me.Heading);
-		if (map.isFree(p))
+		if (map.IsFree(p))
 			yield return p;
 
 		p = me.NextPosition(turn(me.Heading, 1));
-		if (map.isFree(p))
+		if (map.IsFree(p))
 			yield return p;
 
 		if (firstStep)
 		{
 			p = me.NextPosition(turn(me.Heading, 2));
-			if (map.isFree(p))
+			if (map.IsFree(p))
 				yield return p;
 		}
 
 		p = me.NextPosition(turn(me.Heading, 3));
-		if (map.isFree(p))
+		if (map.IsFree(p))
 			yield return p;
 	}
 
@@ -220,6 +220,8 @@ class Player
 
 public class Map
 {
+	public const int ILLEGAL_INDEX = 29;
+
 	readonly int?[] _array;
 	public IEnumerable<int?> Array { get { return _array; } }
 	public int Length { get { return _array.Length; } }
@@ -243,38 +245,46 @@ public class Map
 
 	public int? this[int index] 
 	{ 
-		get { return _array[index]; } 
-		set { _array[index] = value; } 
+		get {
+			if (index < 0 || index > this.Length)
+				return ILLEGAL_INDEX;
+			return _array[index]; 
+		} 
+		set {
+			if (index < 0 || index > this.Length)
+				return;
+			_array[index] = value; 
+		} 
 	}
 
 	public int? this[Point p]
 	{
-		get { return _array[IndexOf(p.X, p.Y)]; }
-		set { _array[IndexOf(p.X, p.Y)] = value; }
+		get { return this[IndexOf(p.X, p.Y)]; }
+		set { this[IndexOf(p.X, p.Y)] = value; }
 	}
 
 	public int? Get(int x, int y)
 	{
 		if (x < 0 || x >= Width)
-			return 29;
+			return ILLEGAL_INDEX;
 		if (y < 0 || y >= Height)
-			return 29;
-		return _array[IndexOf(x,y)];
+			return ILLEGAL_INDEX;
+		return _array[IndexOf(x, y)];
 	}
 
 	public void Put(int x, int y, int token)
 	{
-		if (x < 0 || x >= Width)
-			return;
-		if (y < 0 || y >= Height)
-			return;
-		_array[IndexOf(x, y)] = token;
+		this[IndexOf(x, y)] = token;
 	}
 
-	public int IndexOf(int x , int y) { return y * Width + x; }
+	public int IndexOf(int x , int y) {
+		if (x < 0 || x >= this.Width) return -1;
+		if (y < 0 || y >= this.Height) return -1;
+		return y * this.Width + x; 
+	}
 	public int IndexOf(Point p) { return IndexOf(p.X, p.Y); }
 
-	public bool isFree(Point p) { return !_array[IndexOf(p.X, p.Y)].HasValue; }
+	public bool IsFree(Point p) { return !Get(p.X, p.Y).HasValue; }
 
 	internal void RemoveAll(int token)
 	{
