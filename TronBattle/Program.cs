@@ -13,7 +13,7 @@ class Player
 {
 	static void Main(string[] args)
 	{
-		//test();
+		test();
 
 		var map = new Map(30, 20);
 		Point[] players = null;
@@ -31,72 +31,100 @@ class Player
 			if (firstStep)
 			{
 				players = positions;
-				foreach (var player in players.Where(p => p.X >= 0))
-				{
-					//Console.Error.WriteLine("Marking tail on map for {0}: ({1}, {2})" , player.Id, player.X0, player.Y0);
-					map.Put(player.X0, player.Y0, player.Id);
-				}
+				putPlayerTailsOn(map, players);
+				putPlayersOn(map, players);
 			}
 			else
-			{ 
-				for (var i = 0; i < positions.Length; i++)
-				{
-					if (players[i].IsAlive && positions[i].X == -1)
-					{
-						Console.Error.WriteLine("Player #{0} died and is removed from the map", i);
-						map.RemoveAll(i);
-					}
-					players[i].MoveTo(positions[i]);
-				}
-			}
-
-			foreach (var player in players.Where(p => p.X >= 0))
 			{
-				//Console.Error.WriteLine("Marking player on map: " + player);
-				map.Put(player.X, player.Y, player.Id);
+				updatePlayerPositions(map, players, positions);
+				putPlayersOn(map, players);
 			}
 
-			//printMap(map);
-
-			var heading = selectNextHeading(map, players[myPlayerNumber], firstStep);
+			var heading = selectNextHeading(map, players, myPlayerNumber, firstStep);
 			Console.WriteLine(heading);
+		}
+	}
+
+	private static void updatePlayerPositions(Map map, Point[] players, Point[] positions)
+	{
+		for (var i = 0; i < positions.Length; i++)
+		{
+			if (players[i].IsAlive && positions[i].X == -1)
+			{
+				Console.Error.WriteLine("Player #{0} died and is removed from the map", i);
+				map.RemoveAll(i);
+			}
+			players[i].MoveTo(positions[i]);
+		}
+	}
+
+	private static void putPlayersOn(Map map, Point[] players)
+	{
+		foreach (var player in players.Where(p => p.X >= 0))
+		{
+			//Console.Error.WriteLine("Marking player on map: " + player);
+			map.Put(player.X, player.Y, player.Id);
+		}
+	}
+
+	private static void putPlayerTailsOn(Map map, Point[] players)
+	{
+		foreach (var player in players.Where(p => p.X >= 0))
+		{
+			//Console.Error.WriteLine("Marking tail on map for {0}: ({1}, {2})" , player.Id, player.X0, player.Y0);
+			map.Put(player.X0, player.Y0, player.Id);
 		}
 	}
 
 	private static void test()
 	{
-		var mapString =	@"
-........*.
-........*.
+		var mapString = @"
+..........
+.....*....
 ******.***
-........*.
-.*......*.
-*********.";
+.........*
+.......***
+..........";
 		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)29).ToArray(), 10);
-		printMap(map);
+		var players = new[]{
+			new Point(0,5,1,5,2),
+			new Point(1,7,4,8,4)
+		};
 
-		var startingPoint = new Point(0, 1, 4, 0, 0);
-		var AP = new ArticulationPoints(map, startingPoint, true);
-		var APs = AP.Find();
-		ArticulationPoints.printApMap(map, AP.vertexes, startingPoint);
+		//printMap(map);
+
+		var me = players[1];
+		var AP = new Tarjan(map, me, true);
+		//var APs = AP.ArticulationPoints();
+		printApMap(map, AP.vertexes, me);
+
+		var heading = selectNextHeading(map, players, 1, false);
+		Console.Error.WriteLine("Heading: {0}", heading);
 	}
 
-	private static Direction selectNextHeading(Map map, Point me, bool firstStep)
+	private static Direction selectNextHeading(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		var AP = new ArticulationPoints(map, me, firstStep);
+		var me = players[myPlayerNumber];
+		var tarjan = new Tarjan(map, me, firstStep);
 
-		var apMap = AP.Find();
-		printMap(apMap.Select((b, index) => b ? '!' : map[index].HasValue ? '#' : '.').ToArray(), map.Width);
+		tarjan.vertexes.Select((v, index) => { Console.Error.WriteLine("{0} vertex is: {1}", Point.From(index, map.Width), v); return 0; }).ToArray();
+		var playerVertexes = players.Select(p => tarjan.vertexes[map.IndexOf(p)]);
+		playerVertexes.Select((v, index) => { Console.Error.WriteLine("P #{0} vertex is: {1}", index, v); return 0; }).ToArray();
+
+		//printMap(map);
+
+		var apMap = tarjan.ArticulationPoints();
+		//printApMap(map, tarjan.vertexes, me);
+		//printMap(apMap.Select((b, index) => b ? '!' : map[index].HasValue ? '#' : '.').ToArray(), map.Width);
 		var articulationPoints = apMap
 			.Select((yes, index) => yes ? (int?)index : null)
 			.Where(x => x.HasValue)
 			.Select(x => x.Value)
 			.ToArray();
-		if (articulationPoints.Any())
-		{
-			Console.Error.WriteLine("Identified articulation points at: {0}", string.Join(", ", articulationPoints.Select(idx => Point.From(idx, map.Width))));
-		}
-		//var articulationPoints = new int[0];
+		//if (articulationPoints.Any())
+		//{
+		//	Console.Error.WriteLine("Identified articulation points at: {0}", string.Join(", ", articulationPoints.Select(idx => Point.From(idx, map.Width))));
+		//}
 
 		if (apMap[map.IndexOf(me.X, me.Y)])
 		{
@@ -167,7 +195,21 @@ class Player
 
 	#region Helpers
 
-	#region Map methods
+	#region Print Map methods
+
+	public static void printApMap(Map map, Tarjan.Vertex[] vertexes, Point player)
+	{
+		var pointIndex = map.IndexOf(player);
+		Player.printMap(vertexes.Select((x, index) =>
+			index == pointIndex
+				? char.Parse(player.Id.ToString())
+				: x.Visited
+					? (/*x.IsArticulationPoint
+						? '!'
+						:*/ (char)('@' + x.Low))
+					: map[index].HasValue ? '#' : '.')
+			.ToArray(), map.Width);
+	}
 
 	public static void printMap(Map map)
 	{
@@ -192,7 +234,7 @@ class Player
 		Console.Error.WriteLine();
 	}
 
-	#endregion Map methods
+	#endregion Print Map methods
 
 	private static Direction turn(Direction direction, int stepsToRight)
 	{
@@ -370,13 +412,13 @@ public enum Direction
 	DOWN = 3
 }
 
-public class ArticulationPoints
+public class Tarjan
 {
 	int time;
 
 	public Vertex[] vertexes { get; private set; }
 
-	public ArticulationPoints(Map map, Point startingPoint, bool firstStep)
+	public Tarjan(Map map, Point startingPoint, bool firstStep)
 	{
 		vertexes = Enumerable.Repeat(0, map.Length).Select((x, index) => new Vertex(index)).ToArray();
 		var startingToken = map[startingPoint];
@@ -387,7 +429,7 @@ public class ArticulationPoints
 		map[startingPoint] = startingToken;
 	}
 
-	public bool[] Find()
+	public bool[] ArticulationPoints()
 	{
 		return vertexes.Select(v => v.IsArticulationPoint).ToArray();
 	}
@@ -431,20 +473,6 @@ public class ArticulationPoints
 				if (u.Low > v.Disc) u.Low = v.Disc;
 			}
 		}
-	}
-
-	public static void printApMap(Map map, Vertex[] vertexes, Point point)
-	{
-		var pointIndex = map.IndexOf(point);
-		Player.printMap(vertexes.Select((x, index) =>
-			index == pointIndex
-				? '*'
-				: x.Visited
-					? (x.IsArticulationPoint
-						? '!'
-						: (char)('@' + x.Low))
-					: map[index].HasValue ? '#' : '.')
-			.ToArray(), map.Width);
 	}
 
 	public class Vertex
