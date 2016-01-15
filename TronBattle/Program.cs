@@ -79,24 +79,23 @@ class Player
 	private static void test()
 	{
 		var mapString = @"
-......
-......
-**.***
-......
-......";
-		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)29).ToArray(), 6);
+..........
+..........
+******.***
+..*.......
+..*.......
+..*.......
+.*........
+..........";
+		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)29).ToArray(), 10);
 		printMap(map);
 		var players = new[]{
 			new Point(0,5,1,5,2),
 			new Point(1,7,4,8,4)
 		};
 
-		//printMap(map);
-
-		var me = players[1];
 		foreach (var player in players) map[map.IndexOf(player)] = null;
 		var tarjan = new HopcraftTarjan(vertexesFrom(map));
-		//var edges = tarjan.BCC().ToArray();
 		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
 
 		Console.WriteLine("Found articulation points:");
@@ -105,13 +104,12 @@ class Player
 			Console.WriteLine(ap);
 
 		}
-		printApMap(map, tarjan.Components.ToArray(), me);
+		printMap(map, tarjan.Components);
 
-		//foreach(var edge in edges)
-		//{
-		//	Console.WriteLine("Key: " + edge.Key + "       Value:" + edge.Value);
-		//}
 
+	
+		
+		
 		var heading = selectNextHeading(map, players, 1, false);
 		Console.Error.WriteLine("Heading: {0}", heading);
 	}
@@ -227,20 +225,11 @@ class Player
 
 	#region Print Map methods
 
-	public static void printApMap(Map map, HopcraftTarjan.Vertex[][] components, Point player)
+	public static void printMap(Map map, IEnumerable<HopcraftTarjan.Vertex[]> components)
 	{
 		var dic = components.SelectMany((array, index) => array.Select(v => new { v.Id, index })).ToDictionary(x => x.Id, x => x.index);
-		Player.printMap(map.Array.Select((c, index) => c.HasValue ? ((char)('@' + c.Value)) : char.Parse(dic[index].ToString())).ToArray(), map.Width);
-		//var pointIndex = map.IndexOf(player);
-		//Player.printMap(components.Select((x, index) =>
-		//	index == pointIndex
-		//		? char.Parse(player.Id.ToString())
-		//		: x.Low.HasValue
-		//			? (/*x.IsArticulationPoint
-		//				? '!'
-		//				:*/ (char)('@' + x.Low))
-		//			: map[index].HasValue ? '#' : '.')
-		//	.ToArray(), map.Width);
+		var charArray = map.Array.Select((c, index) => c.HasValue ? ((char)('a' + c.Value)) : char.Parse(dic[index].ToString())).ToArray();
+		Player.printMap(charArray, map.Width);
 	}
 
 	public static void printMap(Map map)
