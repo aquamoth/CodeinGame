@@ -79,13 +79,13 @@ class Player
 	private static void test()
 	{
 		var mapString = @"
-..........
-.....*....
-******.***
-.........*
-.......***
-..........";
-		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)29).ToArray(), 10);
+...
+...
+*.*
+...
+...";
+		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)29).ToArray(), 3);
+		printMap(map);
 		var players = new[]{
 			new Point(0,5,1,5,2),
 			new Point(1,7,4,8,4)
@@ -94,48 +94,73 @@ class Player
 		//printMap(map);
 
 		var me = players[1];
-		var AP = new Tarjan(map, me, true);
-		//var APs = AP.ArticulationPoints();
-		printApMap(map, AP.vertexes, me);
+		foreach (var player in players) map[map.IndexOf(player)] = null;
+		var tarjan = new HopcraftTarjan(vertexesFrom(map));
+		//var edges = tarjan.BCC().ToArray();
+		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+
+		var APs = tarjan.GetArticulationPoints();
+		printApMap(map, tarjan.Components.ToArray(), me);
+
+		//foreach(var edge in edges)
+		//{
+		//	Console.WriteLine("Key: " + edge.Key + "       Value:" + edge.Value);
+		//}
 
 		var heading = selectNextHeading(map, players, 1, false);
 		Console.Error.WriteLine("Heading: {0}", heading);
 	}
 
+	private static HopcraftTarjan.Vertex[] vertexesFrom(Map map)
+	{
+		var vertices = map.Array
+			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue })
+			.Where(x => !x.IsWall)
+			.Select(x => new HopcraftTarjan.Vertex(x.Id))
+			.ToArray();
+		foreach (var v in vertices)
+		{
+			v.Dependents = validMoves(Point.From(v.Id, map.Width), map, true)
+				.Select(move => vertices.Where(x => x.Id == map.IndexOf(move)).Single())
+				.ToArray();
+		}
+		return vertices;
+	}
+
 	private static Direction selectNextHeading(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
 		var me = players[myPlayerNumber];
-		var tarjan = new Tarjan(map, me, firstStep);
-
-		tarjan.vertexes.Select((v, index) => { Console.Error.WriteLine("{0} vertex is: {1}", Point.From(index, map.Width), v); return 0; }).ToArray();
-		var playerVertexes = players.Select(p => tarjan.vertexes[map.IndexOf(p)]);
-		playerVertexes.Select((v, index) => { Console.Error.WriteLine("P #{0} vertex is: {1}", index, v); return 0; }).ToArray();
+		var tarjan = new HopcraftTarjan(vertexesFrom(map));
+		
+		//tarjan.vertexes.Select((v, index) => { Console.Error.WriteLine("{0} vertex is: {1}", Point.From(index, map.Width), v); return 0; }).ToArray();
+		//var playerVertexes = players.Select(p => tarjan.vertexes[map.IndexOf(p)]);
+		//playerVertexes.Select((v, index) => { Console.Error.WriteLine("P #{0} vertex is: {1}", index, v); return 0; }).ToArray();
 
 		//printMap(map);
 
-		var apMap = tarjan.ArticulationPoints();
+		//var apMap = tarjan.ArticulationPoints();
 		//printApMap(map, tarjan.vertexes, me);
 		//printMap(apMap.Select((b, index) => b ? '!' : map[index].HasValue ? '#' : '.').ToArray(), map.Width);
-		var articulationPoints = apMap
-			.Select((yes, index) => yes ? (int?)index : null)
-			.Where(x => x.HasValue)
-			.Select(x => x.Value)
-			.ToArray();
+		//var articulationPoints = apMap
+		//	.Select((yes, index) => yes ? (int?)index : null)
+		//	.Where(x => x.HasValue)
+		//	.Select(x => x.Value)
+		//	.ToArray();
 		//if (articulationPoints.Any())
 		//{
 		//	Console.Error.WriteLine("Identified articulation points at: {0}", string.Join(", ", articulationPoints.Select(idx => Point.From(idx, map.Width))));
 		//}
 
-		if (apMap[map.IndexOf(me.X, me.Y)])
-		{
-			Console.Error.WriteLine("CURRENTLY ON AN AP. CHOOSE DIRECTION WISELY!");
-		}
+		//if (apMap[map.IndexOf(me.X, me.Y)])
+		//{
+		//	Console.Error.WriteLine("CURRENTLY ON AN AP. CHOOSE DIRECTION WISELY!");
+		//}
 
 
 		var allValidMoves = validMoves(me, map, firstStep);
 		Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
 		var possibleMoves = allValidMoves
-			.Where(m => !articulationPoints.Contains(map.IndexOf(m.X, m.Y)));
+			;//.Where(m => !articulationPoints.Contains(map.IndexOf(m.X, m.Y)));
 		Console.Error.WriteLine("Moves-APs: " + string.Join(", ", possibleMoves));
 		if (!possibleMoves.Any())
 			possibleMoves = allValidMoves;
@@ -197,18 +222,20 @@ class Player
 
 	#region Print Map methods
 
-	public static void printApMap(Map map, Tarjan.Vertex[] vertexes, Point player)
+	public static void printApMap(Map map, HopcraftTarjan.Vertex[][] components, Point player)
 	{
-		var pointIndex = map.IndexOf(player);
-		Player.printMap(vertexes.Select((x, index) =>
-			index == pointIndex
-				? char.Parse(player.Id.ToString())
-				: x.Visited
-					? (/*x.IsArticulationPoint
-						? '!'
-						:*/ (char)('@' + x.Low))
-					: map[index].HasValue ? '#' : '.')
-			.ToArray(), map.Width);
+		var dic = components.SelectMany((array, index) => array.Select(v => new { v.Id, index })).ToDictionary(x => x.Id, x => x.index);
+		Player.printMap(map.Array.Select((c, index) => c.HasValue ? ((char)('@' + c.Value)) : char.Parse(dic[index].ToString())).ToArray(), map.Width);
+		//var pointIndex = map.IndexOf(player);
+		//Player.printMap(components.Select((x, index) =>
+		//	index == pointIndex
+		//		? char.Parse(player.Id.ToString())
+		//		: x.Low.HasValue
+		//			? (/*x.IsArticulationPoint
+		//				? '!'
+		//				:*/ (char)('@' + x.Low))
+		//			: map[index].HasValue ? '#' : '.')
+		//	.ToArray(), map.Width);
 	}
 
 	public static void printMap(Map map)
@@ -412,82 +439,189 @@ public enum Direction
 	DOWN = 3
 }
 
-public class Tarjan
+public class HopcraftTarjan
 {
+	int count;
 	int time;
+	readonly Vertex[] _vertexes;
 
-	public Vertex[] vertexes { get; private set; }
+	Stack<Vertex> _stack;
+	List<Vertex> _component;
 
-	public Tarjan(Map map, Point startingPoint, bool firstStep)
+	public IEnumerable<Vertex[]> Components { get { return _components.AsEnumerable(); } }
+	List<Vertex[]> _components;
+
+	public HopcraftTarjan(Vertex[] vertexes)
 	{
-		vertexes = Enumerable.Repeat(0, map.Length).Select((x, index) => new Vertex(index)).ToArray();
-		var startingToken = map[startingPoint];
-		map[startingPoint] = null;
-
-		Traverse(map, vertexes, startingPoint, firstStep);
-	
-		map[startingPoint] = startingToken;
+		_vertexes = vertexes;
 	}
 
-	public bool[] ArticulationPoints()
+	public Vertex[] GetArticulationPoints()
 	{
-		return vertexes.Select(v => v.IsArticulationPoint).ToArray();
-	}
+		_components = new List<Vertex[]>();
+		_stack = new Stack<Vertex>();
+		_component = new List<Vertex>();
 
-	private void Traverse(Map map, Vertex[] vertexes, Point point, bool firstStep)
-	{
-		int children = 0;
-		var u = vertexes[map.IndexOf(point)];
-		u.Visited = true;
-		u.Disc = u.Low = ++time;
-		if (firstStep) Console.Error.WriteLine("Flagging {0} as visited at {1}", point, time);
-		//printApMap(map, vertexes, point);
-		foreach (var move in Player.validMoves(point, map, firstStep))
+		var aps = new List<Vertex>();
+		foreach(var v in _vertexes)
 		{
-			if (firstStep) Console.Error.WriteLine("Testing AP for " + move);
-			var v = vertexes[map.IndexOf(move)];
-			if (!v.Visited)
+			if (!v.Disc.HasValue)
+			{
+				_stack.Push(v);
+				aps.AddRange(GetArticulationPoints(v, 0));
+			}
+		}
+
+		_components.Add(_component.ToArray());
+		_component = new List<Vertex>();
+
+		return aps.ToArray();
+	}
+
+	private Vertex[] GetArticulationPoints(Vertex vertex, int d)
+	{
+		var aps = new List<Vertex>();
+
+		vertex.Disc = d;
+		vertex.Low = d;
+		var childCount = 0;
+		bool isArticulation = false;
+		foreach (var ni in vertex.Dependents)
+		{
+			if (!ni.Disc.HasValue)
+			{
+				ni.Parent = vertex;
+				_stack.Push(ni);
+				aps.AddRange(GetArticulationPoints(ni, d + 1));
+				childCount++;
+				if (ni.Low >= vertex.Disc)
+					isArticulation = true;
+				vertex.Low = Math.Min(vertex.Low.Value, ni.Low.Value);
+			}
+			else if (ni != vertex.Parent)
+			{
+				vertex.Low = Math.Min(vertex.Low.Value, ni.Disc.Value);
+			}
+		}
+		if ((vertex.Parent != null && isArticulation) || (vertex.Parent == null && childCount > 1))
+		{
+			//	Output i as articulation point
+			aps.Add(vertex);
+			if (vertex.Low == vertex.Disc)
+			{
+				_stack.Pop();
+				_component.Add(vertex);
+				_components.Add(_component.ToArray());
+				_component = new List<Vertex>();
+			}
+			else
+			{
+				_component.Add(_stack.Pop());
+			}
+		}
+		else
+		{
+			_component.Add(_stack.Pop());
+		}
+
+		return aps.ToArray();
+	}
+
+	//public bool[] ArticulationPoints()
+	//{
+	//	return vertexes.Select(v => v.IsArticulationPoint).ToArray();
+	//}
+
+	public IEnumerable<KeyValuePair<Vertex, Vertex>> BCC()
+	{
+		var stack = new Stack<KeyValuePair<Vertex, Vertex>>();
+
+		for (int i = 0; i < _vertexes.Length; i++)
+		{
+			var v = _vertexes[i];
+			if (!v.Disc.HasValue)
+			{
+				var temp = BCCUtil(v, stack).ToArray();
+			}
+
+			var j = 0;
+
+			//If stack is not empty, pop all edges from stack
+			while (stack.Count > 0)
+			{
+				j = 1;
+				var outputEdge = stack.Pop();
+				//TODO: Return outputEdge
+				yield return outputEdge;
+			}
+			if (j == 1)
+			{
+				//Print end of component
+				count++;
+			}
+		}
+	}
+
+	private IEnumerable<KeyValuePair<Vertex,Vertex>> BCCUtil(Vertex u, Stack<KeyValuePair<Vertex, Vertex>> stack)
+	{
+		u.Disc = u.Low = ++time;
+		int children = 0;
+		foreach (var v in u.Dependents)
+		{
+			if (!v.Disc.HasValue)
 			{
 				children++;
 				v.Parent = u;
-				Traverse(map, vertexes, move, false);
+				stack.Push(new KeyValuePair<Vertex, Vertex>(u, v));
+				var temp = BCCUtil(v, stack).ToArray();
+
+				//Check if the subtree toored with 'v' has a connection to one of the ancestors of 'u'
+				//Case 1: Per strongly connected components article
 				if (u.Low > v.Low) u.Low = v.Low;
 
-				if (u.Parent == null && children > 1)
+				//If u is an articulation point, pop all edges from stack until u -- v
+				if ((u.Disc == 1 && children > 1) 
+				|| (u.Disc > 1 && v.Low >= u.Disc))
 				{
-					u.IsArticulationPoint = true;
-					Console.Error.WriteLine("Thinking that root node is an AP at {0}", u);
-				}
-				else if (u.Parent != null && v.Low >= u.Disc)
-				{
-					u.IsArticulationPoint = true;
-					Console.Error.WriteLine("{0} is AP because {1} >= {2}", u, v.Low, u.Disc);
-				}
-				else
-				{
-					if (firstStep) Console.Error.WriteLine("{0} is NOT AP: {1} < {2}", u, v.Low, u.Disc);
+					var lastStack = stack.Peek();
+					while (lastStack.Key != u || lastStack.Value != v)
+					{
+						var outputEdge = stack.Pop();
+						yield return outputEdge;
+						lastStack = stack.Count > 0 ? stack.Peek() : new KeyValuePair<Vertex, Vertex>();
+					}
+					var outputEdge2 = stack.Pop();
+					yield return outputEdge2;
+					count++;
 				}
 			}
-			else if (v != u.Parent)
+
+			//Update low value of 'u' only if 'v' is still in stack
+			//(i.e. its a back edge, not cross edge).
+			//Case 2: Per Strongly connected components article
+			else if (v != u.Parent && v.Disc < u.Low)
 			{
 				if (u.Low > v.Disc) u.Low = v.Disc;
+				stack.Push(new KeyValuePair<Vertex, Vertex>(u, v));
 			}
 		}
 	}
 
 	public class Vertex
 	{
-		public int Index { get; set; }
-		public bool Visited { get; set; }
-		public int Disc { get; set; }
-		public int Low { get; set; }
+		public int Id { get; set; }
+		//public int Index { get; set; }
+		//public bool Visited { get; set; }
+		public int? Disc { get; set; }
+		public int? Low { get; set; }
 		public Vertex Parent { get; set; }
-		public bool IsArticulationPoint { get; set; }
+		//public bool IsArticulationPoint { get; set; }
+		public Vertex[] Dependents { get; set; }
 
-		public Vertex(int index) { Index = index; }
+		public Vertex(int id) { Id = id; }
 		public override string ToString()
 		{
-			return string.Format("#{0}: Visited: {1}, IsAP: {2}, Low: {3}, Disc: {4}", Index, Visited, IsArticulationPoint, Low, Disc);
+			return string.Format("#{0}: Low: {1}, Disc: {2}, Parent: {3}", Id, Low, Disc, Parent == null ? "" : Parent.Id.ToString());
 		}
 	}
 }
