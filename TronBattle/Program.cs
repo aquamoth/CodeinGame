@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -11,28 +12,34 @@ using System.Collections.Generic;
  **/
 class Player
 {
+	static Stopwatch Timer = new Stopwatch();
+
 	static void Main(string[] args)
 	{
-		test();
+		//test();
 
 		var map = new Map(30, 20);
 		Point[] players = null;
 
 		// game loop
+		var gameTurn = 0;
+		var meanMilliseconds = 0.0;
 		while (true)
 		{
 			var inputs = Console.ReadLine().Split(' ');
 			var numberOfPlayers = int.Parse(inputs[0]); // total number of players (2 to 4).
 			int myPlayerNumber = int.Parse(inputs[1]); // your player number (0 to 3).
-
 			var positions = readPositionsFromConsole(numberOfPlayers);
 			var firstStep = players == null;
+			Timer.Restart();
 
 			if (firstStep)
 			{
 				players = positions;
 				putPlayerTailsOn(map, players);
+				//if (gameTurn == 0) Console.Error.WriteLine("Put tails: {0} ms", sw1.ElapsedMilliseconds);
 				putPlayersOn(map, players);
+				//if (gameTurn == 0) Console.Error.WriteLine("Put players: {0} ms", sw1.ElapsedMilliseconds);
 			}
 			else
 			{
@@ -41,100 +48,72 @@ class Player
 			}
 
 			var heading = selectNextHeading(map, players, myPlayerNumber, firstStep);
+
+			Timer.Stop();
+			gameTurn++;
+			meanMilliseconds += (Timer.ElapsedMilliseconds - meanMilliseconds) / gameTurn;
+			Debug("End of turn. Mean is {2} ms.", gameTurn, Timer.ElapsedMilliseconds, meanMilliseconds);
+
 			Console.WriteLine(heading);
 		}
 	}
 
-	private static void updatePlayerPositions(Map map, Point[] players, Point[] positions)
-	{
-		for (var i = 0; i < positions.Length; i++)
-		{
-			if (players[i].IsAlive && positions[i].X == -1)
-			{
-				Console.Error.WriteLine("Player #{0} died and is removed from the map", i);
-				map.RemoveAll(i);
-			}
-			players[i].MoveTo(positions[i]);
-		}
-	}
-
-	private static void putPlayersOn(Map map, Point[] players)
-	{
-		foreach (var player in players.Where(p => p.X >= 0))
-		{
-			//Console.Error.WriteLine("Marking player on map: " + player);
-			map.Put(player.X, player.Y, player.Id);
-		}
-	}
-
-	private static void putPlayerTailsOn(Map map, Point[] players)
-	{
-		foreach (var player in players.Where(p => p.X >= 0))
-		{
-			//Console.Error.WriteLine("Marking tail on map for {0}: ({1}, {2})" , player.Id, player.X0, player.Y0);
-			map.Put(player.X0, player.Y0, player.Id);
-		}
-	}
-
-	private static void test()
-	{
-		var mapString = @"
-..........
-..........
-******.***
-..*.......
-..*.......
-..*.......
-.*........
-..........";
-		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)29).ToArray(), 10);
-		printMap(map);
-		var players = new[]{
-			new Point(0,5,1,5,2),
-			new Point(1,7,4,8,4)
-		};
-
-		foreach (var player in players) map[map.IndexOf(player)] = null;
-		var tarjan = new HopcraftTarjan(vertexesFrom(map));
-		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
-
-		Console.WriteLine("Found articulation points:");
-		foreach (var ap in tarjan.ArticulationPoints)
-		{
-			Console.WriteLine(ap);
-
-		}
-		printMap(map, tarjan.Components);
-
-
-	
-		
-		
-		var heading = selectNextHeading(map, players, 1, false);
-		Console.Error.WriteLine("Heading: {0}", heading);
-	}
-
-	private static HopcraftTarjan.Vertex[] vertexesFrom(Map map)
-	{
-		var vertices = map.Array
-			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue })
-			.Where(x => !x.IsWall)
-			.Select(x => new HopcraftTarjan.Vertex(x.Id))
-			.ToArray();
-		foreach (var v in vertices)
-		{
-			v.Dependents = validMoves(Point.From(v.Id, map.Width), map, true)
-				.Select(move => vertices.Where(x => x.Id == map.IndexOf(move)).Single())
-				.ToArray();
-		}
-		return vertices;
-	}
+	#region AI
 
 	private static Direction selectNextHeading(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		var me = players[myPlayerNumber];
-		var tarjan = new HopcraftTarjan(vertexesFrom(map));
-		
+		//Debug("Determine controlled regions");
+		//var nodes = nodesFrom(map);
+		//Debug("Created nodes from map");
+		//var ownedTiles = calculateControlledAreas(map, players, nodes);
+		//printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
+
+
+		Debug("Identify rooms and articulation points");
+		foreach (var player in players) map[map.IndexOf(player)] = null;
+		var vertexes = vertexesFrom(map);
+		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+		Debug("Created vertexes from map");
+		var tarjan = new HopcraftTarjan(vertexes);
+
+		if (players.Length > 2)
+		{
+			throw new NotImplementedException("Three-player strategy");
+		}
+		else
+		{
+			//Debug("We found {0} components with a total of {1} rooms.", tarjan.Components.Count(), tarjan.Components.SelectMany(x => x).Count());
+			//Debug("{0}", string.Join(", ", tarjan.Components.Select((x, index) => "C" + index + ": " + x.Count()).ToArray()));
+			//var dic = dictionaryFrom(tarjan.Components);
+			//if (players.Select(p => dic[map.IndexOf(p)]).Distinct().Count() == 1)
+			//{
+				return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
+			//}
+			//else
+			//{
+			//	Debug("Players are in different rooms");
+			//	Debug("{0}", string.Join(", ", players.Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
+			//	printMap(map, tarjan.Components);
+			//	if (false) //Are we in a disjoint world?
+			//	{
+			//		throw new NotImplementedException("Wall-hugging strategy");
+			//	}
+			//	else
+			//	{
+			//		var me = players[myPlayerNumber];
+			//		var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
+			//		if (myVertex.IsArticulationPoint)
+			//		{
+			//			throw new NotImplementedException("Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
+			//		}
+			//		else
+			//		{
+			//			throw new NotImplementedException("Move towards the other player until we reach an articulation point");
+			//		}
+			//	}
+			//}
+		}
+	
 		//tarjan.vertexes.Select((v, index) => { Console.Error.WriteLine("{0} vertex is: {1}", Point.From(index, map.Width), v); return 0; }).ToArray();
 		//var playerVertexes = players.Select(p => tarjan.vertexes[map.IndexOf(p)]);
 		//playerVertexes.Select((v, index) => { Console.Error.WriteLine("P #{0} vertex is: {1}", index, v); return 0; }).ToArray();
@@ -160,21 +139,31 @@ class Player
 		//}
 
 
+	}
+
+	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	{
+		Debug("Players are in same room");
+		Debug("Find Volornov line, go there and cut off the other player");
+
+
+
+		var me = players[myPlayerNumber];
 		var allValidMoves = validMoves(me, map, firstStep);
-		Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
+		//Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
 		var possibleMoves = allValidMoves
 			;//.Where(m => !articulationPoints.Contains(map.IndexOf(m.X, m.Y)));
-		Console.Error.WriteLine("Moves-APs: " + string.Join(", ", possibleMoves));
+		//Console.Error.WriteLine("Moves-APs: " + string.Join(", ", possibleMoves));
 		if (!possibleMoves.Any())
 			possibleMoves = allValidMoves;
 
-		
+
 		var scoredMoves = possibleMoves
 			.Select(move => new { Heading = move.Heading, Score = score(map, move) })
 			.OrderByDescending(x => x.Score)
 			.ToArray();
 
-		Console.Error.WriteLine("Scored moves: " + string.Join(", ", scoredMoves.Select(x => string.Format("{0}={1}", x.Heading, x.Score))));
+		//Console.Error.WriteLine("Scored moves: " + string.Join(", ", scoredMoves.Select(x => string.Format("{0}={1}", x.Heading, x.Score))));
 
 		return scoredMoves
 			.Select(p => p.Heading)
@@ -182,19 +171,77 @@ class Player
 			.FirstOrDefault();
 	}
 
+	private static int?[] calculateControlledAreas(Map map, Point[] players, Dijkstra.Node[] nodes)
+	{
+		var distances = players.Select(p =>
+		{
+			Debug("Creating dijkstra for player {0}", p.Id);
+			var d = new Dijkstra(nodes, map.IndexOf(p));
+			Debug("Generating distance map");
+			var m = new { Player = p, DistanceMap = map.Array.Select((x, index) => x.HasValue ? null : (int?)d.Path(index).Length).ToArray() };
+			Debug("Returning distance map");
+			return m;
+		}).ToArray();
+		Debug("Calculated distances");
+		var ownedTiles = map.Array.Select((x, index) =>
+			x.HasValue
+				? null
+			: (int?)distances.Select(d => new { PlayerId = d.Player.Id, distance = d.DistanceMap[index] }).OrderBy(d => d.distance).First().PlayerId
+			).ToArray();
+		Debug("Created map of owned tiles");
+		var playerAreas = players.Select((p, index) => new { p.Id, Count = ownedTiles.Where(x => x == index).Count() }).OrderBy(x => x.Id).Select(x => x.Count).ToArray();
+		Debug("Calculated player areas");
+
+		for (var i = 0; i < playerAreas.Length;i++ )
+		{
+			Debug("Player #{0} controls {1} tiles.", i, playerAreas[i]);
+		}
+		return ownedTiles;
+	}
+
+	public static void Debug(string format, params object[] args)
+	{
+		Console.Error.WriteLine(Timer.ElapsedMilliseconds + " ms: " + string.Format(format, args));
+	}
+
 	private static int score(Map map, Point p)
 	{
 		return wallsAt(map, p);
 	}
 
-	private static int wallsAt(Map map, Point p)
+	#endregion AI
+
+	#region Business Logic
+
+	private static void updatePlayerPositions(Map map, Point[] players, Point[] positions)
 	{
-		var walls = 0;
-		if (p.X == 0 || map[p.NextPosition(Direction.LEFT)] != null) walls++;
-		if (p.X == map.Width - 1 || map[p.NextPosition(Direction.RIGHT)] != null) walls++;
-		if (p.Y == 0 || map[p.NextPosition(Direction.UP)] != null) walls++;
-		if (p.Y == map.Height - 1 || map[p.NextPosition(Direction.DOWN)] != null) walls++;
-		return walls;
+		for (var i = 0; i < positions.Length; i++)
+		{
+			if (players[i].IsAlive && positions[i].X == -1)
+			{
+				Debug("Player #{0} died and is removed from the map", i);
+				map.RemoveAll(i);
+			}
+			players[i].MoveTo(positions[i]);
+		}
+	}
+
+	private static void putPlayersOn(Map map, Point[] players)
+	{
+		foreach (var player in players.Where(p => p.X >= 0))
+		{
+			//Console.Error.WriteLine("Marking player on map: " + player);
+			map.Put(player.X, player.Y, player.Id);
+		}
+	}
+
+	private static void putPlayerTailsOn(Map map, Point[] players)
+	{
+		foreach (var player in players.Where(p => p.X >= 0))
+		{
+			//Console.Error.WriteLine("Marking tail on map for {0}: ({1}, {2})" , player.Id, player.X0, player.Y0);
+			map.Put(player.X0, player.Y0, player.Id);
+		}
 	}
 
 	public static IEnumerable<Point> validMoves(Point me, Map map, bool firstStep)
@@ -221,15 +268,21 @@ class Player
 			yield return p;
 	}
 
-	#region Helpers
+	#endregion
 
 	#region Print Map methods
 
 	public static void printMap(Map map, IEnumerable<HopcraftTarjan.Vertex[]> components)
 	{
-		var dic = components.SelectMany((array, index) => array.Select(v => new { v.Id, index })).ToDictionary(x => x.Id, x => x.index);
+		var dic = dictionaryFrom(components);
 		var charArray = map.Array.Select((c, index) => c.HasValue ? ((char)('a' + c.Value)) : char.Parse(dic[index].ToString())).ToArray();
 		Player.printMap(charArray, map.Width);
+	}
+
+	private static Dictionary<int, int> dictionaryFrom(IEnumerable<HopcraftTarjan.Vertex[]> components)
+	{
+		var dic = components.SelectMany((array, index) => array.Select(v => new { v.Id, index })).ToDictionary(x => x.Id, x => x.index);
+		return dic;
 	}
 
 	public static void printMap(Map map)
@@ -257,9 +310,53 @@ class Player
 
 	#endregion Print Map methods
 
+	#region Helpers
+
 	private static Direction turn(Direction direction, int stepsToRight)
 	{
 		return (Direction)(((int)direction + stepsToRight) % 4);
+	}
+
+	private static int wallsAt(Map map, Point p)
+	{
+		var walls = 0;
+		if (p.X == 0 || map[p.NextPosition(Direction.LEFT)] != null) walls++;
+		if (p.X == map.Width - 1 || map[p.NextPosition(Direction.RIGHT)] != null) walls++;
+		if (p.Y == 0 || map[p.NextPosition(Direction.UP)] != null) walls++;
+		if (p.Y == map.Height - 1 || map[p.NextPosition(Direction.DOWN)] != null) walls++;
+		return walls;
+	}
+
+	private static HopcraftTarjan.Vertex[] vertexesFrom(Map map)
+	{
+		var vertices = map.Array
+			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue })
+			.Where(x => !x.IsWall)
+			.Select(x => new HopcraftTarjan.Vertex(x.Id))
+			.ToArray();
+		foreach (var v in vertices)
+		{
+			v.Dependents = validMoves(Point.From(v.Id, map.Width), map, true)
+				.Select(move => vertices.Where(x => x.Id == map.IndexOf(move)).Single())
+				.ToArray();
+		}
+		return vertices;
+	}
+
+	private static Dijkstra.Node[] nodesFrom(Map map)
+	{
+		var nodes = map.Array
+			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue && cell.Value == Map.ILLEGAL_INDEX })
+			.Where(x => !x.IsWall)
+			.Select(x => new Dijkstra.Node { Id = x.Id })
+			.ToArray();
+		foreach (var v in nodes)
+		{
+			v.Neighbours = validMoves(Point.From(v.Id, map.Width), map, true)
+				.Select(move => nodes.Where(x => x.Id == map.IndexOf(move)).Single())
+				.ToArray();
+		}
+		return nodes;
 	}
 
 	private static Point[] readPositionsFromConsole(int N)
@@ -279,6 +376,81 @@ class Player
 	}
 
 	#endregion helpers
+
+	#region Testing
+
+	private static void test()
+	{
+		var mapString = @"
+..........
+......*..*
+......*...
+...*****..
+...*......
+...*..****
+..........
+..........";
+		//		var mapString = @"
+//..........
+//..........
+//******.***
+//..*.......
+//..*.......
+//..*.......
+//.*........
+//..........";
+		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)Map.ILLEGAL_INDEX).ToArray(), 10);
+		printMap(map);
+		var players = new[]{
+			new Point(0,5,1,5,1),
+			new Point(1,7,6,7,6)
+		};
+
+
+		//foreach (var player in players) map[map.IndexOf(player)] = null;
+		var nodes = nodesFrom(map);
+		//foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+
+		//var me = 1;
+		//var d = new Dijkstra(nodes, map.IndexOf(players[me]));
+		//var path = d.Path(0);
+		//Debug("Walking from ({0}, {1}) to (0,0)", players[me].X, players[me].Y);
+		//foreach (var step in path) { Debug("Test path: {0}", Point.From(step, map.Width)); }
+
+		var ownedTiles = calculateControlledAreas(map, players, nodes);
+		printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
+
+		//var distances = players.Select(p =>
+		//{
+		//	var d = new Dijkstra(nodes, map.IndexOf(p));
+		//	return new { Player = p, DistanceMap = map.Array.Select((x, index) => x.HasValue ? null : (int?)d.Path(index).Length).ToArray() };
+		//}).ToArray();
+
+
+		foreach (var player in players) map[map.IndexOf(player)] = null;
+		var tarjan = new HopcraftTarjan(vertexesFrom(map));
+		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+
+		Debug("Found articulation points:");
+		foreach (var ap in tarjan.ArticulationPoints)
+		{
+			Debug("{0}", ap);
+
+		}
+		printMap(map, tarjan.Components);
+
+		var dic = dictionaryFrom(tarjan.Components);
+		var room0 = dic[map.IndexOf(players[0])];
+		var room1 = dic[map.IndexOf(players[1])];
+		var isInSameRoom = room0 == room1;
+		Debug("Player 1 is in room {0} and player 2 is in room {1}. Same={2}", room0, room1, isInSameRoom);
+
+
+		var heading = selectNextHeading(map, players, 1, false);
+		Debug("Heading: {0}", heading);
+	}
+
+	#endregion Testing
 }
 
 #region Classes and Enums
@@ -433,6 +605,8 @@ public enum Direction
 	DOWN = 3
 }
 
+#region Hopcraft/Tarjan algorithm for finding biconnected components and articulation points
+
 public class HopcraftTarjan
 {
 	List<Vertex> _component;
@@ -517,59 +691,75 @@ public class HopcraftTarjan
 	}
 }
 
-//public class Dijkstra
-//{
-//	Node[] _nodes;
-//	public int From { get; private set; }
-//	Queue<Node> unvisitedNodes = new Queue<Node>();
+#endregion Hopcraft/Tarjan algorithm for finding biconnected components and articulation points
 
-//	public Dijkstra(Zone[] zones, int from)
-//	{
-//		_nodes = zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
-//		Reset(from);
-//	}
+#region Dijkstras algorithm for finding shortest path
 
-//	public void Reset(int from)
-//	{
-//		foreach (var node in _nodes)
-//		{
-//			node.Path = null;
-//			//node.Distance = int.MaxValue;
-//			node.Visited = false;
-//		}
-//		unvisitedNodes.Clear();
+public class Dijkstra
+{
+	IDictionary<int, Node> _nodes;
+	public int From { get; private set; }
+	Queue<Node> unvisitedNodes = new Queue<Node>();
 
-//		this.From = from;
-//		_nodes[from].Path = new int[] { from };
-//		unvisitedNodes.Enqueue(_nodes[from]);
-//	}
+	public Dijkstra(Node[] nodes, int from)
+	{
+		_nodes = nodes.ToDictionary(x => x.Id);
+		//_nodes = zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
+		Reset(from);
+	}
 
-//	public int[] Path(int to)
-//	{
-//		if (to >= _nodes.Length)
-//			return null;//No paths to the destination at all
+	public void Reset(int from)
+	{
+		foreach (var node in _nodes.Values)
+		{
+			node.Path = null;
+			//node.Distance = int.MaxValue;
+			node.Visited = false;
+		}
+		unvisitedNodes.Clear();
 
-//		if (_nodes[to].Path != null)
-//			return _nodes[to].Path;
+		this.From = from;
+		_nodes[from].Path = new int[] { from };
+		unvisitedNodes.Enqueue(_nodes[from]);
+	}
 
-//		while (unvisitedNodes.Any())
-//		{
-//			var currentNode = unvisitedNodes.Dequeue();
-//			currentNode.Visited = true;
-//			var tentativeDistance = currentNode.Path.Length + 1;
+	public int[] Path(int to)
+	{
+		if (!_nodes.ContainsKey(to))
+			return null;//No paths to the destination at all
 
-//			foreach (var neighbour in currentNode.Neighbours.Select(id => _nodes[id]).Where(node => !node.Visited))
-//			{
-//				if (neighbour.Path == null || neighbour.Path.Length > tentativeDistance)
-//					neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
-//				unvisitedNodes.Enqueue(neighbour);
-//			}
-//			if (currentNode.Id == to)
-//				break;
-//		}
+		if (_nodes[to].Path != null)
+			return _nodes[to].Path;
 
-//		return _nodes[to].Path;
-//	}
-//}
+		while (unvisitedNodes.Any())
+		{
+			var currentNode = unvisitedNodes.Dequeue();
+			currentNode.Visited = true;
+			var tentativeDistance = currentNode.Path.Length + 1;
+
+			foreach (var neighbour in currentNode.Neighbours.Where(node => !node.Visited))
+			{
+				if (neighbour.Path == null || neighbour.Path.Length > tentativeDistance)
+					neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
+				unvisitedNodes.Enqueue(neighbour);
+			}
+			if (currentNode.Id == to)
+				break;
+		}
+
+		return _nodes[to].Path;
+	}
+
+
+	public class Node
+	{
+		public int Id { get; set; }
+		public Node[] Neighbours { get; set; }
+		public bool Visited { get; set; }
+		public int[] Path { get; set; }
+	}
+}
+
+#endregion Dijkstras algorithm for finding shortest path
 
 #endregion Classes and Enums
