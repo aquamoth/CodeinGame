@@ -16,7 +16,7 @@ class Player
 
 	static void Main(string[] args)
 	{
-		//test();
+		test();
 
 		var map = new Map(30, 20);
 		Point[] players = null;
@@ -47,6 +47,8 @@ class Player
 				putPlayersOn(map, players);
 			}
 
+			printMap(map);
+
 			var heading = selectNextHeading(map, players, myPlayerNumber, firstStep);
 
 			Timer.Stop();
@@ -63,10 +65,12 @@ class Player
 	private static Direction selectNextHeading(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
 		//Debug("Determine controlled regions");
-		//var nodes = nodesFrom(map);
+		var nodes = nodesFrom(map);
 		//Debug("Created nodes from map");
-		//var ownedTiles = calculateControlledAreas(map, players, nodes);
+		var ownedTiles = calculateControlledAreas(map, players, nodes);
 		//printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
+
+
 
 
 		Debug("Identify rooms and articulation points");
@@ -175,18 +179,15 @@ class Player
 	{
 		var distances = players.Select(p =>
 		{
-			Debug("Creating dijkstra for player {0}", p.Id);
 			var d = new Dijkstra(nodes, map.IndexOf(p));
-			Debug("Generating distance map");
 			var m = new { Player = p, DistanceMap = map.Array.Select((x, index) => x.HasValue ? null : (int?)d.Path(index).Length).ToArray() };
-			Debug("Returning distance map");
 			return m;
 		}).ToArray();
 		Debug("Calculated distances");
 		var ownedTiles = map.Array.Select((x, index) =>
 			x.HasValue
 				? null
-			: (int?)distances.Select(d => new { PlayerId = d.Player.Id, distance = d.DistanceMap[index] }).OrderBy(d => d.distance).First().PlayerId
+			: (int?)distances.Select((d, playerIndex) => new { PlayerId = playerIndex, distance = d.DistanceMap[index] }).OrderBy(d => d.distance).First().PlayerId
 			).ToArray();
 		Debug("Created map of owned tiles");
 		var playerAreas = players.Select((p, index) => new { p.Id, Count = ownedTiles.Where(x => x == index).Count() }).OrderBy(x => x.Id).Select(x => x.Count).ToArray();
@@ -293,18 +294,18 @@ class Player
 	public static void printMap(char[] map, int width)
 	{
 		var height = map.Length / width;
-		Console.Error.WriteLine(string.Join("", Enumerable.Repeat('¤', width + 2)));
+		//Console.Error.WriteLine(string.Join("", Enumerable.Repeat('¤', width + 2)));
 		for (var y = 0; y < height; y++)
 		{
-			Console.Error.Write('¤');
+			//Console.Error.Write('¤');
 			for (var x = 0; x < width; x++)
 			{
 				var token = map[y * width + x];
 				Console.Error.Write(token);
 			}
-			Console.Error.WriteLine("¤");
+			Console.Error.WriteLine("");//¤
 		}
-		Console.Error.WriteLine(string.Join("", Enumerable.Repeat('¤', width + 2)));
+		//Console.Error.WriteLine(string.Join("", Enumerable.Repeat('¤', width + 2)));
 		Console.Error.WriteLine();
 	}
 
@@ -346,7 +347,7 @@ class Player
 	private static Dijkstra.Node[] nodesFrom(Map map)
 	{
 		var nodes = map.Array
-			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue && cell.Value == Map.ILLEGAL_INDEX })
+			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue && cell.Value == Map.TILE_IS_WALL })
 			.Where(x => !x.IsWall)
 			.Select(x => new Dijkstra.Node { Id = x.Id })
 			.ToArray();
@@ -382,40 +383,39 @@ class Player
 	private static void test()
 	{
 		var mapString = @"
-..........
-......*..*
-......*...
-...*****..
-...*......
-...*..****
-..........
-..........";
-		//		var mapString = @"
-//..........
-//..........
-//******.***
-//..*.......
-//..*.......
-//..*.......
-//.*........
-//..........";
-		var map = new Map(mapString.Where(c => new[] { '.', '*' }.Contains(c)).Select(c => c == '.' ? null : (int?)Map.ILLEGAL_INDEX).ToArray(), 10);
-		printMap(map);
-		var players = new[]{
-			new Point(0,5,1,5,1),
-			new Point(1,7,6,7,6)
+..............................
+..............................
+..............................
+..............................
+..............................
+..............................
+........*************.........
+..............................
+..............................
+..............................
+..............................
+.A............................
+..............................
+...............@..............
+..............................
+..............................
+..............................
+..............................
+..............................
+..............................";
+		var width = mapString.IndexOf('\r', 1) - 2;
+		var mapString2 = mapString.Replace("\r\n", "");
+		var map = new Map(mapString2.Select(c => c == '.' ? null : (int?)c).ToArray(), width);
+		//printMap(map);
+		var players = new[]{ 
+			Point.From(mapString2.IndexOf('@'), width, 0),
+			Point.From(mapString2.IndexOf('A'), width, 1)
 		};
 
 
-		//foreach (var player in players) map[map.IndexOf(player)] = null;
-		var nodes = nodesFrom(map);
-		//foreach (var player in players) map[map.IndexOf(player)] = player.Id;
-
 		//var me = 1;
-		//var d = new Dijkstra(nodes, map.IndexOf(players[me]));
-		//var path = d.Path(0);
-		//Debug("Walking from ({0}, {1}) to (0,0)", players[me].X, players[me].Y);
-		//foreach (var step in path) { Debug("Test path: {0}", Point.From(step, map.Width)); }
+
+		var nodes = nodesFrom(map);
 
 		var ownedTiles = calculateControlledAreas(map, players, nodes);
 		printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
@@ -457,7 +457,7 @@ class Player
 
 public class Map
 {
-	public const int ILLEGAL_INDEX = 29;
+	public const int TILE_IS_WALL = 29;
 
 	readonly int?[] _array;
 	public IEnumerable<int?> Array { get { return _array; } }
@@ -484,7 +484,7 @@ public class Map
 	{ 
 		get {
 			if (index < 0 || index > this.Length)
-				return ILLEGAL_INDEX;
+				return TILE_IS_WALL;
 			return _array[index]; 
 		} 
 		set {
@@ -503,9 +503,9 @@ public class Map
 	public int? Get(int x, int y)
 	{
 		if (x < 0 || x >= Width)
-			return ILLEGAL_INDEX;
+			return TILE_IS_WALL;
 		if (y < 0 || y >= Height)
-			return ILLEGAL_INDEX;
+			return TILE_IS_WALL;
 		return _array[IndexOf(x, y)];
 	}
 
@@ -591,9 +591,9 @@ public class Point
 		return string.Format("#{0} ({1}, {2})", this.Id, this.X, this.Y);
 	}
 
-	internal static Point From(int idx, int width)
+	internal static Point From(int idx, int width, int id = 0)
 	{
-		return new Point(0, idx % width, idx / width, 0, 0);
+		return new Point(id, idx % width, idx / width, 0, 0);
 	}
 }
 
@@ -739,9 +739,11 @@ public class Dijkstra
 
 			foreach (var neighbour in currentNode.Neighbours.Where(node => !node.Visited))
 			{
-				if (neighbour.Path == null || neighbour.Path.Length > tentativeDistance)
+				bool isUnvisited = neighbour.Path == null;
+				if (isUnvisited || neighbour.Path.Length > tentativeDistance)
 					neighbour.Path = currentNode.Path.Concat(new[] { neighbour.Id }).ToArray();
-				unvisitedNodes.Enqueue(neighbour);
+				if (isUnvisited)
+					unvisitedNodes.Enqueue(neighbour);
 			}
 			if (currentNode.Id == to)
 				break;
