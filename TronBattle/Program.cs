@@ -13,13 +13,15 @@ using System.Diagnostics;
 class Player
 {
 	static Stopwatch Timer = new Stopwatch();
+	static Dijkstra.Node[] nodes;
 
 	static void Main(string[] args)
 	{
-		test();
+		//test();
 
 		var map = new Map(30, 20);
 		Point[] players = null;
+		nodes = nodesFrom(map);
 
 		// game loop
 		var gameTurn = 0;
@@ -30,26 +32,9 @@ class Player
 			var numberOfPlayers = int.Parse(inputs[0]); // total number of players (2 to 4).
 			int myPlayerNumber = int.Parse(inputs[1]); // your player number (0 to 3).
 			var positions = readPositionsFromConsole(numberOfPlayers);
-			var firstStep = players == null;
 			Timer.Restart();
 
-			if (firstStep)
-			{
-				players = positions;
-				putPlayerTailsOn(map, players);
-				//if (gameTurn == 0) Console.Error.WriteLine("Put tails: {0} ms", sw1.ElapsedMilliseconds);
-				putPlayersOn(map, players);
-				//if (gameTurn == 0) Console.Error.WriteLine("Put players: {0} ms", sw1.ElapsedMilliseconds);
-			}
-			else
-			{
-				updatePlayerPositions(map, players, positions);
-				putPlayersOn(map, players);
-			}
-
-			printMap(map);
-
-			var heading = selectNextHeading(map, players, myPlayerNumber, firstStep);
+			var heading = processGameTurn(map, ref players, myPlayerNumber, positions);
 
 			Timer.Stop();
 			gameTurn++;
@@ -60,98 +45,74 @@ class Player
 		}
 	}
 
+	private static Direction processGameTurn(Map map, ref Point[] players, int myPlayerNumber, Point[] positions)
+	{
+		var firstStep = players == null;
+		if (firstStep)
+		{
+			players = positions;
+		}
+		else
+		{
+			updatePlayerPositions(map, players, positions);
+		}
+
+		updatePlayerPaths(map, nodes, players);
+		putPlayersOn(map, players, nodes);
+		//printMap(map);
+
+		var heading = selectNextHeading(map, players, myPlayerNumber, firstStep);
+		return heading;
+	}
+
+	private static void updatePlayerPaths(Map map, Dijkstra.Node[] nodes, Point[] players)
+	{
+		foreach (var player in players.Where(p => p.X >= 0))
+		{
+			//var playerMoves = validMoves(player, map, true).Select(x => map.IndexOf(x)).ToArray();
+			//Debug("Valid moves from #{0} is: {1}", map.IndexOf(player), string.Join(", ", playerMoves));
+			//foreach (var move in playerMoves)
+			//{
+			//	Debug("Valid moves from #{0} is: {1}", move, string.Join(", ", validMoves(Point.From(move, map.Width), map, true).Select(x => map.IndexOf(x)).ToArray()));
+			//}
+
+			player.Paths = new Dijkstra(nodes, map.IndexOf(player), map.IndexOf(player));
+			//Debug("Path to self: {0}", player.Paths.Path(map.IndexOf(player)).Length);
+
+			//var paths = players.Where(p => p != player).First().Paths;
+			//var path = paths == null ? null : paths.Path(map.IndexOf(player));
+			//Debug("Path to opponent: {0}", path == null ? "NULL" : path.Length.ToString());
+		}
+	}
+
 	#region AI
 
 	private static Direction selectNextHeading(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		//Debug("Determine controlled regions");
-		var nodes = nodesFrom(map);
-		//Debug("Created nodes from map");
-		var ownedTiles = calculateControlledAreas(map, players, nodes);
-		//printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
-
-
-
-
-		Debug("Identify rooms and articulation points");
-		foreach (var player in players) map[map.IndexOf(player)] = null;
-		var vertexes = vertexesFrom(map);
-		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
-		Debug("Created vertexes from map");
-		var tarjan = new HopcraftTarjan(vertexes);
-
-		if (players.Length > 2)
-		{
-			throw new NotImplementedException("Three-player strategy");
-		}
+		int reachableOpponents;
+		if (players.Length == 2)
+			reachableOpponents = 1;
 		else
 		{
-			//Debug("We found {0} components with a total of {1} rooms.", tarjan.Components.Count(), tarjan.Components.SelectMany(x => x).Count());
-			//Debug("{0}", string.Join(", ", tarjan.Components.Select((x, index) => "C" + index + ": " + x.Count()).ToArray()));
-			//var dic = dictionaryFrom(tarjan.Components);
-			//if (players.Select(p => dic[map.IndexOf(p)]).Distinct().Count() == 1)
-			//{
-				return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
-			//}
-			//else
-			//{
-			//	Debug("Players are in different rooms");
-			//	Debug("{0}", string.Join(", ", players.Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
-			//	printMap(map, tarjan.Components);
-			//	if (false) //Are we in a disjoint world?
-			//	{
-			//		throw new NotImplementedException("Wall-hugging strategy");
-			//	}
-			//	else
-			//	{
-			//		var me = players[myPlayerNumber];
-			//		var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
-			//		if (myVertex.IsArticulationPoint)
-			//		{
-			//			throw new NotImplementedException("Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
-			//		}
-			//		else
-			//		{
-			//			throw new NotImplementedException("Move towards the other player until we reach an articulation point");
-			//		}
-			//	}
-			//}
+			var me = players[myPlayerNumber];
+			var distancesToOpponents = players
+				.Where(p => p.Id != myPlayerNumber && p.X >= 0)
+				.Select(p => new { Player = p, Path = me.Paths.Path[map.IndexOf(p)] })
+				.ToArray();
+			reachableOpponents = distancesToOpponents.Where(x => x.Player != null).Count();
 		}
-	
-		//tarjan.vertexes.Select((v, index) => { Console.Error.WriteLine("{0} vertex is: {1}", Point.From(index, map.Width), v); return 0; }).ToArray();
-		//var playerVertexes = players.Select(p => tarjan.vertexes[map.IndexOf(p)]);
-		//playerVertexes.Select((v, index) => { Console.Error.WriteLine("P #{0} vertex is: {1}", index, v); return 0; }).ToArray();
 
-		//printMap(map);
-
-		//var apMap = tarjan.ArticulationPoints();
-		//printApMap(map, tarjan.vertexes, me);
-		//printMap(apMap.Select((b, index) => b ? '!' : map[index].HasValue ? '#' : '.').ToArray(), map.Width);
-		//var articulationPoints = apMap
-		//	.Select((yes, index) => yes ? (int?)index : null)
-		//	.Where(x => x.HasValue)
-		//	.Select(x => x.Value)
-		//	.ToArray();
-		//if (articulationPoints.Any())
-		//{
-		//	Console.Error.WriteLine("Identified articulation points at: {0}", string.Join(", ", articulationPoints.Select(idx => Point.From(idx, map.Width))));
-		//}
-
-		//if (apMap[map.IndexOf(me.X, me.Y)])
-		//{
-		//	Console.Error.WriteLine("CURRENTLY ON AN AP. CHOOSE DIRECTION WISELY!");
-		//}
-
-
+		switch (reachableOpponents)
+		{
+			case 0: return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep);
+			case 1: return selectNextHeading_OneOpponent(map, players, myPlayerNumber, firstStep);
+			default: return selectNextHeading_MultipleOpponents(map, players, myPlayerNumber, firstStep);
+		}
 	}
 
-	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	private static Direction selectNextHeading_NoOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		Debug("Players are in same room");
-		Debug("Find Volornov line, go there and cut off the other player");
-
-
-
+		//Debug("Using strategy for no opponents");
 		var me = players[myPlayerNumber];
 		var allValidMoves = validMoves(me, map, firstStep);
 		//Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
@@ -175,28 +136,138 @@ class Player
 			.FirstOrDefault();
 	}
 
+	private static Direction selectNextHeading_OneOpponent(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	{
+		//Debug("Using strategy for one opponent");
+
+		//Debug("Determine controlled regions");
+		var ownedTiles = calculateControlledAreas(map, players, nodes);
+		//printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
+
+
+
+
+		//Debug("Identify rooms and articulation points");
+		foreach (var player in players) map[map.IndexOf(player)] = null;
+		var vertexes = vertexesFrom(map);
+		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+		//Debug("Created vertexes from map");
+		var tarjan = new HopcraftTarjan(vertexes);
+
+		//Debug("We found {0} room with {1} tiles.", tarjan.Components.Count(), tarjan.Components.SelectMany(x => x).Count());
+		//Debug("{0}", string.Join(", ", tarjan.Components.Select((x, index) => "C" + index + ": " + x.Count()).ToArray()));
+		var dic = dictionaryFrom(tarjan.Components);
+		if (players.Select(p => dic[map.IndexOf(p)]).Distinct().Count() == 1)
+		{
+			return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
+		}
+		else
+		{
+			return selectNextHeading_DifferentRoomStrategy(map, players, myPlayerNumber, firstStep, vertexes, tarjan, dic);
+		}
+	}
+
+	private static Direction selectNextHeading_DifferentRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep, HopcraftTarjan.Vertex[] vertexes, HopcraftTarjan tarjan, Dictionary<int, int> dic)
+	{
+		//Debug("Players are in different rooms");
+		//Debug("{0}", string.Join(", ", players.Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
+		printMap(map, tarjan.Components);
+
+		var me = players[myPlayerNumber];
+		var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
+		if (myVertex.IsArticulationPoint)
+		{
+			//Debug("Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
+			return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
+		}
+		else
+		{
+			//Debug("Move towards the other player until we reach an articulation point");
+			return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
+		}
+	}
+
+	private static Direction selectNextHeading_MultipleOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	{
+		//Debug("Using strategy for multiple opponents");
+		return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep); //TODO: Just until this is really implemented
+	}
+
+	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	{
+		//Debug("Players are in same room");
+		//Debug("Find Volornov line, go there and cut off the other player");
+
+		var me = players[myPlayerNumber];
+		var opponent = players.Where(p => p.X >= 0 && p.Id != myPlayerNumber).First();
+		//Debug("Heading towards the opponent: {0} -> {1}", map.IndexOf(me), map.IndexOf(opponent));
+		var myMoves = validMoves(me, map, true);
+		var myMovesArray = myMoves.Select(move => map.IndexOf(move)).ToArray();
+		var myMovesString = string.Join(", ", myMovesArray);
+		//Debug("Valid moves: {0}", myMovesString);
+		var bestPath = me.Paths.Path[map.IndexOf(opponent)];
+		//Debug("Path: {0}", string.Join(", ", bestPath));
+		var destination = bestPath.Skip(1).First();
+
+		return directionTo(map, me, destination);
+	}
+
+	private static Direction directionTo(Map map, Point me, int destination)
+	{
+		var myMapIndex = map.IndexOf(me);
+		if (myMapIndex - 1 == destination) return Direction.LEFT;
+		if (myMapIndex - map.Width == destination) return Direction.UP;
+		if (myMapIndex + 1 == destination) return Direction.RIGHT;
+		if (myMapIndex + map.Width == destination) return Direction.DOWN;
+		throw new NotSupportedException("Unknown direction to destination");
+	}
+
 	private static int?[] calculateControlledAreas(Map map, Point[] players, Dijkstra.Node[] nodes)
 	{
-		var distances = players.Select(p =>
+		var distanceMaps = players.Select(p => new
 		{
-			var d = new Dijkstra(nodes, map.IndexOf(p));
-			var m = new { Player = p, DistanceMap = map.Array.Select((x, index) => x.HasValue ? null : (int?)d.Path(index).Length).ToArray() };
-			return m;
+			Player = p,
+			DistanceMap = map.Array
+				.Select((x, index) =>
+				{
+					if(x.HasValue) 
+						return null;
+					return (int?)p.Paths.Path[index].Length;
+				})
+				.ToArray()
 		}).ToArray();
-		Debug("Calculated distances");
-		var ownedTiles = map.Array.Select((x, index) =>
-			x.HasValue
-				? null
-			: (int?)distances.Select((d, playerIndex) => new { PlayerId = playerIndex, distance = d.DistanceMap[index] }).OrderBy(d => d.distance).First().PlayerId
-			).ToArray();
-		Debug("Created map of owned tiles");
-		var playerAreas = players.Select((p, index) => new { p.Id, Count = ownedTiles.Where(x => x == index).Count() }).OrderBy(x => x.Id).Select(x => x.Count).ToArray();
-		Debug("Calculated player areas");
 
-		for (var i = 0; i < playerAreas.Length;i++ )
+		//Debug("Calculated distances");
+		var ownedTiles = map.Array.Select((x, index) =>
 		{
-			Debug("Player #{0} controls {1} tiles.", i, playerAreas[i]);
-		}
+			if (x.HasValue)
+				return null; //Noone owns a wall
+
+			var distancesToTile = distanceMaps
+				.Select((d, playerIndex) => new
+				{
+					PlayerId = playerIndex,
+					distance = d.DistanceMap[index]
+				}).OrderBy(d => d.distance);
+
+			var closestPlayer = distancesToTile.First();
+			var secondPlayer = distancesToTile.Skip(1).First();
+			if (closestPlayer.distance == secondPlayer.distance)
+				return null; //Two or more players share this tile
+
+			return (int?)closestPlayer.PlayerId;
+		}).ToArray();
+
+		//Debug("Created map of owned tiles");
+		var controlledAreaPerPlayer = players.Select((p, index) => new { p.Id, Count = ownedTiles.Where(x => x == index).Count() }).OrderBy(x => x.Id).Select(x => x.Count).ToArray();
+
+		//Debug("Calculated player areas");
+
+		//for (var i = 0; i < controlledAreaPerPlayer.Length;i++ )
+		//{
+		//	Debug("Player #{0} controls {1} tiles.", i, controlledAreaPerPlayer[i]);
+		//}
+
 		return ownedTiles;
 	}
 
@@ -216,23 +287,35 @@ class Player
 
 	private static void updatePlayerPositions(Map map, Point[] players, Point[] positions)
 	{
+		bool recreateNodesArray = false;
 		for (var i = 0; i < positions.Length; i++)
 		{
 			if (players[i].IsAlive && positions[i].X == -1)
 			{
 				Debug("Player #{0} died and is removed from the map", i);
 				map.RemoveAll(i);
+				recreateNodesArray = true;
 			}
 			players[i].MoveTo(positions[i]);
 		}
+		if (recreateNodesArray)
+		{
+			Debug("Recreating nodes array because at least one player has been removed from the game");
+			nodes = nodesFrom(map);
+		}
 	}
 
-	private static void putPlayersOn(Map map, Point[] players)
+	private static void putPlayersOn(Map map, Point[] players, Dijkstra.Node[] nodes)
 	{
 		foreach (var player in players.Where(p => p.X >= 0))
 		{
-			//Console.Error.WriteLine("Marking player on map: " + player);
+			//Debug("Marking player #{0} on map", player.Id);
 			map.Put(player.X, player.Y, player.Id);
+			var playersNode = nodes[map.IndexOf(player)];
+			foreach (var neighbourNode in playersNode.Neighbours)
+			{
+				neighbourNode.Neighbours = neighbourNode.Neighbours.Except(new[] { playersNode }).ToArray();
+			}
 		}
 	}
 
@@ -313,9 +396,9 @@ class Player
 
 	#region Helpers
 
-	private static Direction turn(Direction direction, int stepsToRight)
+	private static Direction turn(Direction direction, int clockwiseTurns)
 	{
-		return (Direction)(((int)direction + stepsToRight) % 4);
+		return (Direction)(((int)direction + clockwiseTurns) % 4);
 	}
 
 	private static int wallsAt(Map map, Point p)
@@ -347,13 +430,14 @@ class Player
 	private static Dijkstra.Node[] nodesFrom(Map map)
 	{
 		var nodes = map.Array
-			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue && cell.Value == Map.TILE_IS_WALL })
+			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue })
 			.Where(x => !x.IsWall)
 			.Select(x => new Dijkstra.Node { Id = x.Id })
 			.ToArray();
 		foreach (var v in nodes)
 		{
-			v.Neighbours = validMoves(Point.From(v.Id, map.Width), map, true)
+			var moves = validMoves(Point.From(v.Id, map.Width), map, true).ToArray();
+			v.Neighbours = moves
 				.Select(move => nodes.Where(x => x.Id == map.IndexOf(move)).Single())
 				.ToArray();
 		}
@@ -371,7 +455,9 @@ class Player
 							 int Y0 = int.Parse(inputs[1]); // starting Y coordinate of lightcycle (or -1)
 							 int X1 = int.Parse(inputs[2]); // starting X coordinate of lightcycle (can be the same as X0 if you play before this player)
 							 int Y1 = int.Parse(inputs[3]); // starting Y coordinate of lightcycle (can be the same as Y0 if you play before this player)
-							 return new Point(i, X1, Y1, X0, Y0);
+							 var p = new Point(i, X1, Y1, X0, Y0);
+							 Debug("{0}", p);
+							 return p;
 						 }).ToArray();
 		return playersTurn;
 	}
@@ -382,72 +468,120 @@ class Player
 
 	private static void test()
 	{
-		var mapString = @"
-..............................
-..............................
-..............................
-..............................
-..............................
-..............................
-........*************.........
-..............................
-..............................
-..............................
-..............................
-.A............................
-..............................
-...............@..............
-..............................
-..............................
-..............................
-..............................
-..............................
-..............................";
-		var width = mapString.IndexOf('\r', 1) - 2;
-		var mapString2 = mapString.Replace("\r\n", "");
-		var map = new Map(mapString2.Select(c => c == '.' ? null : (int?)c).ToArray(), width);
-		//printMap(map);
-		var players = new[]{ 
-			Point.From(mapString2.IndexOf('@'), width, 0),
-			Point.From(mapString2.IndexOf('A'), width, 1)
-		};
+//		var mapString = @"
+//...........###################
+//...........#.................#
+//.............................#
+//.............................#
+//.............................#
+//.............................#
+//............................A#
+//............................@#
+//.............................#
+//.............................#
+//.............................#
+//.............................#
+//.............................#
+//.........#####################
+//..............................
+//..............................
+//..............................
+//..............................
+//..............................
+//..............................";
+////		var mapString = @"
+////A.
+////.@
+////";
+//		var width = mapString.IndexOf('\r', 1) - 2;
+//		var mapString2 = mapString.Replace("\r\n", "");
+//		var map = new Map(mapString2.Select(c => c != '#' ? null : (int?)c).ToArray(), width);
+//		//printMap(map);
+//		var players = new[]{ 
+//			Point.From(mapString2.IndexOf('@'), width, 0),
+//			Point.From(mapString2.IndexOf('A'), width, 1)
+//		};
+
+		var map = new Map(30,20);
+		Point[] players = null;
+		nodes = nodesFrom(map);
 
 
-		//var me = 1;
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 9, 13, 9, 13), new Point(1, 11, 1, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 10, 13, 9, 13), new Point(1, 11, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 11, 13, 9, 13), new Point(1, 12, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 12, 13, 9, 13), new Point(1, 13, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 13, 13, 9, 13), new Point(1, 14, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 14, 13, 9, 13), new Point(1, 15, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 15, 13, 9, 13), new Point(1, 16, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 16, 13, 9, 13), new Point(1, 17, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 17, 13, 9, 13), new Point(1, 18, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 18, 13, 9, 13), new Point(1, 19, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 19, 13, 9, 13), new Point(1, 20, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 20, 13, 9, 13), new Point(1, 21, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 21, 13, 9, 13), new Point(1, 22, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 22, 13, 9, 13), new Point(1, 23, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 23, 13, 9, 13), new Point(1, 24, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 24, 13, 9, 13), new Point(1, 25, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 25, 13, 9, 13), new Point(1, 26, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 26, 13, 9, 13), new Point(1, 27, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 27, 13, 9, 13), new Point(1, 28, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 28, 13, 9, 13), new Point(1, 29, 0, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 13, 9, 13), new Point(1, 29, 1, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 12, 9, 13), new Point(1, 29, 2, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 11, 9, 13), new Point(1, 29, 3, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 10, 9, 13), new Point(1, 29, 4, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 9, 9, 13), new Point(1, 29, 5, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 8, 9, 13), new Point(1, 29, 6, 11, 1) }));
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 7, 9, 13), new Point(1, 28, 6, 11, 1) }));
 
-		var nodes = nodesFrom(map);
+		printMap(map);
+		foreach(var p in players) Debug("{0}", p);
+		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 28, 7, 9, 13), new Point(1, 28, 5, 11, 1) }));
 
-		var ownedTiles = calculateControlledAreas(map, players, nodes);
-		printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
 
-		//var distances = players.Select(p =>
+
+
+
+		//players[1].MoveTo(Point.From(map.IndexOf(players[1]) - map.Width, map.Width, 1));
+
+
+		////var me = 1;
+
+		//var nodes = nodesFrom(map);
+		//updatePlayerPaths(map, nodes, players);
+
+		//var ownedTiles = calculateControlledAreas(map, players, nodes);
+		//printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
+
+		////var distances = players.Select(p =>
+		////{
+		////	var d = new Dijkstra(nodes, map.IndexOf(p));
+		////	return new { Player = p, DistanceMap = map.Array.Select((x, index) => x.HasValue ? null : (int?)d.Path(index).Length).ToArray() };
+		////}).ToArray();
+		//var direction = selectNextHeading(map, players, 0, false);
+
+		//foreach (var player in players) map[map.IndexOf(player)] = null;
+		//var tarjan = new HopcraftTarjan(vertexesFrom(map));
+		//foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+
+		//Debug("Found articulation points:");
+		//foreach (var ap in tarjan.ArticulationPoints)
 		//{
-		//	var d = new Dijkstra(nodes, map.IndexOf(p));
-		//	return new { Player = p, DistanceMap = map.Array.Select((x, index) => x.HasValue ? null : (int?)d.Path(index).Length).ToArray() };
-		//}).ToArray();
+		//	Debug("{0}", ap);
+
+		//}
+		//printMap(map, tarjan.Components);
+
+		//var dic = dictionaryFrom(tarjan.Components);
+		//var room0 = dic[map.IndexOf(players[0])];
+		//var room1 = dic[map.IndexOf(players[1])];
+		//var isInSameRoom = room0 == room1;
+		//Debug("Player 1 is in room {0} and player 2 is in room {1}. Same={2}", room0, room1, isInSameRoom);
 
 
-		foreach (var player in players) map[map.IndexOf(player)] = null;
-		var tarjan = new HopcraftTarjan(vertexesFrom(map));
-		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
-
-		Debug("Found articulation points:");
-		foreach (var ap in tarjan.ArticulationPoints)
-		{
-			Debug("{0}", ap);
-
-		}
-		printMap(map, tarjan.Components);
-
-		var dic = dictionaryFrom(tarjan.Components);
-		var room0 = dic[map.IndexOf(players[0])];
-		var room1 = dic[map.IndexOf(players[1])];
-		var isInSameRoom = room0 == room1;
-		Debug("Player 1 is in room {0} and player 2 is in room {1}. Same={2}", room0, room1, isInSameRoom);
-
-
-		var heading = selectNextHeading(map, players, 1, false);
-		Debug("Heading: {0}", heading);
+		//var heading = selectNextHeading(map, players, 1, false);
+		//Debug("Heading: {0}", heading);
 	}
 
 	#endregion Testing
@@ -541,6 +675,8 @@ public class Point
 	public int X0 { get; private set; }
 	public int Y0 { get; private set; }
 	public bool IsAlive { get { return X >= 0; } }
+
+	public Dijkstra Paths { get; set; }
 
 	public Point(int id, int x, int y, int x0, int y0)
 	{
@@ -697,20 +833,25 @@ public class HopcraftTarjan
 
 public class Dijkstra
 {
-	IDictionary<int, Node> _nodes;
+	public int PlayerPosition { get; set; }
 	public int From { get; private set; }
+	public IDictionary<int, int[]> Path { get; private set; }
+
 	Queue<Node> unvisitedNodes = new Queue<Node>();
 
-	public Dijkstra(Node[] nodes, int from)
+	public Dijkstra(Node[] nodes, int from, int playerPosition)
 	{
-		_nodes = nodes.ToDictionary(x => x.Id);
-		//_nodes = zones.Select(x => new Node { Id = x.Id, Neighbours = x.Neighbours.ToArray() }).ToArray();
-		Reset(from);
+		var nodeDictionary = nodes.ToDictionary(x => x.Id);
+		Reset(nodeDictionary, from, playerPosition);
+
+		Path = new Dictionary<int, int[]>();
+		foreach (var to in nodeDictionary.Keys)
+			Path.Add(to, PathTo(nodeDictionary, to));
 	}
 
-	public void Reset(int from)
+	private void Reset(IDictionary<int, Node> nodes, int from, int playerPosition)
 	{
-		foreach (var node in _nodes.Values)
+		foreach (var node in nodes.Values)
 		{
 			node.Path = null;
 			//node.Distance = int.MaxValue;
@@ -719,25 +860,32 @@ public class Dijkstra
 		unvisitedNodes.Clear();
 
 		this.From = from;
-		_nodes[from].Path = new int[] { from };
-		unvisitedNodes.Enqueue(_nodes[from]);
+		this.PlayerPosition = playerPosition;
+
+		nodes[from].Path = new int[] { from };
+		unvisitedNodes.Enqueue(nodes[from]);
 	}
 
-	public int[] Path(int to)
+	private int[] PathTo(IDictionary<int,Node> nodes, int to)
 	{
-		if (!_nodes.ContainsKey(to))
+		if (!nodes.ContainsKey(to))
 			return null;//No paths to the destination at all
 
-		if (_nodes[to].Path != null)
-			return _nodes[to].Path;
+		if (nodes[to].Path != null)
+			return nodes[to].Path;
 
 		while (unvisitedNodes.Any())
 		{
 			var currentNode = unvisitedNodes.Dequeue();
 			currentNode.Visited = true;
+			if (currentNode.Path == null)
+			{
+				Player.Debug("Node {0} has NO Path!", currentNode.Id);
+				continue;
+			}
 			var tentativeDistance = currentNode.Path.Length + 1;
 
-			foreach (var neighbour in currentNode.Neighbours.Where(node => !node.Visited))
+			foreach (var neighbour in currentNode.Neighbours.Where(node => !node.Visited && node.Id != PlayerPosition))
 			{
 				bool isUnvisited = neighbour.Path == null;
 				if (isUnvisited || neighbour.Path.Length > tentativeDistance)
@@ -749,7 +897,7 @@ public class Dijkstra
 				break;
 		}
 
-		return _nodes[to].Path;
+		return nodes[to].Path;
 	}
 
 
