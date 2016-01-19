@@ -140,21 +140,22 @@ class Player
 	{
 		//Debug("Using strategy for one opponent");
 
+
 		//Debug("Determine controlled regions");
-		var ownedTiles = calculateControlledAreas(map, players, nodes);
+		//var ownedTiles = calculateControlledAreas(map, players, nodes);
 		//printMap(ownedTiles.Select(x => x.HasValue ? char.Parse(x.Value.ToString()) : '#').ToArray(), map.Width);
 
 
 
 
-		//Debug("Identify rooms and articulation points");
+		Debug("Identify rooms and articulation points");
 		foreach (var player in players) map[map.IndexOf(player)] = null;
 		var vertexes = vertexesFrom(map);
 		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
-		//Debug("Created vertexes from map");
+		Debug("Created vertexes from map");
 		var tarjan = new HopcraftTarjan(vertexes);
 
-		//Debug("We found {0} room with {1} tiles.", tarjan.Components.Count(), tarjan.Components.SelectMany(x => x).Count());
+		Debug("We found {0} rooms with {1} tiles.", tarjan.Components.Count(), tarjan.Components.SelectMany(x => x).Count());
 		//Debug("{0}", string.Join(", ", tarjan.Components.Select((x, index) => "C" + index + ": " + x.Count()).ToArray()));
 		var dic = dictionaryFrom(tarjan.Components);
 		if (players.Select(p => dic[map.IndexOf(p)]).Distinct().Count() == 1)
@@ -169,21 +170,23 @@ class Player
 
 	private static Direction selectNextHeading_DifferentRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep, HopcraftTarjan.Vertex[] vertexes, HopcraftTarjan tarjan, Dictionary<int, int> dic)
 	{
-		//Debug("Players are in different rooms");
-		//Debug("{0}", string.Join(", ", players.Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
-		printMap(map, tarjan.Components);
+		Debug("Players are in different rooms");
+		Debug("{0}", string.Join(", ", players.Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
+		//printMap(map, tarjan.Components);
 
 		var me = players[myPlayerNumber];
 		var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
 		if (myVertex.IsArticulationPoint)
 		{
-			//Debug("Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
+			Debug("TODO! Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
 			return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
 		}
 		else
 		{
-			//Debug("Move towards the other player until we reach an articulation point");
-			return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
+			Debug("Move towards the other player until we reach an articulation point");
+			var opponent = players.Except(new[]{me}).First();
+			var bestMove = me.Paths.Path[map.IndexOf(opponent)].Skip(1).First();
+			return Player.directionTo(map, me, bestMove);
 		}
 	}
 
@@ -195,21 +198,43 @@ class Player
 
 	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		//Debug("Players are in same room");
-		//Debug("Find Volornov line, go there and cut off the other player");
+		Debug("Players are in same room");
+		Debug("Find Volornov line, go there and cut off the other player");
 
 		var me = players[myPlayerNumber];
-		var opponent = players.Where(p => p.X >= 0 && p.Id != myPlayerNumber).First();
-		//Debug("Heading towards the opponent: {0} -> {1}", map.IndexOf(me), map.IndexOf(opponent));
-		var myMoves = validMoves(me, map, true);
-		var myMovesArray = myMoves.Select(move => map.IndexOf(move)).ToArray();
-		var myMovesString = string.Join(", ", myMovesArray);
-		//Debug("Valid moves: {0}", myMovesString);
-		var bestPath = me.Paths.Path[map.IndexOf(opponent)];
-		//Debug("Path: {0}", string.Join(", ", bestPath));
-		var destination = bestPath.Skip(1).First();
 
-		return directionTo(map, me, destination);
+		var oldPaths = me.Paths;
+		var bestMove = validMoves(me, map, firstStep)
+			.Select(move =>
+			{
+				//var oldP = new Point(me.Id, me.X, me.Y, me.X0, me.Y0);
+				me.Paths = new Dijkstra(nodes, map.IndexOf(move), map.IndexOf(me));
+				//me.MoveTo(move);
+				var ownedTiles = calculateControlledAreas(map, players, nodes);
+				//me.ResetPositionTo(oldP);
+				var score = ownedTiles.Where(x => x == me.Id).Count();
+				Debug("Moving to {0} scores {1}", move, score);
+				return new { Move = move, Score = score };
+			}).OrderByDescending(x => x.Score)
+			.First()
+			.Move;
+		me.Paths = oldPaths;
+		return directionTo(me, bestMove);
+
+
+
+
+		//var opponent = players.Where(p => p.X >= 0 && p.Id != myPlayerNumber).First();
+		////Debug("Heading towards the opponent: {0} -> {1}", map.IndexOf(me), map.IndexOf(opponent));
+		//var myMoves = validMoves(me, map, true);
+		//var myMovesArray = myMoves.Select(move => map.IndexOf(move)).ToArray();
+		//var myMovesString = string.Join(", ", myMovesArray);
+		////Debug("Valid moves: {0}", myMovesString);
+		//var bestPath = me.Paths.Path[map.IndexOf(opponent)];
+		////Debug("Path: {0}", string.Join(", ", bestPath));
+		//var destination = bestPath.Skip(1).First();
+
+		//return directionTo(map, me, destination);
 	}
 
 	private static Direction directionTo(Map map, Point me, int destination)
@@ -222,6 +247,15 @@ class Player
 		throw new NotSupportedException("Unknown direction to destination");
 	}
 
+	private static Direction directionTo(Point me, Point destination)
+	{
+		if (me.X > destination.X) return Direction.LEFT;
+		if (me.Y > destination.Y) return Direction.UP;
+		if (me.X < destination.X) return Direction.RIGHT;
+		if (me.Y < destination.Y) return Direction.DOWN;
+		throw new NotSupportedException("Unknown direction to destination");
+	}
+
 	private static int?[] calculateControlledAreas(Map map, Point[] players, Dijkstra.Node[] nodes)
 	{
 		var distanceMaps = players.Select(p => new
@@ -230,7 +264,12 @@ class Player
 			DistanceMap = map.Array
 				.Select((x, index) =>
 				{
-					if(x.HasValue) 
+					if (x.HasValue)
+						return null;
+					if (!p.Paths.Path.ContainsKey(index))
+						return null;
+					var path = p.Paths.Path[index];
+					if (path == null)
 						return null;
 					return (int?)p.Paths.Path[index].Length;
 				})
@@ -259,7 +298,7 @@ class Player
 		}).ToArray();
 
 		//Debug("Created map of owned tiles");
-		var controlledAreaPerPlayer = players.Select((p, index) => new { p.Id, Count = ownedTiles.Where(x => x == index).Count() }).OrderBy(x => x.Id).Select(x => x.Count).ToArray();
+		//var controlledAreaPerPlayer = players.Select((p, index) => new { p.Id, Count = ownedTiles.Where(x => x == index).Count() }).OrderBy(x => x.Id).Select(x => x.Count).ToArray();
 
 		//Debug("Calculated player areas");
 
@@ -718,6 +757,14 @@ public class Point
 		Y0 = Y;
 		X = p.X;
 		Y = p.Y;
+	}
+
+	public void ResetPositionTo(Point p)
+	{
+		X = p.X;
+		Y = p.Y;
+		X0 = p.X0;
+		Y0 = p.Y0;
 	}
 
 	//public int MapIndex { get { return this.X + this.Y * Player.MAP_WIDTH; } }
