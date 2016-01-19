@@ -202,7 +202,8 @@ class Player
 	private static Direction selectNextHeading_MultipleOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
 		//Debug("Using strategy for multiple opponents");
-		return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep); //TODO: Just until this is really implemented
+		//return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep); //TODO: Just until this is really implemented
+		return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
 	}
 
 	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep)
