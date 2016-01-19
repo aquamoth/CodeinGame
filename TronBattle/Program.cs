@@ -67,7 +67,7 @@ class Player
 
 	private static void updatePlayerPaths(Map map, Dijkstra.Node[] nodes, Point[] players)
 	{
-		foreach (var player in players.Where(p => p.X >= 0))
+		foreach (var player in players.Where(p => p.IsAlive))
 		{
 			//var playerMoves = validMoves(player, map, true).Select(x => map.IndexOf(x)).ToArray();
 			//Debug("Valid moves from #{0} is: {1}", map.IndexOf(player), string.Join(", ", playerMoves));
@@ -96,7 +96,7 @@ class Player
 		{
 			var me = players[myPlayerNumber];
 			var distancesToOpponents = players
-				.Where(p => p.Id != myPlayerNumber && p.X >= 0)
+				.Where(p => p.Id != myPlayerNumber && p.IsAlive)
 				.Select(p => new { Player = p, Path = me.Paths.Path[map.IndexOf(p)] })
 				.ToArray();
 			reachableOpponents = distancesToOpponents.Where(x => x.Player != null).Count();
@@ -158,7 +158,8 @@ class Player
 		Debug("We found {0} rooms with {1} tiles.", tarjan.Components.Count(), tarjan.Components.SelectMany(x => x).Count());
 		//Debug("{0}", string.Join(", ", tarjan.Components.Select((x, index) => "C" + index + ": " + x.Count()).ToArray()));
 		var dic = dictionaryFrom(tarjan.Components);
-		if (players.Select(p => dic[map.IndexOf(p)]).Distinct().Count() == 1)
+
+		if (players.Where(p => p.IsAlive).Select(p => dic[map.IndexOf(p)]).Distinct().Count() == 1)
 		{
 			return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
 		}
@@ -171,7 +172,7 @@ class Player
 	private static Direction selectNextHeading_DifferentRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep, HopcraftTarjan.Vertex[] vertexes, HopcraftTarjan tarjan, Dictionary<int, int> dic)
 	{
 		Debug("Players are in different rooms");
-		Debug("{0}", string.Join(", ", players.Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
+		Debug("{0}", string.Join(", ", players.Where(p => p.IsAlive).Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
 		//printMap(map, tarjan.Components);
 
 		var me = players[myPlayerNumber];
@@ -183,9 +184,17 @@ class Player
 		}
 		else
 		{
+			Debug("Check if all opponents are in disjoint rooms from us");
+			var pathToOpponent = players
+				.Where(p => p.IsAlive && p.Id != me.Id)
+				.Select(p => me.Paths.Path[map.IndexOf(p)])
+				.Where(path => path != null)
+				.FirstOrDefault();
+			if (pathToOpponent == null)
+				return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep); //No opponent is reachable
+
 			Debug("Move towards the other player until we reach an articulation point");
-			var opponent = players.Except(new[]{me}).First();
-			var bestMove = me.Paths.Path[map.IndexOf(opponent)].Skip(1).First();
+			var bestMove = pathToOpponent.Skip(1).First();
 			return Player.directionTo(map, me, bestMove);
 		}
 	}
@@ -346,7 +355,7 @@ class Player
 
 	private static void putPlayersOn(Map map, Point[] players, Dijkstra.Node[] nodes)
 	{
-		foreach (var player in players.Where(p => p.X >= 0))
+		foreach (var player in players.Where(p => p.IsAlive))
 		{
 			//Debug("Marking player #{0} on map", player.Id);
 			map.Put(player.X, player.Y, player.Id);
@@ -360,7 +369,7 @@ class Player
 
 	private static void putPlayerTailsOn(Map map, Point[] players)
 	{
-		foreach (var player in players.Where(p => p.X >= 0))
+		foreach (var player in players.Where(p => p.IsAlive))
 		{
 			//Console.Error.WriteLine("Marking tail on map for {0}: ({1}, {2})" , player.Id, player.X0, player.Y0);
 			map.Put(player.X0, player.Y0, player.Id);
@@ -468,16 +477,12 @@ class Player
 
 	private static Dijkstra.Node[] nodesFrom(Map map)
 	{
-		var nodes = map.Array
-			.Select((cell, index) => new { Id = index, IsWall = cell.HasValue })
-			.Where(x => !x.IsWall)
-			.Select(x => new Dijkstra.Node { Id = x.Id })
-			.ToArray();
-		foreach (var v in nodes)
+		var nodes = map.Array.Select((x, index) => new Dijkstra.Node { Id = index }).ToArray();
+		foreach (var node in nodes)
 		{
-			var moves = validMoves(Point.From(v.Id, map.Width), map, true).ToArray();
-			v.Neighbours = moves
-				.Select(move => nodes.Where(x => x.Id == map.IndexOf(move)).Single())
+			var moves = validMoves(Point.From(node.Id, map.Width), map, true).ToArray();
+			node.Neighbours = moves
+				.Select(move => nodes[map.IndexOf(move)])
 				.ToArray();
 		}
 		return nodes;
