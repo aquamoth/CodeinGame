@@ -17,7 +17,7 @@ class Player
 
 	static void Main(string[] args)
 	{
-		//test();
+		test();
 
 		var map = new Map(30, 20);
 		Point[] players = null;
@@ -57,8 +57,8 @@ class Player
 			updatePlayerPositions(map, players, positions);
 		}
 
-		updatePlayerPaths(map, nodes, players);
 		putPlayersOn(map, players, nodes);
+		updatePlayerPaths(map, nodes, players);
 		//printMap(map);
 
 		var heading = selectNextHeading(map, players, myPlayerNumber, firstStep);
@@ -89,30 +89,38 @@ class Player
 
 	private static Direction selectNextHeading(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		int reachableOpponents;
-		if (players.Length == 2)
-			reachableOpponents = 1;
-		else
-		{
+		//int reachableOpponents;
+		//if (players.Length == 2)
+		//	reachableOpponents = 1;
+		//else
+		//{
 			var me = players[myPlayerNumber];
-			var distancesToOpponents = players
-				.Where(p => p.Id != myPlayerNumber && p.IsAlive)
-				.Select(p => new { Player = p, Path = me.Paths.Path[map.IndexOf(p)] })
+			var allOpponents = players.Except(new[] { me }).ToArray();
+			var reachableOpponents = allOpponents
+				.Select(p => new { Player = p, Tiles = validMoves(p, map, firstStep).Select(move => map.IndexOf(move)).ToArray() })
+				.Where(x => x.Tiles.Any(index => me.Paths.Path[index] != null))
+				.Select(x => x.Player)
 				.ToArray();
-			reachableOpponents = distancesToOpponents.Where(x => x.Player != null).Count();
-		}
 
-		switch (reachableOpponents)
+			//var distancesToOpponents = players
+			//	.Where(p => p.Id != myPlayerNumber && p.IsAlive)
+			//	.Select(p => new { Player = p, Path = me.Paths.Path[map.IndexOf(p)] })
+			//	.ToArray();
+			//reachableOpponents = distancesToOpponents.Where(x => x.Player != null).Count();
+		//}
+
+		switch (reachableOpponents.Length)
 		{
-			case 0: return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep);
+			case 0: return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);
 			case 1: return selectNextHeading_OneOpponent(map, players, myPlayerNumber, firstStep);
 			default: return selectNextHeading_MultipleOpponents(map, players, myPlayerNumber, firstStep);
 		}
 	}
 
-	private static Direction selectNextHeading_NoOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	private static Direction selectNextHeading_NoReachableOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		//Debug("Using strategy for no opponents");
+		Debug("Using strategy for no reachable opponents");
+		printMap(map);
 		var me = players[myPlayerNumber];
 		var allValidMoves = validMoves(me, map, firstStep);
 		//Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
@@ -138,7 +146,9 @@ class Player
 
 	private static Direction selectNextHeading_OneOpponent(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		//Debug("Using strategy for one opponent");
+		Debug("");
+		Debug("{0}", string.Join(", ", players.Select(p => p.ToString())));
+		Debug("Using strategy for one reachable opponent");
 
 
 		//Debug("Determine controlled regions");
@@ -147,21 +157,28 @@ class Player
 
 
 
+		var me = players[myPlayerNumber];
+		var opponent = players.Except(new[] { me }).Where(p => p.IsAlive).Single();
 
 		Debug("Identify rooms and articulation points");
-		foreach (var player in players) map[map.IndexOf(player)] = null;
+		map[map.IndexOf(me)] = null;//foreach (var player in players) map[map.IndexOf(player)] = null;
 		var vertexes = vertexesFrom(map);
-		foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+		map[map.IndexOf(me)] = me.Id;//foreach (var player in players) map[map.IndexOf(player)] = player.Id;
 		Debug("Created vertexes from map");
-		var tarjan = new HopcraftTarjan(vertexes);
+		var tarjan = new HopcraftTarjan(vertexes, map.IndexOf(me));
+		//printMap(map, tarjan.Components);
+		//Debug("APs: {0}", string.Join(", ", tarjan.ArticulationPoints.Select(x => Point.From(x.Id, map.Width).ToString())));
 
-		Debug("We found {0} rooms with {1} tiles.", tarjan.Components.Count(), tarjan.Components.SelectMany(x => x).Count());
+		Debug("We found {0} rooms, sized: {1}", tarjan.Components.Count(), string.Join(", ", tarjan.Components.Select(x => x.Count()).ToArray()));
 		//Debug("{0}", string.Join(", ", tarjan.Components.Select((x, index) => "C" + index + ": " + x.Count()).ToArray()));
 		var dic = dictionaryFrom(tarjan.Components);
 
-		if (players.Where(p => p.IsAlive).Select(p => dic[map.IndexOf(p)]).Distinct().Count() == 1)
+		var myRoom = dic[map.IndexOf(me)];
+		var opponentRooms = validMoves(opponent,map,firstStep).Select(move => dic[map.IndexOf(move)]).Distinct();
+		Debug("I'm in room {0}. Opponent is in room: {1}", myRoom, string.Join(", ", opponentRooms));
+		if (opponentRooms.Contains(myRoom))
 		{
-			return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
+			return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep, vertexes);
 		}
 		else
 		{
@@ -180,18 +197,26 @@ class Player
 		if (myVertex.IsArticulationPoint)
 		{
 			Debug("TODO! Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
-			return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
+			return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
 		}
 		else
 		{
-			Debug("Check if all opponents are in disjoint rooms from us");
-			var pathToOpponent = players
-				.Where(p => p.IsAlive && p.Id != me.Id)
-				.Select(p => me.Paths.Path[map.IndexOf(p)])
-				.Where(path => path != null)
-				.FirstOrDefault();
-			if (pathToOpponent == null)
-				return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep); //No opponent is reachable
+			//Debug("Check if all opponents are in disjoint rooms from us");
+			//var pathToOpponent = players
+			//	.Where(p => p.IsAlive && p.Id != me.Id)
+			//	.Select(p => me.Paths.Path[map.IndexOf(p)])
+			//	.Where(path => path != null)
+			//	.FirstOrDefault();
+			//if (pathToOpponent == null)
+			//	return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep); //No opponent is reachable
+
+			var allOpponents = players.Except(new[] { me }).ToArray();
+			var firstReachableOpponent = allOpponents
+				.Select(p => new { Player = p, Tiles = validMoves(p, map, firstStep).Select(move => map.IndexOf(move)).ToArray() })
+				.Select(x=>new{x.Player, ReachableThrough = x.Tiles.Where(index => me.Paths.Path[index] != null)})
+				.Where(x=>x.ReachableThrough.Any())
+				.First();
+			var pathToOpponent = firstReachableOpponent.ReachableThrough;
 
 			Debug("Move towards the other player until we reach an articulation point");
 			var bestMove = pathToOpponent.Skip(1).First();
@@ -202,16 +227,28 @@ class Player
 	private static Direction selectNextHeading_MultipleOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
 		//Debug("Using strategy for multiple opponents");
-		//return selectNextHeading_NoOpponents(map, players, myPlayerNumber, firstStep); //TODO: Just until this is really implemented
-		return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
+		return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep); //TODO: Just until this is really implemented
+		//return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
 	}
 
-	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep, HopcraftTarjan.Vertex[] vertexes)
 	{
 		Debug("Players are in same room");
 		Debug("Find Volornov line, go there and cut off the other player");
 
 		var me = players[myPlayerNumber];
+
+		var myVertex = vertexes.Where(v=>v.Id==map.IndexOf(me)).Single();
+		if (myVertex.IsArticulationPoint)
+		{
+			Debug("I'm at an articulation point! Choose wisely");
+		}
+		else
+		{
+
+		}
+
+
 
 		var oldPaths = me.Paths;
 		var bestMove = validMoves(me, map, firstStep)
@@ -297,12 +334,16 @@ class Player
 				{
 					PlayerId = playerIndex,
 					distance = d.DistanceMap[index]
-				}).OrderBy(d => d.distance);
+				}).Where(d => d.distance != null)
+				.OrderBy(d => d.distance);
 
-			var closestPlayer = distancesToTile.First();
-			var secondPlayer = distancesToTile.Skip(1).First();
-			if (closestPlayer.distance == secondPlayer.distance)
-				return null; //Two or more players share this tile
+			var closestPlayer = distancesToTile.FirstOrDefault();
+			var secondPlayer = distancesToTile.Skip(1).FirstOrDefault();
+			if (closestPlayer == null)
+				return null; // No players reach this tile
+
+			if (secondPlayer != null && closestPlayer.distance == secondPlayer.distance)
+				return null;//Two or more players share this tile
 
 			return (int?)closestPlayer.PlayerId;
 		}).ToArray();
@@ -534,55 +575,132 @@ class Player
 //..............................
 //..............................
 //..............................";
-////		var mapString = @"
-////A.
-////.@
-////";
+//		var mapString = @"
+//..#....
+//..#.#..
+//....#..
+//.......
+//";
 //		var width = mapString.IndexOf('\r', 1) - 2;
 //		var mapString2 = mapString.Replace("\r\n", "");
-//		var map = new Map(mapString2.Select(c => c != '#' ? null : (int?)c).ToArray(), width);
+//		var map = new Map(mapString2.Select(c => c == '.' ? null : (int?)c).ToArray(), width);
 //		//printMap(map);
 //		var players = new[]{ 
 //			Point.From(mapString2.IndexOf('@'), width, 0),
 //			Point.From(mapString2.IndexOf('A'), width, 1)
 //		};
+//		var player = new Point(0, 3, 1, 2, 1);
+//		var turn = new[] { 4, 0 };
+//		nodes = nodesFrom(map);
 
-		var map = new Map(30,20);
+
+
+		var map = new Map(7, 4);
 		Point[] players = null;
 		nodes = nodesFrom(map);
+		var player = new Point(0, 2, 0, 2, 0);
+		foreach (var turn in new[] { 
+			new[] { 4, 2 }, 
+			new[] { 4, 1 }, 
+			new[] { 4, 0 }, 
+			//new[] { 25, 0 }, 
+			//new[] { 26, 0 }, 
+			//new[] { 15, 0 }, 
+			//new[] { 16, 0 }, 
+			//new[] { 17, 0 }, 
+			//new[] { 18, 0 }, 
+			//new[] { 19, 0 }, 
+			//new[] { 20, 0 }, 
+			//new[] { 21, 0 }, 
+			//new[] { 22, 0 }, 
+			//new[] { 23, 0 }, 
+			//new[] { 24, 0 }, 
+			//new[] { 25, 0 }, 
+			//new[] { 26, 0 }, 
+			//new[] { 27, 0 }, 
+			//new[] { 28, 0 }, 
+			//new[] { 29, 0 }, 
+			//new[] { 29, 1 }, 
+			//new[] { 29, 2 }, 
+			//new[] { 29, 3 }, 
+			//new[] { 29, 4 }, 
+			//new[] { 29, 5 }, 
+			//new[] { 29, 6 }, 
+			//new[] { 28, 6 }, 
+		})
 
+		//var map = new Map(30,20);
+		//Point[] players = null;
+		//nodes = nodesFrom(map);
+		//var player = new Point(0, 22, 0, 22, 0);
+		//foreach (var turn in new[] { 
+		//	new[] { 24, 2 }, 
+		//	new[] { 24, 1 }, 
+		//	new[] { 24, 0 }, 
+		//	new[] { 25, 0 }, 
+		//	//new[] { 26, 0 }, 
+		//	//new[] { 15, 0 }, 
+		//	//new[] { 16, 0 }, 
+		//	//new[] { 17, 0 }, 
+		//	//new[] { 18, 0 }, 
+		//	//new[] { 19, 0 }, 
+		//	//new[] { 20, 0 }, 
+		//	//new[] { 21, 0 }, 
+		//	//new[] { 22, 0 }, 
+		//	//new[] { 23, 0 }, 
+		//	//new[] { 24, 0 }, 
+		//	//new[] { 25, 0 }, 
+		//	//new[] { 26, 0 }, 
+		//	//new[] { 27, 0 }, 
+		//	//new[] { 28, 0 }, 
+		//	//new[] { 29, 0 }, 
+		//	//new[] { 29, 1 }, 
+		//	//new[] { 29, 2 }, 
+		//	//new[] { 29, 3 }, 
+		//	//new[] { 29, 4 }, 
+		//	//new[] { 29, 5 }, 
+		//	//new[] { 29, 6 }, 
+		//	//new[] { 28, 6 }, 
+		//})
+		{
+			var direction = processGameTurn(map, ref players, 0, new[] { player, new Point(1, turn[0], turn[1], 11, 1) });
+			Debug("{0} moves to {1}", player, direction);
+			player = player.NextPosition(direction);
+		}
 
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 9, 13, 9, 13), new Point(1, 11, 1, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 10, 13, 9, 13), new Point(1, 11, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 11, 13, 9, 13), new Point(1, 12, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 12, 13, 9, 13), new Point(1, 13, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 13, 13, 9, 13), new Point(1, 14, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 14, 13, 9, 13), new Point(1, 15, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 15, 13, 9, 13), new Point(1, 16, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 16, 13, 9, 13), new Point(1, 17, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 17, 13, 9, 13), new Point(1, 18, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 18, 13, 9, 13), new Point(1, 19, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 19, 13, 9, 13), new Point(1, 20, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 20, 13, 9, 13), new Point(1, 21, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 21, 13, 9, 13), new Point(1, 22, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 22, 13, 9, 13), new Point(1, 23, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 23, 13, 9, 13), new Point(1, 24, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 24, 13, 9, 13), new Point(1, 25, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 25, 13, 9, 13), new Point(1, 26, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 26, 13, 9, 13), new Point(1, 27, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 27, 13, 9, 13), new Point(1, 28, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 28, 13, 9, 13), new Point(1, 29, 0, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 13, 9, 13), new Point(1, 29, 1, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 12, 9, 13), new Point(1, 29, 2, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 11, 9, 13), new Point(1, 29, 3, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 10, 9, 13), new Point(1, 29, 4, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 9, 9, 13), new Point(1, 29, 5, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 8, 9, 13), new Point(1, 29, 6, 11, 1) }));
-		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 7, 9, 13), new Point(1, 28, 6, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 9, 13, 9, 13), new Point(1, 11, 1, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 10, 13, 9, 13), new Point(1, 11, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 11, 13, 9, 13), new Point(1, 12, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 12, 13, 9, 13), new Point(1, 13, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 13, 13, 9, 13), new Point(1, 14, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 14, 13, 9, 13), new Point(1, 15, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 15, 13, 9, 13), new Point(1, 16, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 16, 13, 9, 13), new Point(1, 17, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 17, 13, 9, 13), new Point(1, 18, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 18, 13, 9, 13), new Point(1, 19, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 19, 13, 9, 13), new Point(1, 20, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 20, 13, 9, 13), new Point(1, 21, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 21, 13, 9, 13), new Point(1, 22, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 22, 13, 9, 13), new Point(1, 23, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 23, 13, 9, 13), new Point(1, 24, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 24, 13, 9, 13), new Point(1, 25, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 25, 13, 9, 13), new Point(1, 26, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 26, 13, 9, 13), new Point(1, 27, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 27, 13, 9, 13), new Point(1, 28, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 28, 13, 9, 13), new Point(1, 29, 0, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 13, 9, 13), new Point(1, 29, 1, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 12, 9, 13), new Point(1, 29, 2, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 11, 9, 13), new Point(1, 29, 3, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 10, 9, 13), new Point(1, 29, 4, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 9, 9, 13), new Point(1, 29, 5, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 8, 9, 13), new Point(1, 29, 6, 11, 1) }));
+		//Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 29, 7, 9, 13), new Point(1, 28, 6, 11, 1) }));
 
 		printMap(map);
 		foreach(var p in players) Debug("{0}", p);
 		Debug("{0}", processGameTurn(map, ref players, 0, new[] { new Point(0, 28, 7, 9, 13), new Point(1, 28, 5, 11, 1) }));
+		printMap(map);
+		foreach (var p in players) Debug("{0}", p);
 
 
 
@@ -805,12 +923,20 @@ public class HopcraftTarjan
 
 	public IEnumerable<Vertex> ArticulationPoints { get; private set; }
 
-	public HopcraftTarjan(Vertex[] vertexes)
+	public HopcraftTarjan(IEnumerable<Vertex> vertexes, int startId)
 	{
 		_component = new List<Vertex>();
 		_components = new List<Vertex[]>();
 
-		Traverse(vertexes);
+		var startVertex = vertexes.Where(v => v.Id == startId).Single();
+	
+		Traverse(startVertex, 0);
+
+		if (_component != null && _component.Count > 0)
+		{
+			_components.Add(_component.ToArray());
+			_component = null;
+		}
 
 		ArticulationPoints = vertexes.Where(v => v.IsArticulationPoint).ToArray();
 	}
@@ -834,6 +960,7 @@ public class HopcraftTarjan
 		vertex.Depth = depth;
 		vertex.Low = depth;
 		var childCount = 0;
+		//Player.Debug("#{0} at depth {1}", vertex.Id, depth);
 		foreach (var nextVertex in vertex.Dependents)
 		{
 			if (!nextVertex.Depth.HasValue)
@@ -850,9 +977,9 @@ public class HopcraftTarjan
 			}
 		}
 
-
 		_component.Add(vertex);
-		if (vertex.IsArticulationPoint || (vertex.Parent == null && childCount > 1))
+		if (vertex.Parent == null && childCount > 1) vertex.IsArticulationPoint = true;
+		if (vertex.IsArticulationPoint)
 		{
 			// Form a component of tracked vertexes
 			if (vertex.Low == vertex.Depth)
@@ -861,6 +988,7 @@ public class HopcraftTarjan
 				_component = new List<Vertex>();
 			}
 		}
+		//Player.Debug("#{0} at depth {1}: LOW={2} {3}", vertex.Id, depth, vertex.Low, vertex.IsArticulationPoint ? "AP!" : "");
 	}
 
 	public class Vertex
