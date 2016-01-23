@@ -183,39 +183,47 @@ class Player
 		//printMap(map, tarjan.Components);
 
 		var me = players[myPlayerNumber];
-		var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
-		if (myVertex.IsArticulationPoint)
+		var allOpponents = players.Except(new[] { me }).ToArray();
+
+		var opponentNeighbours = allOpponents
+			.SelectMany(p => validMoves(p, map, firstStep).Select(move => new { Player = p, Neighbour = map.IndexOf(move) }).ToArray())
+			.ToArray();
+		var reachableNeighbours = opponentNeighbours
+			.Where(x => me.Paths.Path[x.Neighbour] != null)
+			.Select(x => new { x.Player, x.Neighbour, Path = me.Paths.Path[x.Neighbour] })
+			.ToArray();
+		var closestOpponent = reachableNeighbours
+			.OrderBy(x => x.Path.Length)
+			.FirstOrDefault();
+
+		if (closestOpponent == null)
 		{
-			Debug("TODO! Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
-			return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
+			Debug("No reachable opponents");
+			return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);
 		}
 		else
 		{
-			//Debug("Check if all opponents are in disjoint rooms from us");
-			//var pathToOpponent = players
-			//	.Where(p => p.IsAlive && p.Id != me.Id)
-			//	.Select(p => me.Paths.Path[map.IndexOf(p)])
-			//	.Where(path => path != null)
-			//	.FirstOrDefault();
-			//if (pathToOpponent == null)
-			//	return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep); //No opponent is reachable
-
-			var allOpponents = players.Except(new[] { me }).ToArray();
-			var opponentNeighbours = allOpponents
-				.SelectMany(p => validMoves(p, map, firstStep).Select(move => new { Player = p, Neighbour = map.IndexOf(move) }).ToArray())
-				.ToArray();
-			var reachableNeighbours = opponentNeighbours
-				.Where(x => me.Paths.Path[x.Neighbour] != null)
-				.Select(x => new { x.Player, x.Neighbour, Path = me.Paths.Path[x.Neighbour] })
-				.ToArray();
-			var closestOpponent = reachableNeighbours
-				.OrderBy(x => x.Path.Length)
-				.FirstOrDefault();
-
-			if (closestOpponent == null)
+			var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
+			if (myVertex.IsArticulationPoint)
 			{
-				Debug("No reachable opponents");
-				return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);
+				Debug("TODO! Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
+				//TODO: Room size calculation is too simplistic and doesn't consider rooms behind other articulation points
+				var myRoom = dic[map.IndexOf(me)];
+				var opponentRooms = validMoves(closestOpponent.Player, map, firstStep)
+					.Select(move => dic.ContainsKey(map.IndexOf(move)) ? dic[map.IndexOf(move)] : -1)
+					.Distinct();
+				var myRoomSize = tarjan.Components.ToArray()[myRoom].Length;
+				var opponentRoomSize = opponentRooms.Where(room => room >= 0).Select(room => tarjan.Components.ToArray()[room].Length).Sum();
+				if (myRoomSize>opponentRoomSize)
+				{
+					Debug("TODO! SHOULD stay in my room, since it is {0} tiles and opponent has {1} tiles", myRoomSize, opponentRoomSize);
+					return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
+				}
+				else
+				{
+					Debug("TODO! SHOULD move into opponents room, since it is {1} tiles and I have {0} tiles", myRoomSize, opponentRoomSize);
+					return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);//TODO: Only until this is really implemented
+				}
 			}
 			else
 			{
