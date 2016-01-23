@@ -210,54 +210,25 @@ class Player
 		else
 		{
 			var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
-			if (myVertex.IsArticulationPoint)
-			{
-				//TODO: Room size calculation is too simplistic and doesn't consider rooms behind other articulation points
-				Debug("AP: Move into the biggest room");
-				var bestMove = validMoves(me, map, firstStep)
-					.Select(move => new { Move = move, Room = dic[map.IndexOf(move)] })
-					.Select(x => new { Move = x.Move, Size = tarjan.Components.ToArray()[x.Room].Length })
-					.OrderByDescending(x => x.Size)
-					.Select(x => map.IndexOf(x.Move))
-					.First();
-
-				//Debug("AP: Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
-				//var myRoom = dic[map.IndexOf(me)];
-				//var opponentRooms = validMoves(closestOpponent.Player, map, firstStep)
-				//	.Select(move => dic.ContainsKey(map.IndexOf(move)) ? dic[map.IndexOf(move)] : -1)
-				//	.Distinct();
-				//var myRoomSize = tarjan.Components.ToArray()[myRoom].Length;
-				//var opponentRoomSize = opponentRooms.Where(room => room >= 0).Select(room => tarjan.Components.ToArray()[room].Length).Sum();
-				//if (myRoomSize > opponentRoomSize)
-				//{
-				//	Debug("Stay in my room, since it is {0} tiles and opponent has {1} tiles", myRoomSize, opponentRoomSize);
-				//	var goodMoves = validMoves(me, map, firstStep).Where(move => dic[map.IndexOf(move)] == myRoom);
-				//	var bestMove = goodMoves.Select(move => new { Move = move, Score = score(map, move) })
-				//		.OrderByDescending(x => x.Score)
-				//		.Select(x => x.Move)
-				//		.First();
-				//	return directionTo(me, bestMove);
-				//}
-				//else
-				//{
-				//	Debug("Move into opponents room, since it is {1} tiles and I have {0} tiles", myRoomSize, opponentRoomSize);
-				//	var bestMove = validMoves(me, map, firstStep)
-				//		.Select(move => new { Move = move, Room = dic[map.IndexOf(move)] })
-				//		.Where(x => opponentRooms.Contains(x.Room))
-				//		.Select(x => new { Move = x.Move, Size = tarjan.Components.ToArray()[x.Room].Length })
-				//		.OrderByDescending(x => x.Size)
-				//		.Select(x => map.IndexOf(x.Move))
-				//		.First();
-				return Player.directionTo(map, me, bestMove);
-				//}
-			}
-			else
+			Debug("Distance to closest opponent: {0}", closestOpponent.Path.Length);
+			if (!myVertex.IsArticulationPoint)
 			{
 				Debug("Move towards the other player until we reach an articulation point");
-				var pathToOpponent = closestOpponent.Path;
-				var bestMove = pathToOpponent.Skip(1).First();
-				return Player.directionTo(map, me, bestMove);
+				var bestMove = closestOpponent.Path.Skip(1).First();
+				if (validMoves(me, map, firstStep).Select(move => map.IndexOf(move)).Contains(bestMove)) //If opponent is right beside us, we MAY be lured to move right into him
+					return Player.directionTo(map, me, bestMove);
 			}
+
+			//TODO: Room size calculation is too simplistic and doesn't consider rooms behind other articulation points
+			Debug("Move into the biggest room");
+			var bestMove2 = validMoves(me, map, firstStep)
+				.Select(move => new { Move = move, Room = dic[map.IndexOf(move)] })
+				.Select(x => new { Move = x.Move, Size = tarjan.Components.ToArray()[x.Room].Length })
+				.OrderByDescending(x => x.Size)
+				.Select(x => map.IndexOf(x.Move))
+				.First();
+
+			return Player.directionTo(map, me, bestMove2);
 		}
 	}
 
