@@ -51,6 +51,7 @@ class Player
 		if (firstStep)
 		{
 			players = positions;
+			putPlayerTailsOn(map, players);
 		}
 		else
 		{
@@ -100,7 +101,7 @@ class Player
 		switch (reachableOpponents.Length)
 		{
 			case 0: return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);
-			case 1: return selectNextHeading_OneOpponent(map, players, myPlayerNumber, firstStep);
+			case 1: return selectNextHeading_OneOpponent(map, players, myPlayerNumber, firstStep, reachableOpponents.Single());
 			default: return selectNextHeading_MultipleOpponents(map, players, myPlayerNumber, firstStep);
 		}
 	}
@@ -108,13 +109,20 @@ class Player
 	private static Direction selectNextHeading_NoReachableOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
 		Debug("Using strategy for no reachable opponents");
-		printMap(map);
+
+		//printMap(map);
 		var me = players[myPlayerNumber];
 		var allValidMoves = validMoves(me, map, firstStep);
+
+
+		map[map.IndexOf(me)] = null;//foreach (var player in players) map[map.IndexOf(player)] = null;
+		var tarjan = new HopcraftTarjan(vertexesFrom(map), map.IndexOf(me));
+		map[map.IndexOf(me)] = me.Id;//foreach (var player in players) map[map.IndexOf(player)] = player.Id;
+
 		//Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
 		var possibleMoves = allValidMoves
-			;//.Where(m => !articulationPoints.Contains(map.IndexOf(m.X, m.Y)));
-		//Console.Error.WriteLine("Moves-APs: " + string.Join(", ", possibleMoves));
+			.Where(m => !tarjan.ArticulationPoints.Any(ap => ap.Id == map.IndexOf(m.X, m.Y)));
+		Console.Error.WriteLine("Moves except APs: " + string.Join(", ", possibleMoves));
 		if (!possibleMoves.Any())
 			possibleMoves = allValidMoves;
 
@@ -132,7 +140,7 @@ class Player
 			.FirstOrDefault();
 	}
 
-	private static Direction selectNextHeading_OneOpponent(Map map, Point[] players, int myPlayerNumber, bool firstStep)
+	private static Direction selectNextHeading_OneOpponent(Map map, Point[] players, int myPlayerNumber, bool firstStep, Point opponent)
 	{
 		Debug("");
 		Debug("{0}", string.Join(", ", players.Select(p => p.ToString())));
@@ -146,14 +154,12 @@ class Player
 
 
 		var me = players[myPlayerNumber];
-		var opponent = players.Except(new[] { me }).Where(p => p.IsAlive).Single();
+		//var opponent = players.Except(new[] { me }).Where(p => p.IsAlive).Single();
 
 		Debug("Identify rooms and articulation points");
 		map[map.IndexOf(me)] = null;//foreach (var player in players) map[map.IndexOf(player)] = null;
-		var vertexes = vertexesFrom(map);
+		var tarjan = new HopcraftTarjan(vertexesFrom(map), map.IndexOf(me));
 		map[map.IndexOf(me)] = me.Id;//foreach (var player in players) map[map.IndexOf(player)] = player.Id;
-		Debug("Created vertexes from map");
-		var tarjan = new HopcraftTarjan(vertexes, map.IndexOf(me));
 		//printMap(map, tarjan.Components);
 		//Debug("APs: {0}", string.Join(", ", tarjan.ArticulationPoints.Select(x => Point.From(x.Id, map.Width).ToString())));
 
@@ -172,7 +178,7 @@ class Player
 		}
 		else
 		{
-			return selectNextHeading_DifferentRoomStrategy(map, players, myPlayerNumber, firstStep, vertexes, tarjan, dic);
+			return selectNextHeading_DifferentRoomStrategy(map, players, myPlayerNumber, firstStep, tarjan.Vertexes.ToArray(), tarjan, dic);
 		}
 	}
 
@@ -206,36 +212,44 @@ class Player
 			var myVertex = vertexes.Where(v => v.Id == map.IndexOf(me)).Single();
 			if (myVertex.IsArticulationPoint)
 			{
-				Debug("AP: Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
 				//TODO: Room size calculation is too simplistic and doesn't consider rooms behind other articulation points
-				var myRoom = dic[map.IndexOf(me)];
-				var opponentRooms = validMoves(closestOpponent.Player, map, firstStep)
-					.Select(move => dic.ContainsKey(map.IndexOf(move)) ? dic[map.IndexOf(move)] : -1)
-					.Distinct();
-				var myRoomSize = tarjan.Components.ToArray()[myRoom].Length;
-				var opponentRoomSize = opponentRooms.Where(room => room >= 0).Select(room => tarjan.Components.ToArray()[room].Length).Sum();
-				if (myRoomSize > opponentRoomSize)
-				{
-					Debug("Stay in my room, since it is {0} tiles and opponent has {1} tiles", myRoomSize, opponentRoomSize);
-					var goodMoves = validMoves(me, map, firstStep).Where(move => dic[map.IndexOf(move)] == myRoom);
-					var bestMove = goodMoves.Select(move => new { Move = move, Score = score(map, move) })
-						.OrderByDescending(x => x.Score)
-						.Select(x => x.Move)
-						.First();
-					return directionTo(me, bestMove);
-				}
-				else
-				{
-					Debug("Move into opponents room, since it is {1} tiles and I have {0} tiles", myRoomSize, opponentRoomSize);
-					var bestMove = validMoves(me, map, firstStep)
-						.Select(move => new { Move = move, Room = dic[map.IndexOf(move)] })
-						.Where(x => opponentRooms.Contains(x.Room))
-						.Select(x => new { Move = x.Move, Size = tarjan.Components.ToArray()[x.Room].Length })
-						.OrderByDescending(x => x.Size)
-						.Select(x => map.IndexOf(x.Move))
-						.First();
-					return Player.directionTo(map, me, bestMove);
-				}
+				Debug("AP: Move into the biggest room");
+				var bestMove = validMoves(me, map, firstStep)
+					.Select(move => new { Move = move, Room = dic[map.IndexOf(move)] })
+					.Select(x => new { Move = x.Move, Size = tarjan.Components.ToArray()[x.Room].Length })
+					.OrderByDescending(x => x.Size)
+					.Select(x => map.IndexOf(x.Move))
+					.First();
+
+				//Debug("AP: Stay in the current room if we are in a bigger world than our opponent, otherwise move into his room");
+				//var myRoom = dic[map.IndexOf(me)];
+				//var opponentRooms = validMoves(closestOpponent.Player, map, firstStep)
+				//	.Select(move => dic.ContainsKey(map.IndexOf(move)) ? dic[map.IndexOf(move)] : -1)
+				//	.Distinct();
+				//var myRoomSize = tarjan.Components.ToArray()[myRoom].Length;
+				//var opponentRoomSize = opponentRooms.Where(room => room >= 0).Select(room => tarjan.Components.ToArray()[room].Length).Sum();
+				//if (myRoomSize > opponentRoomSize)
+				//{
+				//	Debug("Stay in my room, since it is {0} tiles and opponent has {1} tiles", myRoomSize, opponentRoomSize);
+				//	var goodMoves = validMoves(me, map, firstStep).Where(move => dic[map.IndexOf(move)] == myRoom);
+				//	var bestMove = goodMoves.Select(move => new { Move = move, Score = score(map, move) })
+				//		.OrderByDescending(x => x.Score)
+				//		.Select(x => x.Move)
+				//		.First();
+				//	return directionTo(me, bestMove);
+				//}
+				//else
+				//{
+				//	Debug("Move into opponents room, since it is {1} tiles and I have {0} tiles", myRoomSize, opponentRoomSize);
+				//	var bestMove = validMoves(me, map, firstStep)
+				//		.Select(move => new { Move = move, Room = dic[map.IndexOf(move)] })
+				//		.Where(x => opponentRooms.Contains(x.Room))
+				//		.Select(x => new { Move = x.Move, Size = tarjan.Components.ToArray()[x.Room].Length })
+				//		.OrderByDescending(x => x.Size)
+				//		.Select(x => map.IndexOf(x.Move))
+				//		.First();
+				return Player.directionTo(map, me, bestMove);
+				//}
 			}
 			else
 			{
@@ -258,8 +272,10 @@ class Player
 	{
 		Debug("Players are in same room");
 		Debug("Find Volornov line, go there and cut off the other player");
+		printMap(map);
 
 		var me = players[myPlayerNumber];
+		Debug("Valid moves: {0}", string.Join(", ", validMoves(me, map, firstStep)));
 
 		var oldPaths = me.Paths;
 		var bestMove = validMoves(me, map, firstStep)
@@ -968,10 +984,12 @@ public class HopcraftTarjan
 	public IEnumerable<Vertex[]> Components { get { return _components.AsEnumerable(); } }
 	List<Vertex[]> _components;
 
+	public IEnumerable<Vertex> Vertexes { get; private set; }
 	public IEnumerable<Vertex> ArticulationPoints { get; private set; }
 
 	public HopcraftTarjan(IEnumerable<Vertex> vertexes, int startId)
 	{
+		Vertexes = vertexes;
 		_component = new List<Vertex>();
 		_components = new List<Vertex[]>();
 
