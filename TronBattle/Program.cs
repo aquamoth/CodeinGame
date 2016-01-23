@@ -119,25 +119,42 @@ class Player
 		var tarjan = new HopcraftTarjan(vertexesFrom(map), map.IndexOf(me));
 		map[map.IndexOf(me)] = me.Id;//foreach (var player in players) map[map.IndexOf(player)] = player.Id;
 
-		//Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
-		var possibleMoves = allValidMoves
-			.Where(m => !tarjan.ArticulationPoints.Any(ap => ap.Id == map.IndexOf(m.X, m.Y)));
-		Console.Error.WriteLine("Moves except APs: " + string.Join(", ", possibleMoves));
-		if (!possibleMoves.Any())
-			possibleMoves = allValidMoves;
+		Debug("We found {0} rooms, sized: {1}", tarjan.Components.Count(), string.Join(", ", tarjan.Components.Select(x => x.Count()).ToArray()));
+		Debug("APs: {0}", string.Join(", ", tarjan.ArticulationPoints.Select(x => Point.From(x.Id, map.Width).ToString())));
+		if (tarjan.ArticulationPoints.Select(ap => ap.Id).Contains(map.IndexOf(me)))
+		{
+			Debug("I'm at an AP. Choose steps wisely!");
+			var dic = dictionaryFrom(tarjan.Components);
+			var bestMove = allValidMoves
+				.Select(move => new { Move = move, Room = dic[map.IndexOf(move)], Size = tarjan.Components.ToArray()[dic[map.IndexOf(move)]].Length })
+				.OrderByDescending(x => x.Size)
+				.Select(x => x.Move)
+				.First();
+
+			return directionTo(me, bestMove);
+		}
+		else
+		{
+			//Console.Error.WriteLine("Valid moves: " + string.Join(", ", allValidMoves));
+			var possibleMoves = allValidMoves
+				.Where(m => !tarjan.ArticulationPoints.Any(ap => ap.Id == map.IndexOf(m.X, m.Y)));
+			Console.Error.WriteLine("Moves except APs: " + string.Join(", ", possibleMoves));
+			if (!possibleMoves.Any())
+				possibleMoves = allValidMoves;
 
 
-		var scoredMoves = possibleMoves
-			.Select(move => new { Heading = move.Heading, Score = score(map, move) })
-			.OrderByDescending(x => x.Score)
-			.ToArray();
+			var scoredMoves = possibleMoves
+				.Select(move => new { Heading = move.Heading, Score = score(map, move) })
+				.OrderByDescending(x => x.Score)
+				.ToArray();
 
-		//Console.Error.WriteLine("Scored moves: " + string.Join(", ", scoredMoves.Select(x => string.Format("{0}={1}", x.Heading, x.Score))));
+			//Console.Error.WriteLine("Scored moves: " + string.Join(", ", scoredMoves.Select(x => string.Format("{0}={1}", x.Heading, x.Score))));
 
-		return scoredMoves
-			.Select(p => p.Heading)
-			.DefaultIfEmpty(Direction.RIGHT) //If default we are dead anyway and just need to write something to die happily
-			.FirstOrDefault();
+			return scoredMoves
+				.Select(p => p.Heading)
+				.DefaultIfEmpty(Direction.RIGHT) //If default we are dead anyway and just need to write something to die happily
+				.FirstOrDefault();
+		}
 	}
 
 	private static Direction selectNextHeading_OneOpponent(Map map, Point[] players, int myPlayerNumber, bool firstStep, Point opponent)
