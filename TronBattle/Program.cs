@@ -17,7 +17,7 @@ class Player
 
 	static void Main(string[] args)
 	{
-		test();
+		//test2();
 
 		var map = new Map(30, 20);
 		Point[] players = null;
@@ -45,7 +45,7 @@ class Player
 		}
 	}
 
-	private static Direction processGameTurn(Map map, ref Point[] players, int myPlayerNumber, Point[] positions)
+	public static Direction processGameTurn(Map map, ref Point[] players, int myPlayerNumber, Point[] positions)
 	{
 		var firstStep = players == null;
 		if (firstStep)
@@ -89,25 +89,13 @@ class Player
 
 	private static Direction selectNextHeading(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
-		//int reachableOpponents;
-		//if (players.Length == 2)
-		//	reachableOpponents = 1;
-		//else
-		//{
-			var me = players[myPlayerNumber];
-			var allOpponents = players.Except(new[] { me }).ToArray();
-			var reachableOpponents = allOpponents
-				.Select(p => new { Player = p, Tiles = validMoves(p, map, firstStep).Select(move => map.IndexOf(move)).ToArray() })
-				.Where(x => x.Tiles.Any(index => me.Paths.Path[index] != null))
-				.Select(x => x.Player)
-				.ToArray();
-
-			//var distancesToOpponents = players
-			//	.Where(p => p.Id != myPlayerNumber && p.IsAlive)
-			//	.Select(p => new { Player = p, Path = me.Paths.Path[map.IndexOf(p)] })
-			//	.ToArray();
-			//reachableOpponents = distancesToOpponents.Where(x => x.Player != null).Count();
-		//}
+		var me = players[myPlayerNumber];
+		var allOpponents = players.Except(new[] { me }).ToArray();
+		var reachableOpponents = allOpponents
+			.Select(p => new { Player = p, Tiles = validMoves(p, map, firstStep).Select(move => map.IndexOf(move)).ToArray() }) //Opponent proximity rachable w/o walking into the opponent
+			.Where(x => x.Tiles.Any(index => me.Paths.Path[index] != null && !me.Paths.Path[index].Contains(map.IndexOf(x.Player))))
+			.Select(x => x.Player)
+			.ToArray();
 
 		switch (reachableOpponents.Length)
 		{
@@ -174,11 +162,13 @@ class Player
 		var dic = dictionaryFrom(tarjan.Components);
 
 		var myRoom = dic[map.IndexOf(me)];
-		var opponentRooms = validMoves(opponent,map,firstStep).Select(move => dic[map.IndexOf(move)]).Distinct();
+		var opponentRooms = validMoves(opponent, map, firstStep)
+			.Select(move => dic.ContainsKey(map.IndexOf(move)) ? dic[map.IndexOf(move)] : -1)
+			.Distinct();
 		Debug("I'm in room {0}. Opponent is in room: {1}", myRoom, string.Join(", ", opponentRooms));
 		if (opponentRooms.Contains(myRoom))
 		{
-			return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep, vertexes);
+			return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
 		}
 		else
 		{
@@ -189,7 +179,7 @@ class Player
 	private static Direction selectNextHeading_DifferentRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep, HopcraftTarjan.Vertex[] vertexes, HopcraftTarjan tarjan, Dictionary<int, int> dic)
 	{
 		Debug("Players are in different rooms");
-		Debug("{0}", string.Join(", ", players.Where(p => p.IsAlive).Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
+		//Debug("{0}", string.Join(", ", players.Where(p => p.IsAlive).Select(p => "#" + p.Id + ": " + dic[map.IndexOf(p)]).ToArray()));
 		//printMap(map, tarjan.Components);
 
 		var me = players[myPlayerNumber];
@@ -211,44 +201,45 @@ class Player
 			//	return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep); //No opponent is reachable
 
 			var allOpponents = players.Except(new[] { me }).ToArray();
-			var firstReachableOpponent = allOpponents
-				.Select(p => new { Player = p, Tiles = validMoves(p, map, firstStep).Select(move => map.IndexOf(move)).ToArray() })
-				.Select(x=>new{x.Player, ReachableThrough = x.Tiles.Where(index => me.Paths.Path[index] != null)})
-				.Where(x=>x.ReachableThrough.Any())
-				.First();
-			var pathToOpponent = firstReachableOpponent.ReachableThrough;
+			var opponentNeighbours = allOpponents
+				.SelectMany(p => validMoves(p, map, firstStep).Select(move => new { Player = p, Neighbour = map.IndexOf(move) }).ToArray())
+				.ToArray();
+			var reachableNeighbours = opponentNeighbours
+				.Where(x => me.Paths.Path[x.Neighbour] != null)
+				.Select(x => new { x.Player, x.Neighbour, Path = me.Paths.Path[x.Neighbour] })
+				.ToArray();
+			var closestOpponent = reachableNeighbours
+				.OrderBy(x => x.Path.Length)
+				.FirstOrDefault();
 
-			Debug("Move towards the other player until we reach an articulation point");
-			var bestMove = pathToOpponent.Skip(1).First();
-			return Player.directionTo(map, me, bestMove);
+			if (closestOpponent == null)
+			{
+				Debug("No reachable opponents");
+				return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep);
+			}
+			else
+			{
+				Debug("Move towards the other player until we reach an articulation point");
+				var pathToOpponent = closestOpponent.Path;
+				var bestMove = pathToOpponent.Skip(1).First();
+				return Player.directionTo(map, me, bestMove);
+			}
 		}
 	}
 
 	private static Direction selectNextHeading_MultipleOpponents(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
 		//Debug("Using strategy for multiple opponents");
-		return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep); //TODO: Just until this is really implemented
-		//return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
+		//return selectNextHeading_NoReachableOpponents(map, players, myPlayerNumber, firstStep); //TODO: Just until this is really implemented
+		return selectNextHeading_SameRoomStrategy(map, players, myPlayerNumber, firstStep);
 	}
 
-	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep, HopcraftTarjan.Vertex[] vertexes)
+	private static Direction selectNextHeading_SameRoomStrategy(Map map, Point[] players, int myPlayerNumber, bool firstStep)
 	{
 		Debug("Players are in same room");
 		Debug("Find Volornov line, go there and cut off the other player");
 
 		var me = players[myPlayerNumber];
-
-		var myVertex = vertexes.Where(v=>v.Id==map.IndexOf(me)).Single();
-		if (myVertex.IsArticulationPoint)
-		{
-			Debug("I'm at an articulation point! Choose wisely");
-		}
-		else
-		{
-
-		}
-
-
 
 		var oldPaths = me.Paths;
 		var bestMove = validMoves(me, map, firstStep)
@@ -449,7 +440,7 @@ class Player
 	public static void printMap(Map map, IEnumerable<HopcraftTarjan.Vertex[]> components)
 	{
 		var dic = dictionaryFrom(components);
-		var charArray = map.Array.Select((c, index) => c.HasValue ? ((char)('a' + c.Value)) : char.Parse(dic[index].ToString())).ToArray();
+		var charArray = map.Array.Select((c, index) => c.HasValue ? ((char)('a' + c.Value)) : dic.ContainsKey(index)? char.Parse(dic[index].ToString()) : '?').ToArray();
 		Player.printMap(charArray, map.Width);
 	}
 
@@ -747,6 +738,38 @@ class Player
 		//Debug("Heading: {0}", heading);
 	}
 
+
+
+	private static void test2()
+	{
+		var map = new Map(30, 20);
+		Point[] players = null;
+		var positions = new[]{
+			new Point(0,10,10,10,10),
+			new Point(1,5,5,5,5)
+		};
+		Player.nodes = nodesFrom(map);
+
+		while (positions.Where(x => x.IsAlive).Count() >= 2)
+		{
+			for (var i = 0; i < positions.Length; i++)
+			{
+				if (positions[i].IsAlive)
+				{
+					var direction = processGameTurn(map, ref players, i, positions);
+					Debug("Player #{0} moves to {1}", i, direction);
+					positions[i] = positions[i].NextPosition(direction);
+					if (map[positions[i]].HasValue)
+					{
+						Debug("Player #{0} moved into a wall at {1} and died.", i, positions[i]);
+						positions[i] = new Point(0, -1, -1, -1, -1);
+					}
+				}
+			}
+		}
+		Debug("WINNER is player #{0}", players.Where(x => x.IsAlive).Single().Id);
+	}
+
 	#endregion Testing
 }
 
@@ -877,10 +900,13 @@ public class Point
 
 	public void MoveTo(Point p)
 	{
-		X0 = X;
-		Y0 = Y;
-		X = p.X;
-		Y = p.Y;
+		if (p.X != X || p.Y != Y)
+		{
+			X0 = X;
+			Y0 = Y;
+			X = p.X;
+			Y = p.Y;
+		}
 	}
 
 	public void ResetPositionTo(Point p)
@@ -975,10 +1001,16 @@ public class HopcraftTarjan
 			{
 				if (vertex.Low.Value > nextVertex.Depth.Value) vertex.Low = nextVertex.Depth.Value;
 			}
+
+			if (vertex.Parent == null && _component.Count > 0)
+			{
+				_components.Add(_component.ToArray());
+				_component = new List<Vertex>();
+			}
 		}
 
-		_component.Add(vertex);
 		if (vertex.Parent == null && childCount > 1) vertex.IsArticulationPoint = true;
+		_component.Add(vertex);
 		if (vertex.IsArticulationPoint)
 		{
 			// Form a component of tracked vertexes
