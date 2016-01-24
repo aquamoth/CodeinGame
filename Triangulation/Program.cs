@@ -26,7 +26,7 @@ class Player
 		var batman = new Point(X0, Y0);
 
 		var points = createPoints(W, H);
-		int[] distances = null, lastDistances = null;
+		int[] distances = null;
 
 		// game loop
 		var sw = new Stopwatch();
@@ -45,7 +45,7 @@ class Player
 				case "COLDER":
 					Debug("{0} ms: is colder", sw.ElapsedMilliseconds);
 					//points = points.Where(x => x.Distance > x.OldDistance).ToArray();
-					var allpoints = points.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] }).ToArray();
+					var allpoints = points.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = point.OldDistance }).ToArray();
 					Debug("{0} ms: shuffled points", sw.ElapsedMilliseconds);
 					var validPoints = allpoints.Where(x => x.Distance > x.lastDistance).ToArray();
 					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
@@ -58,7 +58,7 @@ class Player
 					Debug("{0} ms: is warmer", sw.ElapsedMilliseconds);
 					//points = points.Where(x => x.Distance < x.OldDistance).ToArray();
 					var validPoints2 = points
-						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
+						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = point.OldDistance })
 						.Where(x => x.Distance < x.lastDistance && x.Point != batman)
 						.ToArray();
 					distances = validPoints2.Select(x => x.Distance).ToArray();
@@ -68,7 +68,7 @@ class Player
 					Debug("{0} ms: is same distance", sw.ElapsedMilliseconds);
 					//points = points.Where(x => x.Distance == x.OldDistance).ToArray();
 					var validPoints3 = points
-						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
+						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = point.OldDistance })
 						.Where(x => x.Distance == x.lastDistance)
 						.ToArray();
 					distances = validPoints3.Select(x => x.Distance).ToArray();
@@ -91,10 +91,10 @@ class Player
 
 			Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
 
-			//foreach (var point in points) point.OldDistance = point.Distance;
-			//Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
+			for (var i = 0; i < points.Length; i++) points[i].OldDistance = distances[i];
+			Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
 			batman = nextPoint;
-			lastDistances = distances;
+
 			Console.WriteLine(batman);
 		}
 	}
