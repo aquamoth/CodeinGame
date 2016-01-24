@@ -62,19 +62,11 @@ class Player
 
 			//printMap(points, W, H, batman);
 
-			//batman = points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
-			var count = points.Length;
-			var nextPoint = points.Select((Point, index) => new { Point, Distance = Point.Distance })
-				.OrderBy(x => x.Distance)
-				.Skip(count / 2)
-				.First()
-				.Point;
-
+			batman = points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
 			Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
 
 			for (var i = 0; i < points.Length; i++) points[i].OldDistance = points[i].Distance;
 			Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
-			batman = nextPoint;
 
 			Console.WriteLine(batman);
 		}
