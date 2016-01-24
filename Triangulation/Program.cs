@@ -47,21 +47,13 @@ class Player
 					break;
 				case "WARMER":
 					Debug("{0} ms: is warmer", sw.ElapsedMilliseconds);
-					//points = points.Where(x => x.Distance < x.OldDistance).ToArray();
-					var validPoints2 = points
-						.Select((point, index) => new { Point = point, Distance = point.Distance, lastDistance = point.OldDistance })
-						.Where(x => x.Distance < x.lastDistance && x.Point != batman)
-						.ToArray();
-					points = validPoints2.Select(x => x.Point).ToArray();
+					points = points.Where(x => x.Distance < x.OldDistance && x != batman).ToArray();
+					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
 					break;
 				case "SAME":
 					Debug("{0} ms: is same distance", sw.ElapsedMilliseconds);
-					//points = points.Where(x => x.Distance == x.OldDistance).ToArray();
-					var validPoints3 = points
-						.Select((point, index) => new { Point = point, Distance = point.Distance, lastDistance = point.OldDistance })
-						.Where(x => x.Distance == x.lastDistance)
-						.ToArray();
-					points = validPoints3.Select(x => x.Point).ToArray();
+					points = points.Where(x => x.Distance == x.OldDistance).ToArray();
+					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
 					break;
 				default:
 					throw new NotSupportedException("Got Distance: " + BOMBDIST);
