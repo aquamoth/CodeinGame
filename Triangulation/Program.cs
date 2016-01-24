@@ -26,7 +26,6 @@ class Player
 		var batman = new Point(X0, Y0);
 
 		var points = createPoints(W, H);
-		int[] distances = null, lastDistances = null;
 
 		// game loop
 		var sw = new Stopwatch();
@@ -35,7 +34,7 @@ class Player
 			string BOMBDIST = Console.ReadLine(); // Current distance to the bomb compared to previous distance (COLDER, WARMER, SAME or UNKNOWN)
 			sw.Restart();
 
-			distances = createDistances(batman, points);
+			setDistancesTo(batman, points);
 			Debug("{0} ms: Calculated new distances", sw.ElapsedMilliseconds);
 			switch (BOMBDIST)
 			{
@@ -43,32 +42,16 @@ class Player
 					break;
 				case "COLDER":
 					Debug("{0} ms: is colder", sw.ElapsedMilliseconds);
-					var allpoints = points.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] }).ToArray();
-					Debug("{0} ms: shuffled points", sw.ElapsedMilliseconds);
-					var validPoints = allpoints.Where(x => x.Distance > x.lastDistance).ToArray();
+					points = points.Where(x => x.Distance > x.OldDistance).ToArray();
 					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
-					distances = validPoints.Select(x => x.Distance).ToArray();
-					Debug("{0} ms: Reloaded distances", sw.ElapsedMilliseconds);
-					points = validPoints.Select(x => x.Point).ToArray();
-					Debug("{0} ms: Reloaded points", sw.ElapsedMilliseconds);
 					break;
 				case "WARMER":
 					Debug("{0} ms: is warmer", sw.ElapsedMilliseconds);
-					var validPoints2 = points
-						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
-						.Where(x => x.Distance < x.lastDistance && x.Point != batman)
-						.ToArray();
-					distances = validPoints2.Select(x => x.Distance).ToArray();
-					points = validPoints2.Select(x => x.Point).ToArray();
+					points = points.Where(x => x.Distance < x.OldDistance).ToArray();
 					break;
 				case "SAME":
 					Debug("{0} ms: is same distance", sw.ElapsedMilliseconds);
-					var validPoints3 = points
-						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
-						.Where(x => x.Distance == x.lastDistance)
-						.ToArray();
-					distances = validPoints3.Select(x => x.Distance).ToArray();
-					points = validPoints3.Select(x => x.Point).ToArray();
+					points = points.Where(x => x.Distance == x.OldDistance).ToArray();
 					break;
 				default:
 					throw new NotSupportedException("Got Distance: " + BOMBDIST);
@@ -76,20 +59,21 @@ class Player
 			Debug("{0} ms: Determined {1} st valid points", sw.ElapsedMilliseconds, points.Length);
 
 			//printMap(points, W, H, batman);
-
-			var count = points.Length;
-			var nextPoint = points.Select((Point, index) => new { Point, Distance = distances[index] })
-				.OrderBy(x => x.Distance)
-				.Skip(count / 2)
-				.First()
-				.Point;
+			batman = findMiddleOf(points);
 
 			Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
 
-			batman = nextPoint;
-			lastDistances = distances;
+			foreach (var point in points) point.OldDistance = point.Distance;
+			Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
+
 			Console.WriteLine(batman);
 		}
+	}
+
+	private static Point findMiddleOf(Point[] points)
+	{
+		//return points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
+		return new QuickSelect().Get<Point>(points, points.Length / 2);
 	}
 
 	private static void printMap(Point[] points, int width, int height, Point batman)
@@ -105,15 +89,13 @@ class Player
 		}
 	}
 
-	private static int[] createDistances(Point from, Point[] points)
+	private static void setDistancesTo(Point from, Point[] points)
 	{
-		var distances = new int[points.Length];
-		for(var i=0;i<points.Length;i++)
+		for (var i = 0; i < points.Length; i++)
 		{
 			var to = points[i];
-			distances[i] = euclides(from, to);
+			to.Distance = euclides(from, to);
 		}
-		return distances;
 	}
 
 	private static int euclides(Point from, Point to)
@@ -138,10 +120,12 @@ class Player
 	}
 }
 
-class Point
+class Point:IComparable
 {
 	public int X { get; private set; }
 	public int Y { get; private set; }
+	public int Distance { get; set; }
+	public int OldDistance { get; set; }
 
 	public Point(int x, int y)
 	{
@@ -152,5 +136,57 @@ class Point
 	public override string ToString()
 	{
 		return X + " " + Y;
+	}
+
+	int IComparable.CompareTo(object obj)
+	{
+		return this.Distance.CompareTo(((Point)obj).Distance);
+	}
+}
+
+class QuickSelect
+{
+	Random random = new Random();
+
+	public T Get<T>(T[] list, int index) where T : IComparable
+	{
+		return select(list, 0, list.Length - 1, index);
+	}
+
+	private T select<T>(T[] list, int left, int right, int index) where T : IComparable
+	{
+		if (left == right)
+			return list[left];
+		var pivotIndex = random.Next(left, right + 1);
+		pivotIndex = partition(list, left, right, pivotIndex);
+		if (index == pivotIndex)
+			return list[index];
+		else if (index < pivotIndex)
+			return select(list, left, pivotIndex - 1, index);
+		else
+			return select(list, pivotIndex + 1, right, index);
+	}
+
+	private int partition<T>(T[] list, int left, int right, int pivotIndex) where T : IComparable
+	{
+		T temp;
+		var pivotValue = list[pivotIndex];
+		list[pivotIndex] = list[right];
+		list[right] = pivotValue;
+		var storeIndex = left;
+		for (var i = left; i < right - 1; i++)
+		{
+			if (list[i].CompareTo(pivotValue) < 0)
+			{
+				temp = list[i];
+				list[i] = list[storeIndex];
+				list[storeIndex] = temp;
+				storeIndex++;
+			}
+		}
+		temp = list[right];
+		list[right] = list[storeIndex];
+		list[storeIndex] = temp;
+		return storeIndex;
 	}
 }
