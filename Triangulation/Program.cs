@@ -122,7 +122,7 @@ class Player
 	}
 }
 
-class Point
+class Point : IComparable
 {
 	public int X { get; private set; }
 	public int Y { get; private set; }
@@ -138,5 +138,57 @@ class Point
 	public override string ToString()
 	{
 		return X + " " + Y;
+	}
+
+	int IComparable.CompareTo(object obj)
+	{
+		return this.Distance.CompareTo(((Point)obj).Distance);
+	}
+}
+
+class QuickSelect
+{
+	Random random = new Random();
+
+	public T Get<T>(T[] list, int index) where T : IComparable
+	{
+		return select(list, 0, list.Length - 1, index);
+	}
+
+	private T select<T>(T[] list, int left, int right, int index) where T : IComparable
+	{
+		if (left == right)
+			return list[left];
+		var pivotIndex = random.Next(left, right + 1);
+		pivotIndex = partition(list, left, right, pivotIndex);
+		if (index == pivotIndex)
+			return list[index];
+		else if (index < pivotIndex)
+			return select(list, left, pivotIndex - 1, index);
+		else
+			return select(list, pivotIndex + 1, right, index);
+	}
+
+	private int partition<T>(T[] list, int left, int right, int pivotIndex) where T : IComparable
+	{
+		T temp;
+		var pivotValue = list[pivotIndex];
+		list[pivotIndex] = list[right];
+		list[right] = pivotValue;
+		var storeIndex = left;
+		for (var i = left; i < right - 1; i++)
+		{
+			if (list[i].CompareTo(pivotValue) < 0)
+			{
+				temp = list[i];
+				list[i] = list[storeIndex];
+				list[storeIndex] = temp;
+				storeIndex++;
+			}
+		}
+		temp = list[right];
+		list[right] = list[storeIndex];
+		list[storeIndex] = temp;
+		return storeIndex;
 	}
 }
