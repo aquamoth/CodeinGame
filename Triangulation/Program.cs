@@ -42,13 +42,8 @@ class Player
 					break;
 				case "COLDER":
 					Debug("{0} ms: is colder", sw.ElapsedMilliseconds);
-					//points = points.Where(x => x.Distance > x.OldDistance).ToArray();
-					var allpoints = points.Select((point, index) => new { Point = point, Distance = point.Distance, lastDistance = point.OldDistance }).ToArray();
-					Debug("{0} ms: shuffled points", sw.ElapsedMilliseconds);
-					var validPoints = allpoints.Where(x => x.Distance > x.lastDistance).ToArray();
+					points = points.Where(x => x.Distance > x.OldDistance).ToArray();
 					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
-					points = validPoints.Select(x => x.Point).ToArray();
-					Debug("{0} ms: Reloaded points", sw.ElapsedMilliseconds);
 					break;
 				case "WARMER":
 					Debug("{0} ms: is warmer", sw.ElapsedMilliseconds);
