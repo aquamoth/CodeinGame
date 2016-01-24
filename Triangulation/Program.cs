@@ -36,6 +36,7 @@ class Player
 			sw.Restart();
 
 			distances = createDistances(batman, points);
+			//setDistancesTo(batman, points);
 			Debug("{0} ms: Calculated new distances", sw.ElapsedMilliseconds);
 			switch (BOMBDIST)
 			{
@@ -43,6 +44,7 @@ class Player
 					break;
 				case "COLDER":
 					Debug("{0} ms: is colder", sw.ElapsedMilliseconds);
+					//points = points.Where(x => x.Distance > x.OldDistance).ToArray();
 					var allpoints = points.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] }).ToArray();
 					Debug("{0} ms: shuffled points", sw.ElapsedMilliseconds);
 					var validPoints = allpoints.Where(x => x.Distance > x.lastDistance).ToArray();
@@ -54,6 +56,7 @@ class Player
 					break;
 				case "WARMER":
 					Debug("{0} ms: is warmer", sw.ElapsedMilliseconds);
+					//points = points.Where(x => x.Distance < x.OldDistance).ToArray();
 					var validPoints2 = points
 						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
 						.Where(x => x.Distance < x.lastDistance && x.Point != batman)
@@ -63,6 +66,7 @@ class Player
 					break;
 				case "SAME":
 					Debug("{0} ms: is same distance", sw.ElapsedMilliseconds);
+					//points = points.Where(x => x.Distance == x.OldDistance).ToArray();
 					var validPoints3 = points
 						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
 						.Where(x => x.Distance == x.lastDistance)
@@ -77,6 +81,7 @@ class Player
 
 			//printMap(points, W, H, batman);
 
+			//batman = points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
 			var count = points.Length;
 			var nextPoint = points.Select((Point, index) => new { Point, Distance = distances[index] })
 				.OrderBy(x => x.Distance)
@@ -86,6 +91,8 @@ class Player
 
 			Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
 
+			//foreach (var point in points) point.OldDistance = point.Distance;
+			//Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
 			batman = nextPoint;
 			lastDistances = distances;
 			Console.WriteLine(batman);
@@ -102,6 +109,15 @@ class Player
 				Console.Error.Write(token);
 			}
 			Console.Error.WriteLine("");
+		}
+	}
+
+	private static void setDistancesTo(Point from, Point[] points)
+	{
+		for (var i = 0; i < points.Length; i++)
+		{
+			var to = points[i];
+			to.Distance = euclides(from, to);
 		}
 	}
 
@@ -142,6 +158,8 @@ class Point
 {
 	public int X { get; private set; }
 	public int Y { get; private set; }
+	public int Distance { get; set; }
+	public int OldDistance { get; set; }
 
 	public Point(int x, int y)
 	{
