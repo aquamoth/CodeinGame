@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -25,27 +26,34 @@ class Player
 		var batman = new Point(X0, Y0);
 
 		var points = createPoints(W, H);
-		double[] distances = null, lastDistances = null;
+		int[] distances = null, lastDistances = null;
 
 		// game loop
+		var sw = new Stopwatch();
 		while (true)
 		{
 			string BOMBDIST = Console.ReadLine(); // Current distance to the bomb compared to previous distance (COLDER, WARMER, SAME or UNKNOWN)
+			sw.Restart();
 
 			distances = createDistances(batman, points);
+			Debug("{0} ms: Calculated new distances", sw.ElapsedMilliseconds);
 			switch (BOMBDIST)
 			{
 				case "UNKNOWN":
 					break;
 				case "COLDER":
-					var validPoints = points
-						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
-						.Where(x => x.Distance > x.lastDistance && x.Point!=batman)
-						.ToArray();
+					Debug("{0} ms: is colder", sw.ElapsedMilliseconds);
+					var allpoints = points.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] }).ToArray();
+					Debug("{0} ms: shuffled points", sw.ElapsedMilliseconds);
+					var validPoints = allpoints.Where(x => x.Distance > x.lastDistance).ToArray();
+					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
 					distances = validPoints.Select(x => x.Distance).ToArray();
+					Debug("{0} ms: Reloaded distances", sw.ElapsedMilliseconds);
 					points = validPoints.Select(x => x.Point).ToArray();
+					Debug("{0} ms: Reloaded points", sw.ElapsedMilliseconds);
 					break;
 				case "WARMER":
+					Debug("{0} ms: is warmer", sw.ElapsedMilliseconds);
 					var validPoints2 = points
 						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
 						.Where(x => x.Distance < x.lastDistance && x.Point != batman)
@@ -54,9 +62,10 @@ class Player
 					points = validPoints2.Select(x => x.Point).ToArray();
 					break;
 				case "SAME":
+					Debug("{0} ms: is same distance", sw.ElapsedMilliseconds);
 					var validPoints3 = points
 						.Select((point, index) => new { Point = point, Distance = distances[index], lastDistance = lastDistances[index] })
-						.Where(x => x.Distance == x.lastDistance && x.Point != batman)
+						.Where(x => x.Distance == x.lastDistance)
 						.ToArray();
 					distances = validPoints3.Select(x => x.Distance).ToArray();
 					points = validPoints3.Select(x => x.Point).ToArray();
@@ -64,6 +73,7 @@ class Player
 				default:
 					throw new NotSupportedException("Got Distance: " + BOMBDIST);
 			}
+			Debug("{0} ms: Determined {1} st valid points", sw.ElapsedMilliseconds, points.Length);
 
 			//printMap(points, W, H, batman);
 
@@ -74,6 +84,7 @@ class Player
 				.First()
 				.Point;
 
+			Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
 
 			batman = nextPoint;
 			lastDistances = distances;
@@ -94,9 +105,9 @@ class Player
 		}
 	}
 
-	private static double[] createDistances(Point from, Point[] points)
+	private static int[] createDistances(Point from, Point[] points)
 	{
-		var distances = new double[points.Length];
+		var distances = new int[points.Length];
 		for(var i=0;i<points.Length;i++)
 		{
 			var to = points[i];
@@ -105,9 +116,9 @@ class Player
 		return distances;
 	}
 
-	private static double euclides(Point from, Point to)
+	private static int euclides(Point from, Point to)
 	{
-		return Math.Sqrt(Math.Pow(to.X - from.X, 2) + Math.Pow(to.Y - from.Y, 2));
+		return (int)Math.Pow(to.X - from.X, 2) + (int)Math.Pow(to.Y - from.Y, 2);
 	}
 
 	private static Point[] createPoints(int width, int height)
