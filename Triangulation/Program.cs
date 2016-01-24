@@ -61,15 +61,21 @@ class Player
 			Debug("{0} ms: Determined {1} st valid points", sw.ElapsedMilliseconds, points.Length);
 
 			//printMap(points, W, H, batman);
+			batman = findMiddleOf(points);
 
-			batman = points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
 			Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
 
-			for (var i = 0; i < points.Length; i++) points[i].OldDistance = points[i].Distance;
+			foreach (var point in points) point.OldDistance = point.Distance;
 			Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
 
 			Console.WriteLine(batman);
 		}
+	}
+
+	private static Point findMiddleOf(Point[] points)
+	{
+		return points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
+		//return new QuickSelect().Get<Point>(points, points.Length / 2);
 	}
 
 	private static void printMap(Point[] points, int width, int height, Point batman)
@@ -92,17 +98,6 @@ class Player
 			var to = points[i];
 			to.Distance = euclides(from, to);
 		}
-	}
-
-	private static int[] createDistances(Point from, Point[] points)
-	{
-		var distances = new int[points.Length];
-		for(var i=0;i<points.Length;i++)
-		{
-			var to = points[i];
-			distances[i] = euclides(from, to);
-		}
-		return distances;
 	}
 
 	private static int euclides(Point from, Point to)
