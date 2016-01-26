@@ -43,26 +43,29 @@ class Player
 			foreach (var p in players) dfs.Set(dfs.IndexOf(p), Map.PATH_UNVISITED);
 
 			var me = players[4]; //TODO: Last?
+			var opponents = players.Except(new[] { me });
+
 			dfs.SetVisited(me, north, east, south, west);
 
 			dfs.PrintMap(players);
 
-			var direction = dfs.ExploreDirection(me);
+			var directions = dfs.ExploreDirection(me);
+			var validDirections = directions.Where(d => !hits(Point.From(me, d), opponents, dfs));
 
-			if (dfs.Array.ToArray()[dfs.IndexOf(me) - dfs.Width] == Map.PATH_DEADEND)
-				direction = Map.DIRECTION_WAIT;
+			char direction;
+			if (!validDirections.Any())
+			{
+				Debug("No valid path to explore, so we try to backtrack one step.");
+				direction = reverse(lastDirection);
+				//Just a sanity-check that possibleDirections contains the reverse of lastDirection
+				if (!dfs.IsValid(me, direction))
+				{
+					throw new ApplicationException("Expected " + directions + " to be one of the possible directions.");
+				}
+			}
 			else
 			{
-				if (direction == null)
-				{
-					direction = reverse(lastDirection);
-					//Just a sanity-check that possibleDirections contains the reverse of lastDirection
-					if (!dfs.IsValid(me, direction))
-					{
-						throw new ApplicationException("Expected " + direction + " to be one of the possible directions.");
-					}
-
-				}
+				direction = validDirections.FirstOrDefault();
 			}
 
 			lastDirection = direction;
@@ -70,7 +73,16 @@ class Player
 		}
 	}
 
-	private static char? reverse(char? lastDirection)
+	private static bool hits(Point point, IEnumerable<Point> opponents, Map dfs)
+	{
+		var index = dfs.IndexOf(point);
+		var exits = new[] { index, index + 1, index - 1, index + dfs.Width, index - dfs.Width };
+		var opponentIndexes = opponents.Select(p => dfs.IndexOf(p)).ToArray();
+		Debug("Checking intersection of [{0}] and [{1}]", string.Join(", ", exits), string.Join(", ", opponentIndexes));
+		return exits.Intersect(opponentIndexes).Any();
+	}
+
+	private static char reverse(char? lastDirection)
 	{
 		switch (lastDirection)
 		{
@@ -105,6 +117,20 @@ public class Point
 	public override string ToString()
 	{
 		return string.Format("({0}, {1})", X, Y);
+	}
+
+	internal static Point From(Point me, char direction)
+	{
+		switch (direction)
+		{
+			case Map.DIRECTION_EAST: return new Point(me.Id, me.X + 1, me.Y);
+			case Map.DIRECTION_SOUTH: return new Point(me.Id, me.X, me.Y + 1);
+			case Map.DIRECTION_WEST: return new Point(me.Id, me.X - 1, me.Y);
+			case Map.DIRECTION_NORTH: return new Point(me.Id, me.X, me.Y - 1);
+			case Map.DIRECTION_WAIT: return new Point(me.Id, me.X, me.Y);
+			default:
+				throw new NotSupportedException();
+		}
 	}
 }
 
@@ -153,11 +179,6 @@ public class Map
 			_array[index] = value;
 		}
 	}
-	//public int? this[Point p]
-	//{
-	//	get { return this[IndexOf(p.X, p.Y)]; }
-	//	set { this[IndexOf(p.X, p.Y)] = value; }
-	//}
 
 	public int IndexOf(int x, int y)
 	{
@@ -207,25 +228,18 @@ public class Map
 		this[index] = type;
 	}
 
-	internal char? ExploreDirection(Point me)
+	internal IEnumerable<char> ExploreDirection(Point me)
 	{
 		var possibleDirections = directionsTo(me, PATH_UNVISITED);
 		if (possibleDirections.Any())
 		{
-			return possibleDirections.First();
+			return possibleDirections;
 		}
 		else
 		{
 			Set(IndexOf(me), PATH_DEADEND);
 			possibleDirections = directionsTo(me, PATH_VISITED);
-			if (possibleDirections.Count() == 1)
-			{
-				return possibleDirections.First();
-			}
-			else
-			{
-				return null;
-			}
+			return possibleDirections;
 		}
 	}
 
@@ -265,47 +279,4 @@ public class Map
 		}
 	}
 }
-
-//public class Map
-//{
-//	public const int TILE_IS_WALL = 29;
-
-//	readonly bool?[] _array;
-//	public IEnumerable<bool?> Array { get { return _array; } }
-
-//	public int Length { get { return _array.Length; } }
-//	public int Width { get; private set; }
-//	public int Height { get; private set; }
-
-//	public Map(int width, int height)
-//	{
-//		Width = width;
-//		Height = height;
-//		_array = new bool?[width * height];
-//	}
-
-//	//public Map(bool?[] array, int width)
-//	//{
-//	//	Width = width;
-//	//	Height = array.Length / width;
-//	//	_array = array;
-//	//}
-
-//	public bool? Get(int x, int y)
-//	{
-//		if (x < 0 || x >= Width)
-//			return false;
-//		if (y < 0 || y >= Height)
-//			return false;
-//		return _array[IndexOf(x, y)];
-//	}
-
-//	public void Put(int x, int y, bool isRoom)
-//	{
-//		this[IndexOf(x, y)] = isRoom;
-//	}
-
-
-//	//public bool IsFree(Point p) { return !Get(p.X, p.Y).HasValue; }
-//}
 
