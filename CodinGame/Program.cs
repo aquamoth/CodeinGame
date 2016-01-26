@@ -46,23 +46,31 @@ public class Game
 
 	public void Execute()
 	{
-		string north = Console.ReadLine();
-		string east = Console.ReadLine();
-		string south = Console.ReadLine();
-		string west = Console.ReadLine();
+		try
+		{
+			string north = Console.ReadLine();
+			string east = Console.ReadLine();
+			string south = Console.ReadLine();
+			string west = Console.ReadLine();
 
-		var players = readPlayersFromConsole();
-		var me = players[4]; //TODO: Last?
-		var opponents = players.Except(new[] { me });
+			var players = readPlayersFromConsole();
+			var me = players[4]; //TODO: Last?
+			var opponents = players.Except(new[] { me });
 
-		positionPlayersOnMap(players);
-		map.SetVisited(me, north, east, south, west);
-		
-		map.PrintMap(players);
+			positionPlayersOnMap(players);
+			map.SetVisited(me, north, east, south, west);
 
-		var direction = selectNextDirection(me, opponents);
-		lastDirection = direction;
-		Console.WriteLine(direction);
+			map.PrintMap(players);
+
+			var direction = selectNextDirection(me, opponents);
+			lastDirection = direction;
+			Console.WriteLine(direction);
+		}
+		catch (Exception ex)
+		{
+			Player.Debug("{0}", ex);
+			Console.WriteLine(Map.DIRECTION_WAIT);
+		}
 	}
 
 	private char selectNextDirection(Point me, IEnumerable<Point> opponents)
