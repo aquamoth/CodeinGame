@@ -29,6 +29,8 @@ class Player
 
 public class Game
 {
+	Random random = new Random();
+
 	int numberOfPlayers;
 	Map map;
 	char? lastDirection = null;
@@ -84,9 +86,12 @@ public class Game
 			//		string.Join(", ", myPaths.Path[opponent.opp.Index].Select(index => Point.From(index, me.Width, me.Height))));
 			//}
 
+
+
 			int bestMove = me.Index;
 			double bestScore = double.MaxValue;
-			foreach (var move in nodes[me.Index].Neighbours.Select(x => x.Node).Concat(new[] { nodes[me.Index] }))
+			var possibleMoves = nodes[me.Index].Neighbours.Select(x => x.Node).Concat(new[] { nodes[me.Index] });
+			foreach (var move in possibleMoves)
 			{
 				//Player.Debug("Testing move to {0}", Point.From(move.Node.Id, me.Width, me.Height));
 				var movePaths = new Dijkstra(nodes, move.Id, move.Id);
@@ -100,7 +105,7 @@ public class Game
 					score += opponentScore;
 				}
 				//Player.Debug("Total score for {0} is {1}\n", move.Node, score);
-				if (bestScore > score)
+				if (bestScore > score || (bestScore == score && random.Next(0, 2) == 0))
 				{
 					bestScore = score;
 					bestMove = move.Id;
