@@ -35,7 +35,7 @@ class Player
 			sw.Restart();
 
 			setDistancesTo(batman, points);
-			Debug("{0} ms: Calculated new distances", sw.ElapsedMilliseconds);
+			//Debug("{0} ms: Calculated new distances", sw.ElapsedMilliseconds);
 			switch (BOMBDIST)
 			{
 				case "UNKNOWN":
@@ -43,30 +43,30 @@ class Player
 				case "COLDER":
 					Debug("{0} ms: is colder", sw.ElapsedMilliseconds);
 					points = points.Where(x => x.Distance > x.OldDistance).ToArray();
-					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
+					//Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
 					break;
 				case "WARMER":
 					Debug("{0} ms: is warmer", sw.ElapsedMilliseconds);
 					points = points.Where(x => x.Distance < x.OldDistance && x != batman).ToArray();
-					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
+					//Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
 					break;
 				case "SAME":
 					Debug("{0} ms: is same distance", sw.ElapsedMilliseconds);
 					points = points.Where(x => x.Distance == x.OldDistance).ToArray();
-					Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
+					//Debug("{0} ms: Found valid points", sw.ElapsedMilliseconds);
 					break;
 				default:
 					throw new NotSupportedException("Got Distance: " + BOMBDIST);
 			}
-			Debug("{0} ms: Determined {1} st valid points", sw.ElapsedMilliseconds, points.Length);
+			//Debug("{0} ms: Determined {1} st valid points", sw.ElapsedMilliseconds, points.Length);
 
 			//printMap(points, W, H, batman);
 			batman = findMiddleOf(points);
 
-			Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
+			//Debug("{0} ms: Selected next point", sw.ElapsedMilliseconds);
 
 			foreach (var point in points) point.OldDistance = point.Distance;
-			Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
+			//Debug("{0} ms: Updated old distances", sw.ElapsedMilliseconds);
 
 			Console.WriteLine(batman);
 		}
@@ -74,8 +74,13 @@ class Player
 
 	private static Point findMiddleOf(Point[] points)
 	{
-		return points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
-		//return new QuickSelect().Get<Point>(points, points.Length / 2);
+		var p1 = points.OrderBy(x => x.Distance).Skip(points.Length / 2).First();
+		var p2 = new QuickSelect().Get<Point>(points, points.Length / 2);
+		if (p1 != p2)
+		{
+			Debug("Trivial sort suggests point {0} (d={1}) and QuickSelects answers {2} (d={3})", p1, p1.Distance, p2, p2.Distance);
+		}
+		return p1;
 	}
 
 	private static void printMap(Point[] points, int width, int height, Point batman)
