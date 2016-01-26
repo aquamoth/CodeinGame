@@ -36,11 +36,11 @@ class Player
 				string[] inputs = Console.ReadLine().Split(' ');
 				int playerX = int.Parse(inputs[0]);
 				int playerY = int.Parse(inputs[1]);
-				players[i] = new Point(i, playerX - 1, playerY - 1);
+				players[i] = new Point(i, playerX, playerY, width, height);
 				//TODO: Should be able to map using info on how other players move too
 			}
 			Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
-			foreach (var p in players) dfs.Set(dfs.IndexOf(p), Map.PATH_UNVISITED);
+			foreach (var player in players) dfs.Set(player, Map.PATH_UNVISITED);
 
 			var me = players[4]; //TODO: Last?
 			var opponents = players.Except(new[] { me });
@@ -50,7 +50,7 @@ class Player
 			dfs.PrintMap(players);
 
 			var directions = dfs.ExploreDirection(me);
-			var validDirections = directions.Where(d => !hits(Point.From(me, d), opponents, dfs));
+			var validDirections = directions.Where(d => !hits(dfs.Move(me, Point.From(d)), opponents, dfs));
 
 			char direction;
 			if (!validDirections.Any())
@@ -58,7 +58,7 @@ class Player
 				Debug("No valid path to explore, so we try to backtrack one step.");
 				direction = reverse(lastDirection);
 				//Just a sanity-check that possibleDirections contains the reverse of lastDirection
-				if (!dfs.IsValid(me, direction))
+				if (!dfs.IsValidMove(me, direction))
 				{
 					throw new ApplicationException("Expected " + directions + " to be one of the possible directions.");
 				}
@@ -75,10 +75,9 @@ class Player
 
 	private static bool hits(Point me, IEnumerable<Point> opponents, Map dfs)
 	{
-		var index = dfs.IndexOf(me);
-		var myRange = dfs.NeighboursOf(me).Concat(new[] { index }).ToArray();
+		var myRange = dfs.NeighboursOf(me).Concat(new[] { me.Index }).ToArray();
 
-		var opponentPositions = opponents.Select(p => dfs.IndexOf(p)).ToArray();
+		var opponentPositions = opponents.Select(p => p.Index).ToArray();
 		
 		Debug("Checking intersection of [{0}] and [{1}]", string.Join(", ", myRange), string.Join(", ", opponentPositions));
 		return myRange.Intersect(opponentPositions).Any();
@@ -105,15 +104,32 @@ class Player
 
 public class Point
 {
-	public int Id { get; set; }
+	public int Id { get; private set; }
 	public int X { get; private set; }
 	public int Y { get; private set; }
+	public int Width { get; private set; }
+	public int Height { get; private set; }
+	public int Index { get; private set; }
 
-	public Point(int id, int x, int y)
+	public Point(int x, int y)
+		: this(0, x, y, 0, 0)
+	{
+	}
+	public Point(int x, int y, int width, int height)
+		: this(0, x, y, width, height)
+	{
+	}
+	public Point(int id, int x, int y, int width, int height)
 	{
 		Id = id;
 		X = x;
 		Y = y;
+		Width = width;
+		Height = height;
+
+		if (Width > 0 && (X < 0 || X >= Width)) throw new ApplicationException("Invalid X: " + this.ToString());
+		if (Height > 0 && (Y < 0 || Y >= Height)) throw new ApplicationException("Invalid Y: " + this.ToString());
+		Index = Y * Width + X;
 	}
 
 	public override string ToString()
@@ -121,15 +137,14 @@ public class Point
 		return string.Format("({0}, {1})", X, Y);
 	}
 
-	internal static Point From(Point me, char direction)
+	public static Point From(char direction)
 	{
 		switch (direction)
 		{
-			case Map.DIRECTION_EAST: return new Point(me.Id, me.X + 1, me.Y);
-			case Map.DIRECTION_SOUTH: return new Point(me.Id, me.X, me.Y + 1);
-			case Map.DIRECTION_WEST: return new Point(me.Id, me.X - 1, me.Y);
-			case Map.DIRECTION_NORTH: return new Point(me.Id, me.X, me.Y - 1);
-			case Map.DIRECTION_WAIT: return new Point(me.Id, me.X, me.Y);
+			case Map.DIRECTION_EAST: return new Point(1, 0);
+			case Map.DIRECTION_SOUTH: return new Point(0, 1);
+			case Map.DIRECTION_WEST: return new Point(-1, 0);
+			case Map.DIRECTION_NORTH: return new Point(0, -1);
 			default:
 				throw new NotSupportedException();
 		}
@@ -171,55 +186,49 @@ public class Map
 		get
 		{
 			if (index < 0 || index > this.Length)
-				return UNKNOWN_SPACE;
+				throw new ArgumentException("Invalid index");
 			return _array[index];
 		}
 		set
 		{
 			if (index < 0 || index > this.Length)
-				return;
+				throw new ArgumentException("Invalid index");
 			_array[index] = value;
 		}
 	}
 
-	public int IndexOf(int x, int y)
-	{
-		if (x < 0 || x >= this.Width) return -1;
-		if (y < 0 || y >= this.Height) return -1;
-		return y * this.Width + x;
-	}
-	public int IndexOf(Point p) { return IndexOf(p.X, p.Y); }
-
-	public bool IsVisited(Point p) { return this[IndexOf(p)] == PATH_VISITED; }
-
 	internal void SetVisited(Point me, string north, string east, string south, string west)
 	{
-		var index = IndexOf(me);
-		Set(index, PATH_VISITED);
-		if (me.Y > 0) Set(index - Width, north);
-		if (me.X < Width) Set(index + 1, east);
-		if (me.Y < Height) Set(index + Width, south);
-		if (me.X > 0) Set(index - 1, west);
+		Set(me, PATH_VISITED);
+		Set(Move(me, DIRECTION_NORTH), north);
+		Set(Move(me, DIRECTION_EAST), east);
+		Set(Move(me, DIRECTION_SOUTH), south);
+		Set(Move(me, DIRECTION_WEST), west);
 	}
 
-	public void Set(int index, string type)
+	public void Set(Point point, string type)
 	{
-		Set(index, Char.Parse(type));
+		Set(point, Char.Parse(type));
 	}
-	public void Set(int index, char type)
+	public void Set(Point point, char type)
 	{
 		switch (type)
 		{
 			case WALL:
-				if (this[index] == PATH_UNVISITED || this[index] == PATH_VISITED) throw new ApplicationException("Tried to change room into wall");
+				if (this[point.Index] == PATH_UNVISITED || this[point.Index] == PATH_VISITED) 
+					throw new ApplicationException("Tried to change room into wall");
 				break;
 			case PATH_UNVISITED:
-				if (this[index] == WALL) throw new ApplicationException("Tried to change wall into unvisited");
-				if (this[index] != UNKNOWN_SPACE) return;
+				if (this[point.Index] == WALL) 
+					throw new ApplicationException("Tried to change wall into unvisited");
+				if (this[point.Index] != UNKNOWN_SPACE) 
+					return;
 				break;
 			case PATH_VISITED:
-				if (this[index] == WALL) throw new ApplicationException("Tried to change wall into visited");
-				if (this[index] == PATH_DEADEND) return;
+				if (this[point.Index] == WALL) 
+					throw new ApplicationException("Tried to change wall into visited");
+				if (this[point.Index] == PATH_DEADEND) 
+					return;
 				break;
 			case PATH_DEADEND:
 				break;
@@ -227,7 +236,7 @@ public class Map
 				throw new NotSupportedException("Unknown area type: " + type);
 		}
 
-		this[index] = type;
+		this[point.Index] = type;
 	}
 
 	internal IEnumerable<char> ExploreDirection(Point me)
@@ -239,7 +248,7 @@ public class Map
 		}
 		else
 		{
-			Set(IndexOf(me), PATH_DEADEND);
+			Set(me, PATH_DEADEND);
 			possibleDirections = directionsTo(me, PATH_VISITED);
 			return possibleDirections;
 		}
@@ -247,20 +256,18 @@ public class Map
 
 	private IEnumerable<char> directionsTo(Point me, char TOKEN)
 	{
-		var index = IndexOf(me);
-		if (me.Y > 0 && this[index - Width] == TOKEN) yield return DIRECTION_NORTH;
-		if (me.X < Width && this[index + 1] == TOKEN) yield return DIRECTION_EAST;
-		if (me.Y < Height && this[index + Width] == TOKEN) yield return DIRECTION_SOUTH;
-		if (me.X > 0 && this[index - 1] == TOKEN) yield return DIRECTION_WEST;
+		return new[] { DIRECTION_EAST, DIRECTION_SOUTH, DIRECTION_WEST, DIRECTION_NORTH }
+			.Select(direction => new { direction, next = Move(me, Point.From(direction)) })
+			.Where(x => this[x.next.Index] == TOKEN)
+			.Select(x => x.direction);
 	}
 
 	public IEnumerable<int> NeighboursOf(Point me)
 	{
-		var index = IndexOf(me);
-		if (me.Y > 0) yield return index - Width;
-		if (me.X < Width) yield return index + 1;
-		if (me.Y < Height) yield return index + Width;
-		if (me.X > 0) yield return index - 1;
+		yield return Move(me, DIRECTION_NORTH).Index;
+		yield return Move(me, DIRECTION_EAST).Index;
+		yield return Move(me, DIRECTION_SOUTH).Index;
+		yield return Move(me, DIRECTION_WEST).Index;
 	}
 
 
@@ -277,18 +284,26 @@ public class Map
 		}
 	}
 
-	internal bool IsValid(Point me, char? direction)
+	internal bool IsValidMove(Point me, char? direction)
 	{
 		if (!direction.HasValue) return true;
-		switch (direction.Value)
-		{
-			case DIRECTION_NORTH: return this[IndexOf(me) - Width] != WALL;
-			case DIRECTION_EAST: return this[IndexOf(me) + 1] != WALL;
-			case DIRECTION_SOUTH: return this[IndexOf(me) + Width] != WALL;
-			case DIRECTION_WEST: return this[IndexOf(me) - 1] != WALL;
-			default:
-				throw new NotSupportedException();
-		}
+		var next = Move(me, Point.From(direction.Value));
+		return this[next.Index] != WALL;
+	}
+
+	internal Point Move(Point point, char direction)
+	{
+		return Move(point, Point.From(direction));
+	}
+	internal Point Move(Point point, Point relative)
+	{
+		return new Point(
+			point.Id,
+			(point.X + relative.X + point.Width) % point.Width,
+			(point.Y + relative.Y + point.Height) % point.Height,
+			point.Width,
+			point.Height
+		);
 	}
 }
 
