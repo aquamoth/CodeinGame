@@ -19,6 +19,11 @@ class Player
 			game.Execute();
 		}
 	}
+
+	public static void Debug(string format, params object[] args)
+	{
+		Console.Error.WriteLine(/*Timer.ElapsedMilliseconds + " ms: " +*/ string.Format(format, args));
+	}
 }
 
 
@@ -60,13 +65,63 @@ public class Game
 
 	private char selectNextDirection(Point me, IEnumerable<Point> opponents)
 	{
+		var nodes = nodesFrom(map);
+		var myPaths = new Dijkstra(nodes, me.Index, me.Index);
+		var closeOpponents = opponents
+			.Select(opp => new { opp, distance = nodes[opp.Index].Distance })
+			.Where(x => x.distance < 10)
+			.OrderBy(x => x.distance)
+			.ToArray();
+
+		if (closeOpponents.Any())
+		{
+			Player.Debug("Found {0} opponents close by. Taking evasive action", closeOpponents.Length);
+			//foreach (var opponent in closeOpponents)
+			//{
+			//	Player.Debug("#{0} has {1} steps: {2}", 
+			//		opponent.opp.Id, 
+			//		opponent.distance, 
+			//		string.Join(", ", myPaths.Path[opponent.opp.Index].Select(index => Point.From(index, me.Width, me.Height))));
+			//}
+
+			int bestMove = me.Index;
+			double bestScore = double.MaxValue;
+			foreach (var move in nodes[me.Index].Neighbours.Select(x => x.Node).Concat(new[] { nodes[me.Index] }))
+			{
+				//Player.Debug("Testing move to {0}", Point.From(move.Node.Id, me.Width, me.Height));
+				var movePaths = new Dijkstra(nodes, move.Id, move.Id);
+				var score = 0.0;
+				foreach (var opponent in opponents)
+				{
+					var length = nodes[opponent.Index].Distance;
+					var opponentScore = Math.Pow(10.0 / length, 2);
+					//Player.Debug("Scored length to player #{0} is {1} = {2} pts", opponent.Id, length, opponentScore);
+					//Player.Debug("   {0}", string.Join(", ", nodes[opponent.Index].Path.Select(x => Point.From(x, me.Width, me.Height))));
+					score += opponentScore;
+				}
+				//Player.Debug("Total score for {0} is {1}\n", move.Node, score);
+				if (bestScore > score)
+				{
+					bestScore = score;
+					bestMove = move.Id;
+				}
+			}
+			//Player.Debug("Best move is to: {0}", Point.From(bestMove, me.Width, me.Height));
+
+			return map.DirectionTo(me, bestMove);
+		}
+
+
+
+
+		Player.Debug("No opponents in close proximity. Exploring!");
 		var directions = map.ExploreDirection(me);
 		var validDirections = directions.Where(d => !hits(map.Move(me, Point.From(d)), opponents, map)).ToArray();
 
 		char direction;
 		if (!validDirections.Any())
 		{
-			Debug("No valid path to explore, so we try to backtrack one step.");
+			Player.Debug("No valid path to explore, so we try to backtrack one step.");
 			direction = reverse(lastDirection);
 			//Just a sanity-check that possibleDirections contains the reverse of lastDirection
 			if (!map.IsValidMove(me, direction))
@@ -80,6 +135,32 @@ public class Game
 		}
 		return direction;
 	}
+
+	private Dijkstra.Node[] nodesFrom(Map map)
+	{
+		var nodes = map.Array.Select((x, index) => new Dijkstra.Node { Id = index }).ToArray();
+		foreach (var node in nodes)
+		{
+			//var debugOutput = (node.Id == 6 + 22 * map.Width);
+
+			if (map[node.Id] == Map.WALL)
+			{
+				//if(debugOutput) Player.Debug("Node {0} is a wall and has no neighbours");
+				node.Neighbours = new Dijkstra.NodeCost[0];
+			}
+			else
+			{
+				var point = Point.From(node.Id, map.Width, map.Height);
+				var exits = map.ValidExits(point);
+				node.Neighbours = exits
+					.Select(move => new Dijkstra.NodeCost { Node = nodes[move.Index], Cost = map[move.Index] == Map.UNKNOWN_SPACE ? 1.5 : 1.0 })
+					.ToArray();
+				//if (debugOutput) Player.Debug("Node {0} is at {1} and has exits to: {2}", node.Id, point, string.Join(", ", exits));
+			}
+		}
+		return nodes;
+	}
+
 
 
 	private static bool hits(Point me, IEnumerable<Point> opponents, Map dfs)
@@ -107,7 +188,7 @@ public class Game
 
 	private void positionPlayersOnMap(Point[] players)
 	{
-		Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
+		Player.Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
 		foreach (var player in players)
 		{
 			map.Set(player, Map.PATH_UNVISITED);
@@ -126,11 +207,6 @@ public class Game
 			players[i] = new Point(i, playerX, playerY, map.Width, map.Height);
 		}
 		return players;
-	}
-
-	public static void Debug(string format, params object[] args)
-	{
-		Console.Error.WriteLine(/*Timer.ElapsedMilliseconds + " ms: " +*/ string.Format(format, args));
 	}
 }
 
@@ -177,9 +253,15 @@ public class Point
 			case Map.DIRECTION_SOUTH: return new Point(0, 1);
 			case Map.DIRECTION_WEST: return new Point(-1, 0);
 			case Map.DIRECTION_NORTH: return new Point(0, -1);
+			case Map.DIRECTION_WAIT: return new Point(0, 0);
 			default:
 				throw new NotSupportedException();
 		}
+	}
+
+	public static Point From(int index, int width, int height)
+	{
+		return new Point(index % width, index / width, width, height);
 	}
 }
 
@@ -286,6 +368,13 @@ public class Map
 		}
 	}
 
+	public IEnumerable<Point> ValidExits(Point me)
+	{
+		return new[] { DIRECTION_EAST, DIRECTION_SOUTH, DIRECTION_WEST, DIRECTION_NORTH }
+			.Select(direction => Move(me, Point.From(direction)))
+			.Where(p => this[p.Index] != WALL)
+			.ToArray();
+	}
 	private IEnumerable<char> directionsTo(Point me, char TOKEN)
 	{
 		return new[] { DIRECTION_EAST, DIRECTION_SOUTH, DIRECTION_WEST, DIRECTION_NORTH }
@@ -337,5 +426,110 @@ public class Map
 			point.Height
 		);
 	}
+
+	internal char DirectionTo(Point me, int targetIndex)
+	{
+		return new[] { DIRECTION_EAST, DIRECTION_SOUTH, DIRECTION_WEST, DIRECTION_NORTH, DIRECTION_WAIT }
+			.Where(d => Move(me, Point.From(d)).Index == targetIndex)
+			.First();
+	}
 }
+
+#region Dijkstras algorithm for finding shortest path
+
+public class Dijkstra
+{
+	public int PlayerPosition { get; set; }
+	public int From { get; private set; }
+	public IDictionary<int, int[]> Path { get; private set; }
+
+	Queue<Node> unvisitedNodes = new Queue<Node>();
+
+	public Dijkstra(Node[] nodes, int from, int playerPosition)
+	{
+		var nodeDictionary = nodes.ToDictionary(x => x.Id);
+		Reset(nodeDictionary, from, playerPosition);
+
+		Path = new Dictionary<int, int[]>();
+		foreach (var to in nodeDictionary.Keys)
+			Path.Add(to, PathTo(nodeDictionary, to));
+	}
+
+	private void Reset(IDictionary<int, Node> nodes, int from, int playerPosition)
+	{
+		foreach (var node in nodes.Values)
+		{
+			node.Path = null;
+			node.Distance = int.MaxValue;
+			node.Visited = false;
+		}
+		unvisitedNodes.Clear();
+
+		this.From = from;
+		this.PlayerPosition = playerPosition;
+
+		nodes[from].Path = new int[] { from };
+		nodes[from].Distance = 0;
+		unvisitedNodes.Enqueue(nodes[from]);
+	}
+
+	private int[] PathTo(IDictionary<int, Node> nodes, int to)
+	{
+		if (!nodes.ContainsKey(to))
+			return null;//No paths to the destination at all
+
+		if (nodes[to].Path != null)
+			return nodes[to].Path;
+
+		while (unvisitedNodes.Any())
+		{
+			var currentNode = unvisitedNodes.Dequeue();
+			currentNode.Visited = true;
+			if (currentNode.Path == null)
+			{
+				Player.Debug("Node {0} has NO Path!", currentNode.Id);
+				continue;
+			}
+			foreach (var neighbour in currentNode.Neighbours.Where(node => !node.Node.Visited && node.Node.Id != PlayerPosition))
+			{
+				var tentativeDistance = currentNode.Distance + neighbour.Cost;
+				bool isUnvisited = neighbour.Node.Path == null;
+				if (isUnvisited || neighbour.Node.Distance > tentativeDistance)
+				{
+					neighbour.Node.Distance = tentativeDistance;
+					neighbour.Node.Path = currentNode.Path.Concat(new[] { neighbour.Node.Id }).ToArray();
+				}
+				if (isUnvisited)
+					unvisitedNodes.Enqueue(neighbour.Node);
+			}
+			if (currentNode.Id == to)
+				break;
+		}
+
+		return nodes[to].Path;
+	}
+
+
+	public class Node
+	{
+		public int Id { get; set; }
+		public NodeCost[] Neighbours { get; set; }
+		public bool Visited { get; set; }
+		public double Distance { get; set; }
+		public int[] Path { get; set; }
+
+		public override string ToString()
+		{
+			return string.Format("{0}: d={1}, Neighbours: {2}", Id, Distance, Neighbours.Length);
+		}
+	}
+
+	public class NodeCost
+	{
+		public Node Node { get; set; }
+		public double Cost { get; set; }
+	}
+}
+
+#endregion Dijkstras algorithm for finding shortest path
 
