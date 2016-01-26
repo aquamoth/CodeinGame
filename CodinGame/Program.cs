@@ -13,70 +13,81 @@ class Player
 {
 	static void Main(string[] args)
 	{
-		int height = int.Parse(Console.ReadLine());
-		int width = int.Parse(Console.ReadLine());
-		int numberOfPlayers = int.Parse(Console.ReadLine());
-
-
-		// game loop
-		var players = new Point[numberOfPlayers];
-		var dfs = new Map(width, height);
-		char? lastDirection = null;
+		var game = new Game();
 		while (true)
 		{
-			string north = Console.ReadLine();
-			string east = Console.ReadLine();
-			string south = Console.ReadLine();
-			string west = Console.ReadLine();
-
-			for (int i = 0; i < numberOfPlayers; i++)
-			{
-				string[] inputs = Console.ReadLine().Split(' ');
-				int playerX = int.Parse(inputs[0]);
-				int playerY = int.Parse(inputs[1]);
-				players[i] = new Point(i, playerX, playerY, width, height);
-			}
-
-			Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
-			foreach (var player in players) dfs.Set(player, Map.PATH_UNVISITED);
-
-			var me = players[4]; //TODO: Last?
-			var opponents = players.Except(new[] { me });
-
-	
-			dfs.SetVisited(me, north, east, south, west);
-			//dfs.PrintMap(players);
-
-			var directions = dfs.ExploreDirection(me);
-			var validDirections = directions.Where(d => !hits(dfs.Move(me, Point.From(d)), opponents, dfs)).ToArray();
-
-			char direction;
-			if (!validDirections.Any())
-			{
-				Debug("No valid path to explore, so we try to backtrack one step.");
-				direction = reverse(lastDirection);
-				//Just a sanity-check that possibleDirections contains the reverse of lastDirection
-				if (!dfs.IsValidMove(me, direction))
-				{
-					throw new ApplicationException("Expected " + directions + " to be one of the possible directions.");
-				}
-			}
-			else
-			{
-				direction = validDirections.FirstOrDefault();
-			}
-
-			lastDirection = direction;
-			Console.WriteLine(direction);
+			game.Execute();
 		}
 	}
+}
+
+
+public class Game
+{
+	int numberOfPlayers;
+	Map map;
+	char? lastDirection = null;
+
+	public Game()
+	{
+		var height = int.Parse(Console.ReadLine());
+		var width = int.Parse(Console.ReadLine());
+		numberOfPlayers = int.Parse(Console.ReadLine());
+
+		map = new Map(width, height);
+	}
+
+	public void Execute()
+	{
+		string north = Console.ReadLine();
+		string east = Console.ReadLine();
+		string south = Console.ReadLine();
+		string west = Console.ReadLine();
+
+		var players = readPlayersFromConsole();
+		var me = players[4]; //TODO: Last?
+		var opponents = players.Except(new[] { me });
+
+		positionPlayersOnMap(players);
+		map.SetVisited(me, north, east, south, west);
+		
+		map.PrintMap(players);
+
+		var direction = selectNextDirection(me, opponents);
+		lastDirection = direction;
+		Console.WriteLine(direction);
+	}
+
+	private char selectNextDirection(Point me, IEnumerable<Point> opponents)
+	{
+		var directions = map.ExploreDirection(me);
+		var validDirections = directions.Where(d => !hits(map.Move(me, Point.From(d)), opponents, map)).ToArray();
+
+		char direction;
+		if (!validDirections.Any())
+		{
+			Debug("No valid path to explore, so we try to backtrack one step.");
+			direction = reverse(lastDirection);
+			//Just a sanity-check that possibleDirections contains the reverse of lastDirection
+			if (!map.IsValidMove(me, direction))
+			{
+				throw new ApplicationException("Expected " + directions + " to be one of the possible directions.");
+			}
+		}
+		else
+		{
+			direction = validDirections.FirstOrDefault();
+		}
+		return direction;
+	}
+
 
 	private static bool hits(Point me, IEnumerable<Point> opponents, Map dfs)
 	{
 		var myRange = dfs.NeighboursOf(me).Concat(new[] { me.Index }).ToArray();
 
 		var opponentPositions = opponents.Select(p => p.Index).ToArray();
-		
+
 		//Debug("Checking intersection of [{0}] and [{1}]", string.Join(", ", myRange), string.Join(", ", opponentPositions));
 		return myRange.Intersect(opponentPositions).Any();
 	}
@@ -92,6 +103,29 @@ class Player
 			default:
 				throw new ApplicationException("Unable to reverse direction of: " + lastDirection ?? "<null>");
 		}
+	}
+
+	private void positionPlayersOnMap(Point[] players)
+	{
+		Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
+		foreach (var player in players)
+		{
+			map.Set(player, Map.PATH_UNVISITED);
+		}
+	}
+
+	private Point[] readPlayersFromConsole()
+	{
+		Point[] players;
+		players = new Point[numberOfPlayers];
+		for (int i = 0; i < numberOfPlayers; i++)
+		{
+			string[] inputs = Console.ReadLine().Split(' ');
+			int playerX = int.Parse(inputs[0]);
+			int playerY = int.Parse(inputs[1]);
+			players[i] = new Point(i, playerX, playerY, map.Width, map.Height);
+		}
+		return players;
 	}
 
 	public static void Debug(string format, params object[] args)
