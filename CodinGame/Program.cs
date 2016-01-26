@@ -16,11 +16,10 @@ class Player
 		int height = int.Parse(Console.ReadLine());
 		int width = int.Parse(Console.ReadLine());
 		int numberOfPlayers = int.Parse(Console.ReadLine());
-		var players = new Point[numberOfPlayers];
-		Debug("Expecting {0} players", numberOfPlayers);
 
 
 		// game loop
+		var players = new Point[numberOfPlayers];
 		var dfs = new Map(width, height);
 		char? lastDirection = null;
 		while (true)
@@ -29,7 +28,6 @@ class Player
 			string east = Console.ReadLine();
 			string south = Console.ReadLine();
 			string west = Console.ReadLine();
-			//Debug("{0} {1} {2} {3}", north, east, south, west);
 
 			for (int i = 0; i < numberOfPlayers; i++)
 			{
@@ -37,20 +35,20 @@ class Player
 				int playerX = int.Parse(inputs[0]);
 				int playerY = int.Parse(inputs[1]);
 				players[i] = new Point(i, playerX, playerY, width, height);
-				//TODO: Should be able to map using info on how other players move too
 			}
+
 			Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
 			foreach (var player in players) dfs.Set(player, Map.PATH_UNVISITED);
 
 			var me = players[4]; //TODO: Last?
 			var opponents = players.Except(new[] { me });
 
+	
 			dfs.SetVisited(me, north, east, south, west);
-
-			dfs.PrintMap(players);
+			//dfs.PrintMap(players);
 
 			var directions = dfs.ExploreDirection(me);
-			var validDirections = directions.Where(d => !hits(dfs.Move(me, Point.From(d)), opponents, dfs));
+			var validDirections = directions.Where(d => !hits(dfs.Move(me, Point.From(d)), opponents, dfs)).ToArray();
 
 			char direction;
 			if (!validDirections.Any())
@@ -79,7 +77,7 @@ class Player
 
 		var opponentPositions = opponents.Select(p => p.Index).ToArray();
 		
-		Debug("Checking intersection of [{0}] and [{1}]", string.Join(", ", myRange), string.Join(", ", opponentPositions));
+		//Debug("Checking intersection of [{0}] and [{1}]", string.Join(", ", myRange), string.Join(", ", opponentPositions));
 		return myRange.Intersect(opponentPositions).Any();
 	}
 
@@ -185,13 +183,13 @@ public class Map
 	{
 		get
 		{
-			if (index < 0 || index > this.Length)
+			if (index < 0 || index >= this.Length)
 				throw new ArgumentException("Invalid index");
 			return _array[index];
 		}
 		set
 		{
-			if (index < 0 || index > this.Length)
+			if (index < 0 || index >= this.Length)
 				throw new ArgumentException("Invalid index");
 			_array[index] = value;
 		}
@@ -219,13 +217,13 @@ public class Map
 					throw new ApplicationException("Tried to change room into wall");
 				break;
 			case PATH_UNVISITED:
-				if (this[point.Index] == WALL) 
+				if (this[point.Index] == WALL)
 					throw new ApplicationException("Tried to change wall into unvisited");
 				if (this[point.Index] != UNKNOWN_SPACE) 
 					return;
 				break;
 			case PATH_VISITED:
-				if (this[point.Index] == WALL) 
+				if (this[point.Index] == WALL)
 					throw new ApplicationException("Tried to change wall into visited");
 				if (this[point.Index] == PATH_DEADEND) 
 					return;
