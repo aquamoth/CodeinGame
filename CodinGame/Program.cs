@@ -13,8 +13,8 @@ class Player
 {
 	static void Main(string[] args)
 	{
-		int width = int.Parse(Console.ReadLine());
 		int height = int.Parse(Console.ReadLine());
+		int width = int.Parse(Console.ReadLine());
 		int numberOfPlayers = int.Parse(Console.ReadLine());
 		var players = new Point[numberOfPlayers];
 		Debug("Expecting {0} players", numberOfPlayers);
@@ -36,7 +36,7 @@ class Player
 				string[] inputs = Console.ReadLine().Split(' ');
 				int playerX = int.Parse(inputs[0]);
 				int playerY = int.Parse(inputs[1]);
-				players[i] = new Point(i, playerX, playerY);
+				players[i] = new Point(i, playerX - 1, playerY - 1);
 				//TODO: Should be able to map using info on how other players move too
 			}
 			Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
@@ -73,13 +73,15 @@ class Player
 		}
 	}
 
-	private static bool hits(Point point, IEnumerable<Point> opponents, Map dfs)
+	private static bool hits(Point me, IEnumerable<Point> opponents, Map dfs)
 	{
-		var index = dfs.IndexOf(point);
-		var exits = new[] { index, index + 1, index - 1, index + dfs.Width, index - dfs.Width };
-		var opponentIndexes = opponents.Select(p => dfs.IndexOf(p)).ToArray();
-		Debug("Checking intersection of [{0}] and [{1}]", string.Join(", ", exits), string.Join(", ", opponentIndexes));
-		return exits.Intersect(opponentIndexes).Any();
+		var index = dfs.IndexOf(me);
+		var myRange = dfs.NeighboursOf(me).Concat(new[] { index }).ToArray();
+
+		var opponentPositions = opponents.Select(p => dfs.IndexOf(p)).ToArray();
+		
+		Debug("Checking intersection of [{0}] and [{1}]", string.Join(", ", myRange), string.Join(", ", opponentPositions));
+		return myRange.Intersect(opponentPositions).Any();
 	}
 
 	private static char reverse(char? lastDirection)
@@ -194,10 +196,10 @@ public class Map
 	{
 		var index = IndexOf(me);
 		Set(index, PATH_VISITED);
-		Set(index - Width, north);
-		Set(index + 1, east);
-		Set(index + Width, south);
-		Set(index - 1, west);
+		if (me.Y > 0) Set(index - Width, north);
+		if (me.X < Width) Set(index + 1, east);
+		if (me.Y < Height) Set(index + Width, south);
+		if (me.X > 0) Set(index - 1, west);
 	}
 
 	public void Set(int index, string type)
@@ -212,11 +214,11 @@ public class Map
 				if (this[index] == PATH_UNVISITED || this[index] == PATH_VISITED) throw new ApplicationException("Tried to change room into wall");
 				break;
 			case PATH_UNVISITED:
-				if (this[index] == WALL) throw new ApplicationException("Tried to change wall into exit");
+				if (this[index] == WALL) throw new ApplicationException("Tried to change wall into unvisited");
 				if (this[index] != UNKNOWN_SPACE) return;
 				break;
 			case PATH_VISITED:
-				if (this[index] == WALL) throw new ApplicationException("Tried to change wall into exit");
+				if (this[index] == WALL) throw new ApplicationException("Tried to change wall into visited");
 				if (this[index] == PATH_DEADEND) return;
 				break;
 			case PATH_DEADEND:
@@ -246,11 +248,21 @@ public class Map
 	private IEnumerable<char> directionsTo(Point me, char TOKEN)
 	{
 		var index = IndexOf(me);
-		if (this[index - Width] == TOKEN) yield return DIRECTION_NORTH;
-		if (this[index + 1] == TOKEN) yield return DIRECTION_EAST;
-		if (this[index + Width] == TOKEN) yield return DIRECTION_SOUTH;
-		if (this[index - 1] == TOKEN) yield return DIRECTION_WEST;
+		if (me.Y > 0 && this[index - Width] == TOKEN) yield return DIRECTION_NORTH;
+		if (me.X < Width && this[index + 1] == TOKEN) yield return DIRECTION_EAST;
+		if (me.Y < Height && this[index + Width] == TOKEN) yield return DIRECTION_SOUTH;
+		if (me.X > 0 && this[index - 1] == TOKEN) yield return DIRECTION_WEST;
 	}
+
+	public IEnumerable<int> NeighboursOf(Point me)
+	{
+		var index = IndexOf(me);
+		if (me.Y > 0) yield return index - Width;
+		if (me.X < Width) yield return index + 1;
+		if (me.Y < Height) yield return index + Width;
+		if (me.X > 0) yield return index - 1;
+	}
+
 
 	internal void PrintMap(IEnumerable<Point> players)
 	{
