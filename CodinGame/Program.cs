@@ -39,6 +39,9 @@ public class Game
 	Map map;
 	char? lastDirection = null;
 	Stopwatch timer;
+	int gameTurn = 0;
+	int? targetTile = null;
+	int lastTile = 0;
 
 	public Game()
 	{
@@ -54,6 +57,8 @@ public class Game
 	{
 		try
 		{
+			gameTurn++;
+
 			string north = Console.ReadLine();
 			string east = Console.ReadLine();
 			string south = Console.ReadLine();
@@ -69,7 +74,8 @@ public class Game
 			positionPlayersOnMap(players);
 			map.SetVisited(me, north, east, south, west);
 
-			map.PrintMap(players);
+			if (gameTurn > 210)
+				map.PrintMap(players);
 
 			var direction = selectNextDirection(players, myPlayerIndex);
 			lastDirection = direction;
@@ -120,7 +126,7 @@ public class Game
 		var processedNodes = new HashSet<int>(new[] { me.Index });
 		var nodes = nodesFrom(map);
 		var paths = players.Select(player => new Dijkstra(nodes, player.Index, player.Index)).ToArray();
-		var queue = new Queue<Dijkstra.Node>(nodes[me.Index].Neighbours.Select(x=>x.Node));
+		var queue = new Queue<Dijkstra.Node>(nodes[me.Index].Neighbours.Select(x => x.Node));
 		var prioQueues = Enumerable.Range(1, 4).Select(x => new List<Tuple<Dijkstra.Node, int, int>>()).ToArray();
 		while (queue.Any() && timer.ElapsedMilliseconds<MAX_AI_TIME_MS)
 		{
@@ -128,7 +134,7 @@ public class Game
 			if (processedNodes.Contains(tile.Id)) continue;//Guard clause
 			processedNodes.Add(tile.Id);
 			var myDistanceToTile = paths[myPlayerIndex].Path[tile.Id].Length;
-			var opponentsDistanceToTile = shortestDistanceFor(opponents.Select(x => x.Index).ToArray(), paths, tile);
+			var opponentsDistanceToTile = shortestDistanceFor(opponents.Select(x => x.Id).ToArray(), paths, tile);
 			var queueItem = new Tuple<Dijkstra.Node, int, int>(tile, opponentsDistanceToTile, myDistanceToTile);
 			if (myDistanceToTile >= opponentsDistanceToTile)
 				prioQueues[3].Add(queueItem); //Kill-paths => lowest prioqueue
@@ -147,65 +153,114 @@ public class Game
 		if (queue.Any())
 			Player.Debug("Had to stop ai before processing entire reachable map");
 
+		Dijkstra.Node bestNode = null;
+
+		if (targetTile.HasValue && targetTile != me.Index)
+		{
+			bestNode = prioQueues[0].Where(x => x.Item1.Id == targetTile.Value).Select(x => x.Item1).FirstOrDefault();
+			if (bestNode != null)
+			{
+				Player.Debug("Staying on path to {0} ({1} steps left)", targetTile.Value, bestNode.Distance);
+			}
+			else
+			{
+				Player.Debug("Optimized destination at {0} no longer reachable.", targetTile);
+				targetTile = null;
+			}
+		}
+
 		//First try to reach a safe unvisited node
-		const int MIN_UNVISITED_SCORE = 5;
-		var bestNode = prioQueues[0]
-			.OrderByDescending(x => x.Item2)
-			.Where(x=>x.Item2<MIN_UNVISITED_SCORE)
-			.Select(x=>x.Item1)
-			.FirstOrDefault();
 		if (bestNode == null)
 		{
-			//then try to reach any visited node
-			bestNode = prioQueues[1]
-				.OrderByDescending(x => x.Item2 + x.Item3)
+			const int MIN_UNVISITED_SCORE = 5;
+			bestNode = prioQueues[0]
+				.OrderByDescending(x => x.Item3)
+				.Where(x => x.Item3 < MIN_UNVISITED_SCORE)
+				.Where(x => !x.Item1.Path.Contains(lastTile))
 				.Select(x => x.Item1)
 				.FirstOrDefault();
 
 			if (bestNode == null)
 			{
-				//then try to reach an unvisited node although dangerous
-				bestNode = prioQueues[0]
-					.OrderByDescending(x => x.Item2)
+				Player.Debug("None of {0} unvisited tiles are reachable within {1} moves without backtracking", prioQueues[0].Count, MIN_UNVISITED_SCORE);
+				foreach (var x in prioQueues[0])
+				{
+					Player.Debug("{0}: {1} steps vs {2} steps", x.Item1, x.Item2, x.Item3);
+				}
+				//then try to reach any visited node
+				bestNode = prioQueues[1]
+					.OrderByDescending(x => x.Item2 + x.Item3)
 					.Select(x => x.Item1)
 					.FirstOrDefault();
 
 				if (bestNode == null)
 				{
-					//then fallback to walking into a dead end and hope for the best
-					bestNode = prioQueues[2]
-						.OrderByDescending(x => x.Item2 + x.Item3)
+					Player.Debug("No visited tiles are reachable");
+					//then try to reach an unvisited node although dangerous
+					bestNode = prioQueues[0]
+						.OrderByDescending(x => x.Item2)
 						.Select(x => x.Item1)
 						.FirstOrDefault();
 
 					if (bestNode == null)
 					{
-						//finally just walk towards near-certain death
-						bestNode = prioQueues[3]
+						Player.Debug("No unvisited tiles are reachable at all");
+						//then fallback to walking into a dead end and hope for the best
+						bestNode = prioQueues[2]
 							.OrderByDescending(x => x.Item2 + x.Item3)
 							.Select(x => x.Item1)
 							.FirstOrDefault();
 
 						if (bestNode == null)
 						{
-							Player.Debug("BUG! Failed to find ANY path from current position!");
-							return Map.DIRECTION_WAIT;
+							Player.Debug("No dead-end tiles are reachable");
+							//finally just walk towards near-certain death
+							bestNode = prioQueues[3]
+								.OrderByDescending(x => x.Item2 + x.Item3)
+								.Select(x => x.Item1)
+								.FirstOrDefault();
+
+							if (bestNode == null)
+							{
+								Player.Debug("BUG! Failed to find ANY path from current position!");
+								return Map.DIRECTION_WAIT;
+							}
 						}
 					}
 				}
 			}
+			//else
+			//{
+			//	Player.Debug("Found {0} unvisited nodes that are reachable within 5 steps")
+			//}
+			targetTile = null;//DISABLED bestNode.Id;
 		}
 
-		Player.Debug("Moving to {0}", bestNode.Id);
-		return map.DirectionTo(me, bestNode.Id);
+		lastTile = me.Index;
+		var nextTile = paths[myPlayerIndex].Path[bestNode.Id].Skip(1).First();
+		Player.Debug("Moving to {0} through {1}", bestNode.Id, nextTile);
+		return map.DirectionTo(me, nextTile);
 	}
 
 	private static int shortestDistanceFor(int[] playerIndexes, Dijkstra[] paths, Dijkstra.Node tile)
 	{
-		return playerIndexes
+		//Player.Debug("Indexes: {0}", string.Join(", ", playerIndexes));
+		//Player.Debug("Paths: {0}", paths.Length);
+		var length = playerIndexes
+			.Where(index => paths[index].Path != null)
+			.ToArray();
+		length  = length
+			.Where(index => paths[index].Path.ContainsKey(tile.Id))
+			.ToArray();
+		length = length
 			.Select(index => paths[index].Path[tile.Id])
 			.Where(path => path != null)
 			.Select(path => path.Length)
+			.ToArray();
+		if (length == null || length.Length == 0)
+			return int.MaxValue;
+
+		return length
 			.DefaultIfEmpty(int.MaxValue)
 			.Min();
 	}
