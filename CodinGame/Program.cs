@@ -14,7 +14,11 @@ class Player
 {
 	static void Main(string[] args)
 	{
-		var game = new Game();
+		var height = int.Parse(Console.ReadLine());
+		var width = int.Parse(Console.ReadLine());
+		var numberOfPlayers = int.Parse(Console.ReadLine());
+
+		var game = new Game(width, height, numberOfPlayers);
 		while (true)
 		{
 			game.Execute();
@@ -37,18 +41,12 @@ public class Game
 
 	int numberOfPlayers;
 	Map map;
-	char? lastDirection = null;
 	Stopwatch timer;
 	int gameTurn = 0;
-	int? targetTile = null;
-	int lastTile = 0;
 
-	public Game()
+	public Game(int width, int height, int numberOfPlayers)
 	{
-		var height = int.Parse(Console.ReadLine());
-		var width = int.Parse(Console.ReadLine());
-		numberOfPlayers = int.Parse(Console.ReadLine());
-
+		this.numberOfPlayers = numberOfPlayers;
 		map = new Map(width, height);
 		timer = new Stopwatch();
 	}
@@ -58,15 +56,16 @@ public class Game
 		try
 		{
 			gameTurn++;
+			var debugMode = true;// gameTurn >= 250;
 
 			string north = Console.ReadLine();
 			string east = Console.ReadLine();
 			string south = Console.ReadLine();
 			string west = Console.ReadLine();
 
-			const int myPlayerIndex = 4;//TODO: Is always last player?
+			int myPlayerIndex = numberOfPlayers - 1;//TODO: Is always last player?
 			var players = readPlayersFromConsole();
-			var me = players[myPlayerIndex]; 
+			var me = players[myPlayerIndex];
 			var opponents = players.Except(new[] { me });
 
 			timer.Restart();
@@ -74,24 +73,23 @@ public class Game
 			positionPlayersOnMap(players);
 			map.SetVisited(me, north, east, south, west);
 
-			if (gameTurn > 210)
+			if (gameTurn % 10 == 0)
 				map.PrintMap(players);
 
-			var direction = selectNextDirection(players, myPlayerIndex);
-			lastDirection = direction;
+			var direction = selectNextDirection(players, myPlayerIndex, debugMode);
 
-			Player.Debug("{0} ms", timer.ElapsedMilliseconds);
+			//Player.Debug("{0} ms", timer.ElapsedMilliseconds);
 			Console.WriteLine(direction);
 		}
 		catch (Exception ex)
 		{
 			Player.Debug("{0}", ex);
 			Console.WriteLine(Map.DIRECTION_WAIT);
-			throw;
+			//throw;
 		}
 	}
 
-	private char selectNextDirection(Point[] players, int myPlayerIndex)
+	private char selectNextDirection(Point[] players, int myPlayerIndex, bool debugMode)
 	{
 		//  2
 		//  .
@@ -101,145 +99,112 @@ public class Game
 
 
 		//start timer
-		// mark my position as processed so we don't try to backtrack to current position
-		//push my tile exits to queue (BFS)
-		//while queue.any() && timer < MAX_TIME (80ms?)
-		//  take tile from queue
-		//  mark the tile as processed
-		//  if my.distanceTo(tile) >= opponents.min(o=>o.distanceTo(tile)) => lowest prioqueue
-		//	else if tile is DEAD_END => low prioqueue
-		//  else if tile is VISITED => normal prioqueue
-		//	else (since tile is UNVISITED) => high prioqueue
-		//	if normal or high prioqueue => push tile.exits to queue
-		//for each prioqueue in order high to lowest
-		//  calculate score = lowest distance to opponents when I reach the tile
-		//  if tile with high score in high prioqueue has score >= MIN_SCORE (5?) (will probably automatically favor closest unvisited node)
-		//		end algorithm and walk towards the tile
-		//  else 
-		//    score += my distance to the tile
-		//    walk towards the tile with high score in prioqueue normal, low, lowest (including current tile)
-
 		var me = players[myPlayerIndex];
-		var opponents = players.Except(new[]{me}).ToArray();
-		Player.Debug("I'm at {0}", me.Index);
+		var opponents = players.Except(new[] { me }).ToArray();
+		if (debugMode) Player.Debug("I'm at {0}", Point.From(me.Index, map.Width, map.Height));
 
-		var processedNodes = new HashSet<int>(new[] { me.Index });
+		MaxiMinState bestPath = null;
+		var queue = new Queue<MaxiMinState>();
 		var nodes = nodesFrom(map);
-		var paths = players.Select(player => new Dijkstra(nodes, player.Index, player.Index)).ToArray();
-		var queue = new Queue<Dijkstra.Node>(nodes[me.Index].Neighbours.Select(x => x.Node));
-		var prioQueues = Enumerable.Range(1, 4).Select(x => new List<Tuple<Dijkstra.Node, int, int>>()).ToArray();
-		while (queue.Any() && timer.ElapsedMilliseconds<MAX_AI_TIME_MS)
+
+		// push all my exits to queue bundled with opponents current positions
+		queue.Enqueue(new MaxiMinState { Steps = new[] { me.Index }, Me = me.Index, Opponents = opponents.Select(x => x.Index).ToArray(), Score = 0 });
+		var counter = 0;
+
+		// foreach position in queue
+		while (queue.Any() && timer.ElapsedMilliseconds < MAX_AI_TIME_MS)
 		{
-			var tile = queue.Dequeue();
-			if (processedNodes.Contains(tile.Id)) continue;//Guard clause
-			processedNodes.Add(tile.Id);
-			var myDistanceToTile = paths[myPlayerIndex].Path[tile.Id].Length;
-			var opponentsDistanceToTile = shortestDistanceFor(opponents.Select(x => x.Id).ToArray(), paths, tile);
-			var queueItem = new Tuple<Dijkstra.Node, int, int>(tile, opponentsDistanceToTile, myDistanceToTile);
-			if (myDistanceToTile >= opponentsDistanceToTile)
-				prioQueues[3].Add(queueItem); //Kill-paths => lowest prioqueue
-			else if (map[tile.Id] == Map.PATH_UNVISITED)
-				prioQueues[0].Add(queueItem); //Unvisited nodes => highest prioqueue
-			else if (!tile.Neighbours.Any()) //Visited dead-ends => low prioqueue
-				prioQueues[2].Add(queueItem);
-			else //Visited with exits => normal prioqueue
+			//	position me at new position
+			counter++;
+			var state = queue.Dequeue();
+
+			var myPath = string.Join("-", state.Steps);
+
+			//  push all new exits to queue (with path) bundled with opponents new positions
+			foreach (var exit in nodes[state.Me].Neighbours.ToArray())//.Where(x => x.Cost == 1.0)
 			{
-				prioQueues[1].Add(queueItem);
-				foreach (var exit in tile.Neighbours)
-					queue.Enqueue(exit.Node);//TODO: Only if not in processedNodes hashset, or is that redundant?
-			}
-		}
-
-		if (queue.Any())
-			Player.Debug("Had to stop ai before processing entire reachable map");
-
-		Dijkstra.Node bestNode = null;
-
-		if (targetTile.HasValue && targetTile != me.Index)
-		{
-			bestNode = prioQueues[0].Where(x => x.Item1.Id == targetTile.Value).Select(x => x.Item1).FirstOrDefault();
-			if (bestNode != null)
-			{
-				Player.Debug("Staying on path to {0} ({1} steps left)", targetTile.Value, bestNode.Distance);
-			}
-			else
-			{
-				Player.Debug("Optimized destination at {0} no longer reachable.", targetTile);
-				targetTile = null;
-			}
-		}
-
-		//First try to reach a safe unvisited node
-		if (bestNode == null)
-		{
-			const int MIN_UNVISITED_SCORE = 5;
-			bestNode = prioQueues[0]
-				.OrderByDescending(x => x.Item3)
-				.Where(x => x.Item3 < MIN_UNVISITED_SCORE)
-				.Where(x => !x.Item1.Path.Contains(lastTile))
-				.Select(x => x.Item1)
-				.FirstOrDefault();
-
-			if (bestNode == null)
-			{
-				Player.Debug("None of {0} unvisited tiles are reachable within {1} moves without backtracking", prioQueues[0].Count, MIN_UNVISITED_SCORE);
-				foreach (var x in prioQueues[0])
+				if (timer.ElapsedMilliseconds >= MAX_AI_TIME_MS)
 				{
-					Player.Debug("{0}: {1} steps vs {2} steps", x.Item1, x.Item2, x.Item3);
+					Console.Error.WriteLine("Looping through exits when time is up.");
+					break; //Time is up
 				}
-				//then try to reach any visited node
-				bestNode = prioQueues[1]
-					.OrderByDescending(x => x.Item2 + x.Item3)
-					.Select(x => x.Item1)
-					.FirstOrDefault();
 
-				if (bestNode == null)
+				//if (debugMode) Console.Error.Write("{0}: Eval {1}->{2} [{3}]: ", counter, myPath, exit.Node.Id, string.Join(", ", state.Opponents));
+				if (state.Opponents.Any(x => x == exit.Node.Id))
 				{
-					Player.Debug("No visited tiles are reachable");
-					//then try to reach an unvisited node although dangerous
-					bestNode = prioQueues[0]
-						.OrderByDescending(x => x.Item2)
-						.Select(x => x.Item1)
-						.FirstOrDefault();
+					//if (debugMode) Console.Error.WriteLine("Walked into opponent");
+					continue;
+				}
 
-					if (bestNode == null)
+				//	move opponents towards my new position
+				var opponentNewPositions = new int[state.Opponents.Length];
+				for (int i = 0; i < state.Opponents.Length; i++)
+				{
+					if (timer.ElapsedMilliseconds >= MAX_AI_TIME_MS)
 					{
-						Player.Debug("No unvisited tiles are reachable at all");
-						//then fallback to walking into a dead end and hope for the best
-						bestNode = prioQueues[2]
-							.OrderByDescending(x => x.Item2 + x.Item3)
-							.Select(x => x.Item1)
-							.FirstOrDefault();
-
-						if (bestNode == null)
-						{
-							Player.Debug("No dead-end tiles are reachable");
-							//finally just walk towards near-certain death
-							bestNode = prioQueues[3]
-								.OrderByDescending(x => x.Item2 + x.Item3)
-								.Select(x => x.Item1)
-								.FirstOrDefault();
-
-							if (bestNode == null)
-							{
-								Player.Debug("BUG! Failed to find ANY path from current position!");
-								return Map.DIRECTION_WAIT;
-							}
-						}
+						Console.Error.WriteLine("Looping through opponents when time is up.");
+						break; //Time is up
 					}
+
+					var opponentPath = new Dijkstra(nodes, state.Opponents[i]);
+					var newPosition = opponentPath.GetPathTo(exit.Node.Id).Skip(1).First();
+					if (newPosition == exit.Node.Id)
+					{
+						//if (debugMode) Console.Error.WriteLine("Killed by opponent");
+						break;
+					}
+					opponentNewPositions[i] = newPosition;
 				}
+				if (opponentNewPositions.Last() == 0)
+					continue; //We were killed by opponent in inner loop or time is up
+
+
+				var score = state.Score + valueOf(map[exit.Node.Id]);
+				var newState = new MaxiMinState { Steps = state.Steps.Concat(new[] { exit.Node.Id }).ToArray(), Me = exit.Node.Id, Opponents = opponentNewPositions, Score = score };
+				if (bestPath == null || bestPath.Score < newState.Score)
+				{
+					bestPath = newState;
+					if (debugMode) Console.Error.Write("{0}: Eval {1}->{2} [{3}]: ", counter, myPath, exit.Node.Id, string.Join(", ", state.Opponents));
+					if (debugMode) Console.Error.WriteLine("Score {0}", newState.Score);
+				}
+				//else
+				//{
+				//	if (debugMode) Console.Error.WriteLine("----- {0}", newState.Score);
+				//}
+
+				queue.Enqueue(newState);
 			}
-			//else
-			//{
-			//	Player.Debug("Found {0} unvisited nodes that are reachable within 5 steps")
-			//}
-			targetTile = null;//DISABLED bestNode.Id;
+
+			//	if queue empty or time is up, break
 		}
 
-		lastTile = me.Index;
-		var nextTile = paths[myPlayerIndex].Path[bestNode.Id].Skip(1).First();
-		Player.Debug("Moving to {0} through {1}", bestNode.Id, nextTile);
+		//walk towards the best path
+		Player.Debug("Calculated {0} iterations. Best path is {1} steps.", counter, bestPath == null ? 0 : bestPath.Steps.Length);
+		var nextTile = bestPath == null || bestPath.Steps.Length < 2 ? me.Index : bestPath.Steps.Skip(1).First();
+		//if (debugMode) Player.Debug("Moving to {0} through {1}", bestPath == null ? nextTile : bestPath.Me, nextTile);
 		return map.DirectionTo(me, nextTile);
+	}
+
+	private double valueOf(char mapTile)
+	{
+		switch (mapTile)
+		{
+			case Map.UNKNOWN_SPACE: return -1;
+			case Map.PATH_UNVISITED: return 5;
+			case Map.PATH_VISITED: return 0;
+			case Map.PATH_DEADEND: return -1;
+			default:
+				throw new NotSupportedException("Can't calculate value of map tile: " + mapTile);
+		}
+	}
+
+
+	class MaxiMinState
+	{
+		public int[] Steps { get; set; }
+		public int Me { get; set; }
+		public int[] Opponents { get; set; }
+		public double Score { get; set; }
 	}
 
 	private static int shortestDistanceFor(int[] playerIndexes, Dijkstra[] paths, Dijkstra.Node tile)
@@ -249,7 +214,7 @@ public class Game
 		var length = playerIndexes
 			.Where(index => paths[index].Path != null)
 			.ToArray();
-		length  = length
+		length = length
 			.Where(index => paths[index].Path.ContainsKey(tile.Id))
 			.ToArray();
 		length = length
@@ -292,7 +257,7 @@ public class Game
 
 	private void positionPlayersOnMap(Point[] players)
 	{
-		Player.Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
+		//Player.Debug("Players at: {0}", string.Join(", ", players.Select(p => p.ToString())));
 		foreach (var player in players)
 		{
 			map.Set(player, Map.PATH_UNVISITED);
@@ -367,6 +332,12 @@ public class Point
 	{
 		return new Point(index % width, index / width, width, height);
 	}
+
+	internal int StraightDistanceTo(int index)
+	{
+		var p = Point.From(index, this.Width, this.Height);
+		return Math.Abs(p.X - this.X) + Math.Abs(p.Y - this.Y);
+	}
 }
 
 public class Map
@@ -422,6 +393,7 @@ public class Map
 		Set(Move(me, DIRECTION_EAST), east);
 		Set(Move(me, DIRECTION_SOUTH), south);
 		Set(Move(me, DIRECTION_WEST), west);
+		//TODO: if we only have one exit that is not a dead end, this is a dead end
 	}
 
 	public void Set(Point point, string type)
@@ -433,19 +405,19 @@ public class Map
 		switch (type)
 		{
 			case WALL:
-				if (this[point.Index] == PATH_UNVISITED || this[point.Index] == PATH_VISITED) 
+				if (this[point.Index] == PATH_UNVISITED || this[point.Index] == PATH_VISITED)
 					throw new ApplicationException("Tried to change room into wall");
 				break;
 			case PATH_UNVISITED:
 				if (this[point.Index] == WALL)
 					throw new ApplicationException("Tried to change wall into unvisited");
-				if (this[point.Index] != UNKNOWN_SPACE) 
+				if (this[point.Index] != UNKNOWN_SPACE)
 					return;
 				break;
 			case PATH_VISITED:
 				if (this[point.Index] == WALL)
 					throw new ApplicationException("Tried to change wall into visited");
-				if (this[point.Index] == PATH_DEADEND) 
+				if (this[point.Index] == PATH_DEADEND)
 					return;
 				break;
 			case PATH_DEADEND:
@@ -457,20 +429,20 @@ public class Map
 		this[point.Index] = type;
 	}
 
-	internal IEnumerable<char> ExploreDirection(Point me)
-	{
-		var possibleDirections = directionsTo(me, PATH_UNVISITED);
-		if (possibleDirections.Any())
-		{
-			return possibleDirections;
-		}
-		else
-		{
-			Set(me, PATH_DEADEND);
-			possibleDirections = directionsTo(me, PATH_VISITED);
-			return possibleDirections;
-		}
-	}
+	//internal IEnumerable<char> ExploreDirection(Point me)
+	//{
+	//	var possibleDirections = directionsTo(me, PATH_UNVISITED);
+	//	if (possibleDirections.Any())
+	//	{
+	//		return possibleDirections;
+	//	}
+	//	else
+	//	{
+	//		Set(me, PATH_DEADEND);
+	//		possibleDirections = directionsTo(me, PATH_VISITED);
+	//		return possibleDirections;
+	//	}
+	//}
 
 	public IEnumerable<Point> ValidExits(Point me)
 	{
@@ -533,7 +505,7 @@ public class Map
 
 	internal char DirectionTo(Point me, int targetIndex)
 	{
-		Player.Debug("I'm at {0} and want to go to {1} with width={2}", me.Index, targetIndex, me.Width);
+		Player.Debug("Moving from {0} to {1}", me.Index, targetIndex);
 		return new[] { DIRECTION_EAST, DIRECTION_SOUTH, DIRECTION_WEST, DIRECTION_NORTH, DIRECTION_WAIT }
 			.Where(d => Move(me, Point.From(d)).Index == targetIndex)
 			.First();
@@ -549,18 +521,26 @@ public class Dijkstra
 	public IDictionary<int, int[]> Path { get; private set; }
 
 	Queue<Node> unvisitedNodes = new Queue<Node>();
+	IDictionary<int, Node> nodes;
 
-	public Dijkstra(Node[] nodes, int from, int playerPosition)
+	public Dijkstra(Node[] nodes, int from, int? playerPosition = null, int? to = null)
 	{
-		var nodeDictionary = nodes.ToDictionary(x => x.Id);
-		Reset(nodeDictionary, from, playerPosition);
+		this.nodes = nodes.ToDictionary(x => x.Id);
+		Reset(from, playerPosition ?? from);
 
 		Path = new Dictionary<int, int[]>();
-		foreach (var to in nodeDictionary.Keys)
-			Path.Add(to, PathTo(nodeDictionary, to));
+		if (to.HasValue)
+		{
+			Path.Add(to.Value, PathTo(to.Value));
+		}
+		//else
+		//{
+		//	foreach (var toKey in nodeDictionary.Keys)
+		//		Path.Add(toKey, PathTo(nodeDictionary, toKey));
+		//}
 	}
 
-	private void Reset(IDictionary<int, Node> nodes, int from, int playerPosition)
+	private void Reset(int from, int playerPosition)
 	{
 		foreach (var node in nodes.Values)
 		{
@@ -578,7 +558,14 @@ public class Dijkstra
 		unvisitedNodes.Enqueue(nodes[from]);
 	}
 
-	private int[] PathTo(IDictionary<int, Node> nodes, int to)
+	public int[] GetPathTo(int to)
+	{
+		if (!Path.ContainsKey(to))
+			Path.Add(to, PathTo(to));
+		return Path[to];
+	}
+
+	private int[] PathTo(int to)
 	{
 		if (!nodes.ContainsKey(to))
 			return null;//No paths to the destination at all
