@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -14,35 +15,20 @@ class Solution
 	static void Main(string[] args)
 	{
 		string[] inputs = Console.ReadLine().Split(' ');
-		//Console.Error.WriteLine(string.Join(" ", inputs));
 
 		int W = int.Parse(inputs[0]);
 		int H = int.Parse(inputs[1]);
 		string IMAGE = Console.ReadLine();
-		//Console.Error.WriteLine(IMAGE.Length);
-		//Console.Error.WriteLine(IMAGE);
-
 		var scores = decodeDWE(IMAGE, W, H);
-		Console.Error.WriteLine(scores.Content.Length);
+		log(scores.Content.Length);
 
 		var notes = enumerate(scores);
 		Console.WriteLine(string.Join(" ", notes.Select(note => note.ToString())));
 
-		// Write an action using Console.WriteLine()
-		// To debug: Console.Error.WriteLine("Debug messages...");
+
 
 		Console.ReadLine();
 	}
-
-	//public static void print(Bitmap bitmap)
-	//{
-	//	for (var y = 0; y < bitmap.Height; y++)
-	//	{
-	//		var row = bitmap.Content.Skip(y * bitmap.Width).Take(bitmap.Width);
-	//		var bitsAsChar = row.Select(x => x ? "*" : ".");
-	//		Console.Error.WriteLine(string.Join("", bitsAsChar));
-	//	}
-	//}
 
 	public static Bitmap decodeDWE(string image, int width, int height)
 	{
@@ -64,60 +50,92 @@ class Solution
 
 	public static IEnumerable<Note> enumerate(Bitmap bitmap)
 	{
-		var x = 0;
-		//Console.Error.WriteLine("Skipping to start of staffs");
-		while (!bitmap.Column(x).Any(pixel => pixel == true))
-			x++;
-
-		Console.Error.WriteLine("Staffs found at {0}.", x);
+		//log("Skipping to start of staffs");
+		var x = findStartOfStaffs(bitmap);
 
 		var outsideStaffIndexes = staffPositions(bitmap.Column(x).ToArray());
-		Console.Error.WriteLine("Staff indexes: {0}", string.Join(", ", outsideStaffIndexes));
-		var staffCenters = centersOf(outsideStaffIndexes);
-		var staffHeights = heighsOf(staffCenters.ToArray());
+		log("Staff indexes: {0}", string.Join(", ", outsideStaffIndexes));
+		eraseStaffs(bitmap, outsideStaffIndexes);
 
+		var staffThickness = outsideStaffIndexes[1] - outsideStaffIndexes[0];
+		var staffDistance = outsideStaffIndexes[2] - outsideStaffIndexes[0];
+		log("Staff heights: {0}", staffDistance);
+		var notePositions = getNotePositions(outsideStaffIndexes).ToArray();
 		while (x < bitmap.Width)
 		{
+			//log("x={0}", x);
 			var column = bitmap.Column(x).ToArray();
-			var noteIndexes = startOfNote(column, outsideStaffIndexes);
-			if (noteIndexes != null)
+			var centerY = verticalCenterOfNote(column, staffDistance);
+			if (centerY.HasValue)
 			{
-				var noteIsBetweenLines = outsideStaffIndexes.ToList().IndexOf(noteIndexes.First()) % 2 == 1;
-				Console.Error.WriteLine("Found note at: {0}. Between lines: {1}", string.Join(", ", noteIndexes), noteIsBetweenLines);
-
-				var centerX = false ? x : x + staffHeights / 2;
-				var centerY = noteIndexes.Sum() / 2;
-				var duration = durationAt(bitmap, centerX, centerY);
-				var pitch = pitchAt(centerY, outsideStaffIndexes);
+				var centerX = x + staffDistance / 2;
+				log("Found note at: ({0}, {1})", centerX, centerY);
+				var duration = durationAt(bitmap, centerX, centerY.Value + staffThickness);
+				var pitch = pitchAt(centerY.Value, notePositions);
 				yield return new Note { Pitch = pitch, Duration = duration };
 
 				//Step out of note
-				x += staffHeights;
+				x += staffDistance;
 			}
 			x++;
 		}
 	}
 
+	private static IEnumerable<int> getNotePositions(int[] outsideStaffIndexes)
+	{
+		return outsideStaffIndexes
+			.Skip(1)
+			.Select((y, index) => (y + outsideStaffIndexes[index]) / 2);
+	}
+
+	private static void eraseStaffs(Bitmap bitmap, int[] outsideStaffIndexes)
+	{
+		for (int i = 0; i < outsideStaffIndexes.Length; i += 2)
+		{
+			var y1 = outsideStaffIndexes[i];
+			var y2 = outsideStaffIndexes[i + 1];
+			log("Erasing staff between {0} - {1}", y1, y2);
+			for (var x = 0; x < bitmap.Width; x++)
+			{
+				for (var y = y1; y < y2; y++)
+				{
+					bitmap[x, y] = false;
+				}
+			}
+		}
+	}
+
+	private static int findStartOfStaffs(Bitmap bitmap)
+	{
+		var x = 0;
+		while (!bitmap.Column(x).Any(pixel => pixel == true))
+		{
+			x++;
+		}
+		log("Staffs found at {0}.", x);
+		return x;
+	}
+
 	private static NoteDuration durationAt(Bitmap bitmap, int centerX, int centerY)
 	{
 		var isBlackNote = bitmap[centerX, centerY];
-		Console.Error.WriteLine("Black note? at ({0}, {1})", centerX, centerY);
+		log("Black note? at ({0}, {1})", centerX, centerY);
 		return isBlackNote ? NoteDuration.Q : NoteDuration.H;
 	}
 
-	private static char pitchAt(int centerY, int[] outsideStaffIndexes)
+	private static char pitchAt(int centerY, int[] notePositions)
 	{
-		var staffIndex = outsideStaffIndexes
-			.Select((y, index) => new { y, index })
-			.Where(grp => grp.y > centerY)
-			.Select(grp => grp.index)
+		var noteIndex = notePositions
+			.Select((y, index) => new { index = index, distance = Math.Abs(y - centerY) })
+			.OrderBy(x => x.distance)
+			.Select(x => x.index)
 			.First();
-		return new[] { '?', 'F', 'E', 'D', 'C', 'B', 'A', 'G', 'F', 'E', 'D', 'C' }[staffIndex];
+		return new[] { 'F', 'E', 'D', 'C', 'B', 'A', 'G', 'F', 'E', 'D', 'C' }[noteIndex];
 	}
 
 	private static int heighsOf(int[] staffCenters)
 	{
-		Console.Error.WriteLine("HeightOf: {0}", string.Join(", ", staffCenters));
+		log("HeightOf: {0}", string.Join(", ", staffCenters));
 		var heights = staffCenters.Skip(1).Select((y, index) => y - staffCenters[index]).ToArray();
 		return heights.Sum() / heights.Length;
 	}
@@ -130,12 +148,19 @@ class Solution
 		}
 	}
 
-	private static int[] startOfNote(bool[] column, int[] staffIndexes)
+	private static int? verticalCenterOfNote(bool[] column, int staffHeights)
 	{
-		var noteIndexes = staffIndexes.Select(index => column[index] ? index : -1).Where(index => index >= 0).ToArray();
-		if (noteIndexes.Length != 2)
+		var numberOfPixelsSet = column.Where(px => px == true).Count();
+		if (numberOfPixelsSet == 0) //Skip empty columns
 			return null;
-		return noteIndexes;
+		log("Found {0} pixels", numberOfPixelsSet);
+		if (numberOfPixelsSet > staffHeights) // note tails
+			return null;
+
+		log("Identifying center of note");
+		var setPixelsInColumn = column.Select((set, y) => new { set = set, y = y }).Where(x => x.set).Select(x => x.y);
+		var centerY = setPixelsInColumn.Average();
+		return (int)centerY;
 	}
 
 	private static int[] staffPositions(bool[] column)
@@ -155,6 +180,23 @@ class Solution
 
 		return outsideStaffIndexes.ToArray();
 	}
+
+	static void log(object arg)
+	{
+		log("{0}", arg);
+	}
+	static void log(string format, params object[] args)
+	{
+		if (logTimer == null)
+		{
+			logTimer = new Stopwatch();
+			logTimer.Start();
+		}
+		Console.Error.Write(logTimer.ElapsedMilliseconds);
+		Console.Error.Write(" ms: ");
+		Console.Error.WriteLine(format, args);
+	}
+	static Stopwatch logTimer = null;
 }
 
 class Note
