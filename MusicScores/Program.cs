@@ -32,11 +32,11 @@ class Solution
 
 	public static Bitmap decodeDWE(string image, int width, int height)
 	{
-		var bits = AllBitsIn(image).ToArray();
+		var bits = allBitsIn(image).ToArray();
 		return new Bitmap(width, height, bits);
 	}
 
-	public static IEnumerable<bool> AllBitsIn(string image)
+	public static IEnumerable<bool> allBitsIn(string image)
 	{
 		var parts = image.Split(' ');
 		for (var index = 0; index < parts.Length; index += 2)
@@ -161,7 +161,10 @@ class Solution
 			}
 		}
 
-		//TODO: Add virtual staff for C
+		//Add virtual staff for C
+		var topOfVirtualBar = outsideStaffIndexes.Last() + (outsideStaffIndexes[2] - outsideStaffIndexes[1]);
+		var bottomOfVirtualBar = topOfVirtualBar + (outsideStaffIndexes[1] - outsideStaffIndexes[0]);
+		outsideStaffIndexes.AddRange(new[] { topOfVirtualBar, bottomOfVirtualBar });
 
 		return outsideStaffIndexes.ToArray();
 	}
