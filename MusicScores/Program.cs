@@ -64,37 +64,55 @@ class Solution
 		while (x < bitmap.Width)
 		{
 			//log("x={0}", x);
-			var column = bitmap.Column(x).ToArray();
-			var centerY = verticalCenterOfNote(column, staffDistance);
-			if (centerY.HasValue)
+			var noteBounds = noteBoundsAt(bitmap, x, staffDistance);
+			if (noteBounds != null)
 			{
-				var centerX = x + staffDistance / 2;
-				log("At {2}; Found note at: ({0}, {1})", centerX, centerY, x);
-				var duration = durationAt(bitmap, centerX, centerY.Value + staffThickness);
-				var pitch = pitchAt(centerY.Value, notePositions);
+				var centerX = (noteBounds.X1 + noteBounds.X2) / 2;
+				var centerY = (noteBounds.Y1 + noteBounds.Y2) / 2;
+				log("At {2}-{3}; Found note at: ({0}, {1})", centerX, centerY, noteBounds.X1, noteBounds.X2);
+
+				var duration = durationAt(bitmap, centerX, centerY + staffThickness);
+				var pitch = pitchAt(centerY, notePositions);
 				yield return new Note { Pitch = pitch, Duration = duration };
 
-				x = endOfNote(bitmap, x);
+				x = noteBounds.X2;
 				log("Skipping to end of note at {0}", x);
 			}
+
 			x++;
 		}
 	}
 
-	private static int endOfNote(Bitmap bitmap, int x)
+	private static Rectangle noteBoundsAt(Bitmap bitmap, int x, int staffDistance)
 	{
+		int? minY = null, maxY = null;
+		var endX = x;
 		do
 		{
-			x++;
-		} while (bitmap.Column(x).Any(px => px == true));
-		return x;
+			var yMinMax = noteTopBottomAt(bitmap.Column(endX).ToArray(), staffDistance);
+			if (yMinMax == null)
+				break;
+
+			if (!minY.HasValue || minY > yMinMax.Item1) minY = yMinMax.Item1;
+			if (!maxY.HasValue || maxY < yMinMax.Item2) maxY = yMinMax.Item2;
+
+			endX++;
+		} while (true);
+
+		if (!minY.HasValue)
+			return null;
+
+		return new Rectangle { X1 = x, Y1 = minY.Value, X2 = endX, Y2 = maxY.Value };
 	}
 
 	private static IEnumerable<int> getNotePositions(int[] outsideStaffIndexes)
 	{
-		return outsideStaffIndexes
-			.Skip(1)
-			.Select((y, index) => (y + outsideStaffIndexes[index]) / 2);
+		var noteDistance = (outsideStaffIndexes[2] - outsideStaffIndexes[0]) / 2;
+		return new[] { outsideStaffIndexes.First() - noteDistance }
+			.Concat(outsideStaffIndexes
+				.Skip(1)
+				.Select((y, index) => (y + outsideStaffIndexes[index]) / 2)
+			);
 	}
 
 	private static void eraseStaffs(Bitmap bitmap, int[] outsideStaffIndexes)
@@ -139,22 +157,19 @@ class Solution
 			.OrderBy(x => x.distance)
 			.Select(x => x.index)
 			.First();
-		return new[] { 'F', 'E', 'D', 'C', 'B', 'A', 'G', 'F', 'E', 'D', 'C' }[noteIndex];
+		return new[] { 'G', 'F', 'E', 'D', 'C', 'B', 'A', 'G', 'F', 'E', 'D', 'C' }[noteIndex];
 	}
 
-	private static int? verticalCenterOfNote(bool[] column, int staffHeights)
+	private static Tuple<int,int> noteTopBottomAt(bool[] column, int staffHeights)
 	{
 		var numberOfPixelsSet = column.Where(px => px == true).Count();
 		if (numberOfPixelsSet == 0) //Skip empty columns
 			return null;
-		//log("Found {0} pixels", numberOfPixelsSet);
 		if (numberOfPixelsSet > staffHeights) // note tails
 			return null;
 
-		//log("Identifying center of note");
 		var setPixelsInColumn = column.Select((set, y) => new { set = set, y = y }).Where(x => x.set).Select(x => x.y);
-		var centerY = setPixelsInColumn.Average();
-		return (int)centerY;
+		return new Tuple<int, int>(setPixelsInColumn.Min(), setPixelsInColumn.Max());
 	}
 
 	private static int[] staffPositions(bool[] column)
@@ -211,6 +226,14 @@ enum NoteDuration
 {
 	H,	//Half
 	Q	//Quarter
+}
+
+class Rectangle
+{
+	public int X1 { get; set; }
+	public int Y1 { get; set; }
+	public int X2 { get; set; }
+	public int Y2 { get; set; }
 }
 
 class Bitmap
