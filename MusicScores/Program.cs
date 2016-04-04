@@ -133,21 +133,6 @@ class Solution
 		return new[] { 'F', 'E', 'D', 'C', 'B', 'A', 'G', 'F', 'E', 'D', 'C' }[noteIndex];
 	}
 
-	private static int heighsOf(int[] staffCenters)
-	{
-		log("HeightOf: {0}", string.Join(", ", staffCenters));
-		var heights = staffCenters.Skip(1).Select((y, index) => y - staffCenters[index]).ToArray();
-		return heights.Sum() / heights.Length;
-	}
-
-	private static IEnumerable<int> centersOf(int[] outsideStaffIndexes)
-	{
-		for (var i = 0; i < outsideStaffIndexes.Length; i+=2)
-		{
-			yield return (outsideStaffIndexes[i] + outsideStaffIndexes[i + 1]) / 2;
-		}
-	}
-
 	private static int? verticalCenterOfNote(bool[] column, int staffHeights)
 	{
 		var numberOfPixelsSet = column.Where(px => px == true).Count();
