@@ -69,16 +69,25 @@ class Solution
 			if (centerY.HasValue)
 			{
 				var centerX = x + staffDistance / 2;
-				log("Found note at: ({0}, {1})", centerX, centerY);
+				log("At {2}; Found note at: ({0}, {1})", centerX, centerY, x);
 				var duration = durationAt(bitmap, centerX, centerY.Value + staffThickness);
 				var pitch = pitchAt(centerY.Value, notePositions);
 				yield return new Note { Pitch = pitch, Duration = duration };
 
-				//Step out of note
-				x += staffDistance;
+				x = endOfNote(bitmap, x);
+				log("Skipping to end of note at {0}", x);
 			}
 			x++;
 		}
+	}
+
+	private static int endOfNote(Bitmap bitmap, int x)
+	{
+		do
+		{
+			x++;
+		} while (bitmap.Column(x).Any(px => px == true));
+		return x;
 	}
 
 	private static IEnumerable<int> getNotePositions(int[] outsideStaffIndexes)
@@ -119,7 +128,7 @@ class Solution
 	private static NoteDuration durationAt(Bitmap bitmap, int centerX, int centerY)
 	{
 		var isBlackNote = bitmap[centerX, centerY];
-		log("Black note? at ({0}, {1})", centerX, centerY);
+		//log("Black note? at ({0}, {1})", centerX, centerY);
 		return isBlackNote ? NoteDuration.Q : NoteDuration.H;
 	}
 
@@ -138,11 +147,11 @@ class Solution
 		var numberOfPixelsSet = column.Where(px => px == true).Count();
 		if (numberOfPixelsSet == 0) //Skip empty columns
 			return null;
-		log("Found {0} pixels", numberOfPixelsSet);
+		//log("Found {0} pixels", numberOfPixelsSet);
 		if (numberOfPixelsSet > staffHeights) // note tails
 			return null;
 
-		log("Identifying center of note");
+		//log("Identifying center of note");
 		var setPixelsInColumn = column.Select((set, y) => new { set = set, y = y }).Where(x => x.set).Select(x => x.y);
 		var centerY = setPixelsInColumn.Average();
 		return (int)centerY;
