@@ -107,6 +107,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MusicScores", "MusicScores\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Resistance", "Resistance\Resistance.csproj", "{DC242BE9-1CAA-4B0F-B53E-1388F3EBC432}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NintendoChallenge", "NintendoChallenge\NintendoChallenge.csproj", "{D16B874C-A60F-4BE7-B8D3-CB19A7D94D80}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -305,6 +307,10 @@ Global
 		{DC242BE9-1CAA-4B0F-B53E-1388F3EBC432}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DC242BE9-1CAA-4B0F-B53E-1388F3EBC432}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DC242BE9-1CAA-4B0F-B53E-1388F3EBC432}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D16B874C-A60F-4BE7-B8D3-CB19A7D94D80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D16B874C-A60F-4BE7-B8D3-CB19A7D94D80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D16B874C-A60F-4BE7-B8D3-CB19A7D94D80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D16B874C-A60F-4BE7-B8D3-CB19A7D94D80}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
