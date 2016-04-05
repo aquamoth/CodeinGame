@@ -11,10 +11,31 @@ namespace NintendoChallenge
         static void Main(string[] args)
         {
             testEncoder();
-            encode(args);
 
+            //writeEncode(args);
+
+            writeEncode(new[] { "32", "e5", "83" });
+            //writeEncode(new[] { "32", "00000000", "00000000" });
+            //writeEncode(new[] { "32", "00000000", "00000001" });
+            //writeEncode(new[] { "32", "00000001", "00000001" });
+            //writeEncode(new[] { "32", "00000001", "00000000" });
+
+            //writeEncode(new[] { "32", "00000011", "00000001" });
+            //writeEncode(new[] { "32", "00000011", "00000010" });
+            //writeEncode(new[] { "32", "00000011", "00000011" });
+            //writeEncode(new[] { "32", "11000011", "00000010" });
+            //writeEncode(new[] { "32", "11000011", "00000100" });
+            ////writeEncode(new[] { "16", "00010001", "00000010" });
+            ////writeEncode(new[] { "16", "00010001", "01010101" });
+            ////writeEncode(new[] { "32", "ffffffff", "ffffffff" });
 
             Console.ReadLine();
+        }
+
+        static void writeEncode(string[] args)
+        {
+            Console.Write(string.Join(" ", args) + ": ");
+            encode(args);
         }
 
         static void encode(string[] args)
