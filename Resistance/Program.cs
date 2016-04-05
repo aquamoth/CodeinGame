@@ -16,24 +16,22 @@ class Solution
         log("Started");
 
         string morseMessage = Console.ReadLine();
-        log(morseMessage.Length.ToString());
+        //log(morseMessage);
 
-        var dictionaryRoot = new TreeNode(0);
-        //var dictionary = new List<string>();
+        var dictionaryRoot = new TreeNode<string>(0);
         int N = int.Parse(Console.ReadLine());
+        //log(N.ToString());
         for (int i = 0; i < N; i++)
         {
             string W = Console.ReadLine();
-            //dictionary.Add(W);
-            dictionaryRoot.Add(W);
             //log(W);
+            dictionaryRoot.Add(W, W);
         }
         log("Dictionary of {0} words", N);
-        //var dictionaryRoot = treeOf(dictionary);
 
 
         var stack = new Stack<ParseState>();
-        stack.Push(new ParseState(0, dictionaryRoot, ""));
+        stack.Push(new ParseState(0, dictionaryRoot, Morse));
 
         var counter = 0;
         var lastTimer = 0L;
@@ -55,7 +53,7 @@ class Solution
 
                 //We reached the end of the morse message. 
                 // If we don't look at a partial word at this case, we have successfully deciphered the message
-                if (!state.DictionaryPosition.IsRoot && state.PartialMorse == "")
+                if (state.Dictionary.IsRoot && state.Morse.IsRoot)
                 {
                     //log("Found successful deciper");
                     successfullMessagesCounter++;
@@ -64,11 +62,10 @@ class Solution
             else
             {
                 var nextMorseToken = morseMessage[state.Index];
-                var morseLetter = state.PartialMorse + nextMorseToken;
-                if (MorseAlphabeth.Contains(morseLetter))
+                if (state.Morse.Children.ContainsKey(nextMorseToken))
                 {
                     //Test composit morse token as a morse letter
-                    foreach (var newState in testFor(morseLetter, state, dictionaryRoot))
+                    foreach (var newState in testFor(nextMorseToken, state, dictionaryRoot))
                     {
                         //log("Saving state: {0}", newState);
                         stack.Push(newState);
@@ -80,107 +77,84 @@ class Solution
         Console.WriteLine(successfullMessagesCounter);
         Console.ReadLine();
     }
-
-    //private static TreeNode treeOf(IEnumerable<string> dictionary)
-    //{
-    //    var tree = new TreeNode(0);
-    //    foreach(var word in dictionary)
-    //    {
-    //        var walker = tree;
-    //        for (var i = 0; i < word.Length; i++)
-    //        {
-    //            var letter = word[i];
-
-    //            if (!walker.Children.ContainsKey(letter))
-    //                walker.Children.Add(letter, new TreeNode(walker.Level) { Letter = letter });
-    //            walker = walker.Children[letter];
-
-    //            if (i == word.Length - 1)
-    //                walker.IsWord = true;
-    //        }
-    //    }
-    //    return tree;
-    //}
-
-
-    private static IEnumerable<ParseState> testFor(string morseLetter, ParseState state, TreeNode dictionaryRoot)
+    
+    private static IEnumerable<ParseState> testFor(char nextMorseCode, ParseState state, TreeNode<string> dictionaryRoot)
     {
-        var letterIndex = MorseAlphabeth.IndexOf(morseLetter);
-        //if (letterIndex == -1)
-        //    throw new ApplicationException();
+        var nextMorse = state.Morse.Children[nextMorseCode];
 
         //Test even longer instances of the composit morse token
-        yield return new ParseState(state.Index + 1, state.DictionaryPosition, morseLetter);
+        yield return new ParseState(state.Index + 1, state.Dictionary, nextMorse);
 
-        var letter = ASCIIEncoding.Default.GetString(new[] { (byte)(65 + letterIndex) })[0];
+        var letter = nextMorse.Value;
         //log("Testing morse letter: {0} = {1}", morseLetter, letter);
 
         //Does any words in the dictionary start with the part we are testing?
         //var word = state.PartialWord + letter;
-        if (state.DictionaryPosition.Children.ContainsKey(letter))
+        if (state.Dictionary.Children.ContainsKey(letter))
         {
-            var subTree = state.DictionaryPosition.Children[letter];
+            var subTree = state.Dictionary.Children[letter];
 
             //Keep decoding with the found word
-            yield return new ParseState(state.Index + 1, subTree, "");
+            yield return new ParseState(state.Index + 1, subTree, Morse);
 
             //If we found an exact word, we also try decoding the rest as a new word
-            if (subTree.IsWord)
+            if (subTree.Value != null)
             {
-                //log("Word!");
-                yield return new ParseState(state.Index + 1, dictionaryRoot, "");
+                //log("{0}", subTree.Value);
+                yield return new ParseState(state.Index + 1, dictionaryRoot, Morse);
             }
         }
     }
 
-
-
-
-    class TreeNode
+    private static char LetterAt(int letterIndex)
     {
-        public char? Letter { get; set; }
-        public bool IsWord { get; set; }
-        public int Level { get; private set; }
-        public IDictionary<char, TreeNode> Children { get; set; }
-        public bool IsRoot { get { return !Letter.HasValue; } }
+        return ASCIIEncoding.Default.GetString(new[] { (byte)(65 + letterIndex) })[0];
+    }
 
-        public void Add(string word)
+    class TreeNode<T>
+    {
+        public T Value { get; set; }
+        public int Level { get; private set; }
+        public IDictionary<char, TreeNode<T>> Children { get; set; }
+        public bool IsRoot { get { return Level == 0; } }
+
+        public void Add(string word, T value)
         {
-            if (string.IsNullOrEmpty(word))
+            if (word.Length == 0)
             {
-                this.IsWord = true;
+                this.Value = value;
             }
             else
             {
                 if (!Children.ContainsKey(word[0]))
-                    Children.Add(word[0], new TreeNode(this.Level + 1) { Letter = word[0] });
-                Children[word[0]].Add(word.Substring(1));
+                    Children.Add(word[0], new TreeNode<T>(this.Level + 1));
+                Children[word[0]].Add(word.Substring(1), value);
             }
         }
 
         public TreeNode(int level)
         {
             Level = level;
-            Children = new Dictionary<char, TreeNode>();
+            Children = new Dictionary<char, TreeNode<T>>();
         }
     }
 
     class ParseState
     {
         public int Index { get; private set; }
-        public TreeNode DictionaryPosition { get; private set; }
-        public string PartialMorse { get; private set; }
+        public TreeNode<string> Dictionary { get; private set; }
+        public TreeNode<char> Morse { get; private set; }
 
         public override string ToString()
         {
-            return string.Format("Index={0}, Word={1}, Morse={2}", Index, DictionaryPosition.Letter, PartialMorse);
+            return string.Format("Index={0}, Word={1}, Morse={2}", Index, Dictionary.Level, Morse.Level);
         }
 
-        public ParseState(int index, TreeNode tree, string morse)
+        public ParseState(int index, TreeNode<string> dictionary, TreeNode<char> morse)
         {
             Index = index;
-            PartialMorse = morse;
-            DictionaryPosition = tree;
+            Dictionary = dictionary;
+            Morse = morse;
         }
     }
 
@@ -195,24 +169,22 @@ class Solution
     }
     static System.Diagnostics.Stopwatch logTimer = null;
 
-    static TreeNode Morse
+    static TreeNode<char> Morse
     {
         get
         {
             if (_morse == null)
             {
                 log("Calculating Morse Tree");
-                _morse = new TreeNode(0);
-
-                foreach (var letter in MorseAlphabeth)
+                var morseCodes = new[] { ".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.." };
+                _morse = new TreeNode<char>(0);
+                for (var i = 0; i < morseCodes.Length; i++)
                 {
-                    _morse.Add(letter);
+                    _morse.Add(morseCodes[i], LetterAt(i));
                 }
             }
             return _morse;
         }
     }
-    static TreeNode _morse = null;
-
-    static List<string> MorseAlphabeth = new List<string>(new[] { ".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.." });
+    static TreeNode<char> _morse = null;
 }
