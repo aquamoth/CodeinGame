@@ -54,21 +54,24 @@ namespace NintendoChallenge
             ////writeEncode(new[] { "16", "00010001", "01010101" });
             ////writeEncode(new[] { "32", "ffffffff", "ffffffff" });
 
-            Console.WriteLine("WriteEncode");
-            writeEncode(new[] { "32", "80000000", "80000000" });
-            writeEncode(new[] { "32", "80000000", "40000000" });
-            writeEncode(new[] { "32", "40000000", "80000000" });
-            writeEncode(new[] { "32", "80000000", "c0000000" });
-            writeEncode(new[] { "32", "c0000000", "80000000" });
+            //Console.WriteLine("WriteEncode");
+            //writeEncode(new[] { "32", "80000000", "80000000" });
+            //writeEncode(new[] { "32", "80000000", "40000000" });
+            //writeEncode(new[] { "32", "40000000", "80000000" });
+            //writeEncode(new[] { "32", "80000000", "c0000000" });
+            //writeEncode(new[] { "32", "c0000000", "80000000" });
 
-            Console.WriteLine("Trying to decode 30: ");
-            writeDecode("00000000", "40000000");
 
-            Console.WriteLine("Trying to decode 29: ");
-            writeDecode("00000000", "20000000");
-
+            //Console.WriteLine("Trying to decode 30: ");
+            //writeDecode("00000000", "40000000");
+            //Console.WriteLine("Trying to decode 29: ");
+            //writeDecode("00000000", "20000000");
             //Console.WriteLine("Trying to decode 28: ");
             //writeDecode("00000000", "10000000");
+            for (int i = 30; i >= 0; i--)
+            {
+                writeDecode("00000000", uintToHex((uint)1 << i));
+            }
 
             Console.ReadLine();
         }
@@ -95,7 +98,7 @@ namespace NintendoChallenge
 
             //For each bit in msb
             //Bit 31 can never be set!
-            for (int bit = 30; bit >= 29; bit--)
+            for (int bit = 30; bit >= 0; bit--)
             {
                 var mask = ((uint)1 << bit);
                 var expectedBitValue = msb & mask;
