@@ -56,11 +56,27 @@ namespace NintendoChallenge
 
             Console.WriteLine("WriteEncode");
             writeEncode(new[] { "32", "80000000", "80000000" });
+            writeEncode(new[] { "32", "80000000", "40000000" });
+            writeEncode(new[] { "32", "40000000", "80000000" });
+            writeEncode(new[] { "32", "80000000", "c0000000" });
+            writeEncode(new[] { "32", "c0000000", "80000000" });
 
-            Console.WriteLine("Trying to decode");
-            decode("00000000", "40000000");
+            Console.WriteLine("Trying to decode 30: ");
+            writeDecode("00000000", "40000000");
+
+            Console.WriteLine("Trying to decode 29: ");
+            writeDecode("00000000", "20000000");
+
+            //Console.WriteLine("Trying to decode 28: ");
+            //writeDecode("00000000", "10000000");
 
             Console.ReadLine();
+        }
+
+        static void writeDecode(params string[] args)
+        {
+            Console.WriteLine(string.Join(" ", args) + " => ");
+            decode(args);
         }
 
         static void decode(params string[] args)
@@ -68,9 +84,7 @@ namespace NintendoChallenge
             var u = hexToUInt(args);
             foreach (var result in centurianDecoder(u[0], u[1]))
             {
-                Console.WriteLine(string.Join(" ", uintToHex(result)));
-
-                Console.WriteLine("Reencoding result:");
+                Console.Write(string.Join(" ", uintToHex(result)) + " => ");
                 encode(new[] { "32" }.Concat(uintToHex(result)).ToArray());
             }
         }
@@ -81,21 +95,26 @@ namespace NintendoChallenge
 
             //For each bit in msb
             //Bit 31 can never be set!
-            for (int bit = 30; bit >= 30; bit--)
+            for (int bit = 30; bit >= 29; bit--)
             {
                 var mask = ((uint)1 << bit);
                 var expectedBitValue = msb & mask;
                 if (expectedBitValue != 0)
                 {
+                    var newSolutions = new List<uint[]>();
                     foreach (var solution in solutions)
                     {
                         //Find all ways to manipulate the solution to solve for this bit
-                        for (int j = 0; j < 1; j++)
+                        for (int j = 0; j < (31-bit); j++)
                         {
-                            solution[0] |= ((uint)1 << 31);
-                            solution[1] |= ((uint)1 << 31);
+                            var mask0 = (uint)1 << (31 - j);
+                            var mask1 = (uint)1 << (bit + 1 + j);
+                            var v0 = solution[0] | mask0;
+                            var v1 = solution[1] | mask1;
+                            newSolutions.Add(new[] { v0, v1 });
                         }
                     }
+                    solutions = newSolutions;
                 }
             }
 
@@ -104,7 +123,7 @@ namespace NintendoChallenge
 
         static void writeEncode(string[] args)
         {
-            Console.Write(string.Join(" ", args) + ": ");
+            Console.Write(string.Join(" ", args) + " => ");
             encode(args);
         }
 
