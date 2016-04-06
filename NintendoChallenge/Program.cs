@@ -62,16 +62,15 @@ namespace NintendoChallenge
             //writeEncode(new[] { "32", "c0000000", "80000000" });
 
 
-            //Console.WriteLine("Trying to decode 30: ");
-            //writeDecode("00000000", "40000000");
-            //Console.WriteLine("Trying to decode 29: ");
-            //writeDecode("00000000", "20000000");
-            //Console.WriteLine("Trying to decode 28: ");
-            //writeDecode("00000000", "10000000");
-            for (int i = 30; i >= 0; i--)
-            {
-                writeDecode("00000000", uintToHex((uint)1 << i));
-            }
+            //for (int i = 30; i >= 0; i--)
+            //{
+            //    writeDecode("00000000", uintToHex((uint)1 << i));
+            //}
+            //for (int i = 31; i >= 30; i--)
+            //{
+            //    writeDecode(uintToHex((uint)1 << i), "00000000");
+            //}
+            writeDecode("c0000000", "00000000");
 
             Console.ReadLine();
         }
@@ -108,10 +107,31 @@ namespace NintendoChallenge
                     foreach (var solution in solutions)
                     {
                         //Find all ways to manipulate the solution to solve for this bit
-                        for (int j = 0; j < (31-bit); j++)
+                        newSolutions.AddRange(flipMsbBitIn(solution, bit));
+                    }
+                    solutions = newSolutions;
+                }
+            }
+
+
+            //For each bit in lsb
+            for (int bit = 31; bit >= 0; bit--)
+            {
+                var mask = ((uint)1 << bit);
+                var expectedBitValue = lsb & mask;
+                if (expectedBitValue != 0)
+                {
+                    var newSolutions = new List<uint[]>();
+                    foreach (var solution in solutions)
+                    {
+                        //Find all ways to manipulate the solution to solve for this bit
+                        for (int j = 0; j <= bit; j++)
                         {
-                            var mask0 = (uint)1 << (31 - j);
-                            var mask1 = (uint)1 << (bit + 1 + j);
+                            var mask0 = (uint)1 << j;
+                            var mask1 = (uint)1 << (bit - j);
+
+                            //TODO: What side-effects would this incur? Find remedies for all before accepting this as an answer
+
                             var v0 = solution[0] | mask0;
                             var v1 = solution[1] | mask1;
                             newSolutions.Add(new[] { v0, v1 });
@@ -122,6 +142,18 @@ namespace NintendoChallenge
             }
 
             return solutions;
+        }
+
+        private static IEnumerable<uint[]> flipMsbBitIn(uint[] solution, int msbBit)
+        {
+            for (int j = 0; j < (31 - msbBit); j++)
+            {
+                var mask0 = (uint)1 << (31 - j);
+                var mask1 = (uint)1 << (msbBit + 1 + j);
+                var v0 = solution[0] | mask0;
+                var v1 = solution[1] | mask1;
+                yield return new[] { v0, v1 };
+            }
         }
 
         static void writeEncode(string[] args)
