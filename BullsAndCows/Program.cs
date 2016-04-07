@@ -34,54 +34,57 @@ class Solution
             Console.Error.WriteLine("guess {0} == {1} bulls + {2} cows", inputs[0], bulls, cows);
 
             validValues = validValues.SelectMany(possibility => 
-                solve(possibility, allPositions, guess, bulls, cows)
+                solve(possibility, guess, bulls, cows, NUMBER_OF_POSITIONS - 1)
             ).ToList();
+
+            logSolutions(validValues);
         }
 
+        var solution = string.Join("", validValues.Single().Select(x => x.Single()).ToArray());
+        Console.WriteLine(solution);
+        Console.ReadLine();
     }
 
-    static IEnumerable<int[][]> solve(int[][] validValues, int[] positionsToSolve, int[] guess, int bulls, int cows)
+    static IEnumerable<int[][]> solve(int[][] validValues, int[] guess, int bulls, int cows, int position)
     {
-        if (!positionsToSolve.Any())
+        if (bulls > 0)
         {
-            yield return Enumerable.Repeat(new int[0], guess.Length).ToArray();
-            yield break;
-        }
-        else
-        {
-            if (bulls > 0)
+            var valueForPosition = guess[position];
+            if (validValues[position].Contains(valueForPosition))
             {
-                foreach (var position in positionsToSolve)
+                var solution = position == 0
+                    ? new[] { Enumerable.Repeat(new int[0], guess.Length).ToArray() }
+                    : solve(validValues, guess, bulls - 1, cows, position - 1).ToArray();
+
+                foreach (var otherSolution in solution)
                 {
-                    var valueForPosition = guess[position];
-                    if (validValues[position].Contains(valueForPosition))
-                    {
-                        var otherPositionsToSolve = positionsToSolve.Except(new[] { position }).ToArray();
-                        var otherSolutions = solve(validValues, otherPositionsToSolve, guess, bulls - 1, cows);
-                        foreach (var otherSolution in otherSolutions)
-                        {
-                            otherSolution[position] = new[] { valueForPosition };
-                            yield return otherSolution;
-                        }
-                    }
+                    otherSolution[position] = new[] { valueForPosition };
+                    yield return otherSolution;
                 }
             }
-
-            /*
-            While bulls>0
-                Lås första och testa alla kombos kvar
-                Lås andra och testa alla kombos kvar
-                Lås tredje och testa alla kombos kvar
-                Lås fjärde och testa alla kombos kvar
-
-            While cows>0
-                För varje unikt värde, som INTE är på min plats; lås på detta och testa alla kombos kvar
-
-            If bulls + cows < positionsToSolve.Length, testa alla övriga giltiga värden 
-            */
-
-
         }
+
+        if (cows > 0)
+        {
+            throw new NotImplementedException("Testing cows is not implemented yet");
+        }
+
+        if (bulls + cows < position + 1)
+        {
+            throw new NotImplementedException("Testing all other is not implemented yet");
+        }
+        /*
+        While bulls>0
+            Lås första och testa alla kombos kvar
+            Lås andra och testa alla kombos kvar
+            Lås tredje och testa alla kombos kvar
+            Lås fjärde och testa alla kombos kvar
+
+        While cows>0
+            För varje unikt värde, som INTE är på min plats; lås på detta och testa alla kombos kvar
+
+        If bulls + cows < positionsToSolve.Length, testa alla övriga giltiga värden 
+        */
     }
 
     private static void logSolutions(List<int[][]> validValues)
