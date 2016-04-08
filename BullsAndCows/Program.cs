@@ -47,15 +47,19 @@ class Solution
 
     static IEnumerable<int[][]> solve(int[][] validValues, int[] guess, int bulls, int cows, int position)
     {
+        if (position < 0)
+        {
+            yield return Enumerable.Repeat(new int[0], guess.Length).ToArray();
+            yield break;
+        }
+
+
         if (bulls > 0)
         {
             var valueForPosition = new[] { guess[position] };
             if (validValues[position].Contains(valueForPosition.Single()))
             {
-                var solutions = position == 0
-                    ? new[] { Enumerable.Repeat(new int[0], guess.Length).ToArray() }
-                    : solve(validValues, guess, bulls - 1, cows, position - 1).ToArray();
-
+                var solutions = solve(validValues, guess, bulls - 1, cows, position - 1).ToArray();
                 foreach (var solution in solutions)
                 {
                     solution[position] = valueForPosition;
@@ -66,19 +70,18 @@ class Solution
 
         validValues = remove(validValues, position, new[] { guess[position] });
 
+        var unspokenGuesses = guess.Distinct();
+
         if (cows > 0)
         {
-            var possibilities = guess.Distinct().Intersect(validValues[position]);
+            var possibilities = unspokenGuesses.Intersect(validValues[position]);
             //TODO: Need to strip out guess-values already used as bulls and cows
             foreach (var possibility in possibilities)
             {
                 var valueForPosition = new[] { possibility };
                 if (validValues[position].Contains(valueForPosition.Single()))
                 {
-                    var solutions = position == 0
-                        ? new[] { Enumerable.Repeat(new int[0], guess.Length).ToArray() }
-                        : solve(validValues, guess, bulls, cows - 1, position - 1).ToArray();
-
+                    var solutions = solve(validValues, guess, bulls, cows - 1, position - 1).ToArray();
                     foreach (var solution in solutions)
                     {
                         solution[position] = valueForPosition;
@@ -88,32 +91,17 @@ class Solution
             }
         }
 
-        validValues = remove(validValues, position, guess);
+        validValues = remove(validValues, position, unspokenGuesses);
 
         if (bulls + cows < position + 1)
         {
-            var solutions = position == 0
-                ? new[] { Enumerable.Repeat(new int[0], guess.Length).ToArray() }
-                : solve(validValues, guess, bulls, cows, position - 1).ToArray();
-
+            var solutions = solve(validValues, guess, bulls, cows, position - 1).ToArray();
             foreach (var solution in solutions)
             {
                 solution[position] = validValues[position];
                 yield return solution;
             }
         }
-        /*
-        While bulls>0
-            Lås första och testa alla kombos kvar
-            Lås andra och testa alla kombos kvar
-            Lås tredje och testa alla kombos kvar
-            Lås fjärde och testa alla kombos kvar
-
-        While cows>0
-            För varje unikt värde, som INTE är på min plats; lås på detta och testa alla kombos kvar
-
-        If bulls + cows < positionsToSolve.Length, testa alla övriga giltiga värden 
-        */
     }
 
     private static int[][] remove(int[][] validValues, int position, IEnumerable<int> values)
