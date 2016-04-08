@@ -54,7 +54,7 @@ class Solution
         }
 
 
-        var possibleBulls = unspokenGuesses(validValues, guess).Intersect(validValues[position]).ToArray();
+        var possibleBulls = unspokenGuesses(validValues, guess, position).Intersect(validValues[position]).ToArray();
         if (bulls > 0)
         {
             var value = guess[position];
@@ -69,7 +69,7 @@ class Solution
 
         validValues = remove(validValues, position, new[] { guess[position] });
 
-        var possibleCows = unspokenGuesses(validValues, guess).Intersect(validValues[position]);
+        var possibleCows = unspokenGuesses(validValues, guess, position).Intersect(validValues[position]).ToArray();
 
         if (cows > 0)
         {
@@ -92,10 +92,13 @@ class Solution
         }
     }
 
-    private static int[] unspokenGuesses(int[][] validValues, int[] guess)
+    private static int[] unspokenGuesses(int[][] validValues, int[] guess, int position)
     {
         var guessesToTestAsCows = guess.Select(a => a).ToArray();
-        foreach (var value in validValues.Where(a => a.Length == 1).Select(a => a.Single()))
+
+        var validValuesAtOtherPositions = validValues.Take(position).Concat(validValues.Skip(position + 1));
+        var valuesSpokenFor = validValuesAtOtherPositions.Where(a => a.Length == 1).Select(a => a.Single());
+        foreach (var value in valuesSpokenFor)
         {
             var index = guessesToTestAsCows.ToList().IndexOf(value);
             if (index >= 0)
@@ -140,8 +143,8 @@ class Solution
     {
         var count = validValues.Select(solution => solution.Select(a => a.Length).Aggregate((a, b) => a * b)).Sum();
         Console.Error.WriteLine("{0} possible solutions", count);
-        if (count == 1)
-            Console.Error.WriteLine(string.Join("", validValues.SelectMany(solution => solution.Select(a => a.Single())).ToArray()));
+    //    if (count == 1)
+    //        Console.Error.WriteLine(string.Join("", validValues.SelectMany(solution => solution.Select(a => a.Single())).ToArray()));
     }
 
 }
