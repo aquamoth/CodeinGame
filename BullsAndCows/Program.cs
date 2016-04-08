@@ -68,13 +68,11 @@ class Solution
 
         validValues = remove(validValues, position, new[] { guess[position] });
 
-        var unspokenGuesses = guess.Distinct();
-        //TODO: Need to strip out guess-values already used as bulls and cows
+        var possibleCows = unspokenGuesses(validValues, guess).Intersect(validValues[position]);
 
         if (cows > 0)
         {
-            var possibilities = unspokenGuesses.Intersect(validValues[position]);
-            foreach (var value in possibilities)
+            foreach (var value in possibleCows)
             {
                 var solutionValues = keep(validValues, position, value);
                 var solutions = solve(solutionValues, guess, bulls, cows - 1, position - 1).ToArray();
@@ -83,7 +81,7 @@ class Solution
             }
         }
 
-        validValues = remove(validValues, position, unspokenGuesses);
+        validValues = remove(validValues, position, possibleCows);
 
         if (bulls + cows < position + 1)
         {
@@ -91,6 +89,21 @@ class Solution
             foreach (var solution in solutions)
                 yield return solution;
         }
+    }
+
+    private static int[] unspokenGuesses(int[][] validValues, int[] guess)
+    {
+        var guessesToTestAsCows = guess.Select(a => a).ToArray();
+        foreach (var value in validValues.Where(a => a.Length == 1).Select(a => a.Single()))
+        {
+            var index = guessesToTestAsCows.ToList().IndexOf(value);
+            if (index >= 0)
+            {
+                guessesToTestAsCows = guessesToTestAsCows.Take(index).Concat(guessesToTestAsCows.Skip(index + 1)).ToArray();
+            }
+        }
+
+        return guessesToTestAsCows;
     }
 
     #region Array manipulation
@@ -126,6 +139,8 @@ class Solution
     {
         var count = validValues.Select(solution => solution.Select(a => a.Length).Aggregate((a, b) => a * b)).Sum();
         Console.Error.WriteLine("{0} possible solutions", count);
+        if (count == 1)
+            Console.Error.WriteLine(string.Join("", validValues.SelectMany(solution => solution.Select(a => a.Single())).ToArray()));
     }
 
 }
