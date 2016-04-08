@@ -13,7 +13,7 @@ class Solution
 {
     static void Main(string[] args)
     {
-        const int NUMBER_OF_POSITIONS = 2;
+        const int NUMBER_OF_POSITIONS = 4;
         Console.Error.WriteLine("Using {0} positions", NUMBER_OF_POSITIONS);
 
         var allPositions = Enumerable.Range(0, NUMBER_OF_POSITIONS).ToArray();
@@ -54,10 +54,11 @@ class Solution
         }
 
 
+        var possibleBulls = unspokenGuesses(validValues, guess).Intersect(validValues[position]).ToArray();
         if (bulls > 0)
         {
             var value = guess[position];
-            if (validValues[position].Contains(value))
+            if (possibleBulls.Contains(value))
             {
                 var solutionValues = keep(validValues, position, value);
                 var solutions = solve(solutionValues, guess, bulls - 1, cows, position - 1).ToArray();
