@@ -49,7 +49,8 @@ class Solution
     {
         if (position < 0)
         {
-            yield return validValues;
+            if (validValues.All(a => a.Length > 0))
+                yield return validValues;
             yield break;
         }
 
