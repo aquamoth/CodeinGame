@@ -56,10 +56,10 @@ class Solution
 
         if (bulls > 0)
         {
-            var valueForPosition = new[] { guess[position] };
-            if (validValues[position].Contains(valueForPosition.Single()))
+            var value = guess[position];
+            if (validValues[position].Contains(value))
             {
-                var solutionValues = remove(validValues, position, validValues[position].Except(valueForPosition));
+                var solutionValues = keep(validValues, position, value);
                 var solutions = solve(solutionValues, guess, bulls - 1, cows, position - 1).ToArray();
                 foreach (var solution in solutions)
                     yield return solution;
@@ -74,16 +74,12 @@ class Solution
         if (cows > 0)
         {
             var possibilities = unspokenGuesses.Intersect(validValues[position]);
-            foreach (var possibility in possibilities)
+            foreach (var value in possibilities)
             {
-                var valueForPosition = new[] { possibility };
-                if (validValues[position].Contains(valueForPosition.Single()))
-                {
-                    var solutionValues = remove(validValues, position, validValues[position].Except(valueForPosition));
-                    var solutions = solve(solutionValues, guess, bulls, cows - 1, position - 1).ToArray();
-                    foreach (var solution in solutions)
-                        yield return solution;
-                }
+                var solutionValues = keep(validValues, position, value);
+                var solutions = solve(solutionValues, guess, bulls, cows - 1, position - 1).ToArray();
+                foreach (var solution in solutions)
+                    yield return solution;
             }
         }
 
@@ -95,6 +91,20 @@ class Solution
             foreach (var solution in solutions)
                 yield return solution;
         }
+    }
+
+    #region Array manipulation
+
+    private static int[][] keep(int[][] validValues, int position, int value)
+    {
+        return keep(validValues, position, new[] { value });
+    }
+
+    private static int[][] keep(int[][] validValues, int position, IEnumerable<int> values)
+    {
+        validValues = clone(validValues);
+        validValues[position] = validValues[position].Intersect(values).ToArray();
+        return validValues;
     }
 
     private static int[][] remove(int[][] validValues, int position, IEnumerable<int> values)
@@ -109,6 +119,8 @@ class Solution
         validValues = validValues.Select(a => a).ToArray();
         return validValues;
     }
+
+    #endregion Array manipulation
 
     private static void logSolutions(List<int[][]> validValues)
     {
