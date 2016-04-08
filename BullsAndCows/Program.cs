@@ -64,13 +64,31 @@ class Solution
             }
         }
 
-        validValues = validValues.Select(a => a).ToArray();
-        validValues[position] = validValues[position].Except(new[] { guess[position] }).ToArray();
+        validValues = remove(validValues, position, new[] { guess[position] });
 
         if (cows > 0)
         {
-            throw new NotImplementedException("Testing cows is not implemented yet");
+            var possibilities = guess.Distinct().Intersect(validValues[position]);
+            //TODO: Need to strip out guess-values already used as bulls and cows
+            foreach (var possibility in possibilities)
+            {
+                var valueForPosition = new[] { possibility };
+                if (validValues[position].Contains(valueForPosition.Single()))
+                {
+                    var solutions = position == 0
+                        ? new[] { Enumerable.Repeat(new int[0], guess.Length).ToArray() }
+                        : solve(validValues, guess, bulls, cows - 1, position - 1).ToArray();
+
+                    foreach (var solution in solutions)
+                    {
+                        solution[position] = valueForPosition;
+                        yield return solution;
+                    }
+                }
+            }
         }
+
+        validValues = remove(validValues, position, guess);
 
         if (bulls + cows < position + 1)
         {
@@ -96,6 +114,19 @@ class Solution
 
         If bulls + cows < positionsToSolve.Length, testa alla övriga giltiga värden 
         */
+    }
+
+    private static int[][] remove(int[][] validValues, int position, IEnumerable<int> values)
+    {
+        validValues = clone(validValues);
+        validValues[position] = validValues[position].Except(values).ToArray();
+        return validValues;
+    }
+
+    private static int[][] clone(int[][] validValues)
+    {
+        validValues = validValues.Select(a => a).ToArray();
+        return validValues;
     }
 
     private static void logSolutions(List<int[][]> validValues)
