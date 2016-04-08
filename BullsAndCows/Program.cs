@@ -49,7 +49,7 @@ class Solution
     {
         if (position < 0)
         {
-            yield return Enumerable.Repeat(new int[0], guess.Length).ToArray();
+            yield return validValues;
             yield break;
         }
 
@@ -59,34 +59,30 @@ class Solution
             var valueForPosition = new[] { guess[position] };
             if (validValues[position].Contains(valueForPosition.Single()))
             {
-                var solutions = solve(validValues, guess, bulls - 1, cows, position - 1).ToArray();
+                var solutionValues = remove(validValues, position, validValues[position].Except(valueForPosition));
+                var solutions = solve(solutionValues, guess, bulls - 1, cows, position - 1).ToArray();
                 foreach (var solution in solutions)
-                {
-                    solution[position] = valueForPosition;
                     yield return solution;
-                }
             }
         }
 
         validValues = remove(validValues, position, new[] { guess[position] });
 
         var unspokenGuesses = guess.Distinct();
+        //TODO: Need to strip out guess-values already used as bulls and cows
 
         if (cows > 0)
         {
             var possibilities = unspokenGuesses.Intersect(validValues[position]);
-            //TODO: Need to strip out guess-values already used as bulls and cows
             foreach (var possibility in possibilities)
             {
                 var valueForPosition = new[] { possibility };
                 if (validValues[position].Contains(valueForPosition.Single()))
                 {
-                    var solutions = solve(validValues, guess, bulls, cows - 1, position - 1).ToArray();
+                    var solutionValues = remove(validValues, position, validValues[position].Except(valueForPosition));
+                    var solutions = solve(solutionValues, guess, bulls, cows - 1, position - 1).ToArray();
                     foreach (var solution in solutions)
-                    {
-                        solution[position] = valueForPosition;
                         yield return solution;
-                    }
                 }
             }
         }
@@ -97,10 +93,7 @@ class Solution
         {
             var solutions = solve(validValues, guess, bulls, cows, position - 1).ToArray();
             foreach (var solution in solutions)
-            {
-                solution[position] = validValues[position];
                 yield return solution;
-            }
         }
     }
 
