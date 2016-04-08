@@ -49,20 +49,23 @@ class Solution
     {
         if (bulls > 0)
         {
-            var valueForPosition = guess[position];
-            if (validValues[position].Contains(valueForPosition))
+            var valueForPosition = new[] { guess[position] };
+            if (validValues[position].Contains(valueForPosition.Single()))
             {
-                var solution = position == 0
+                var solutions = position == 0
                     ? new[] { Enumerable.Repeat(new int[0], guess.Length).ToArray() }
                     : solve(validValues, guess, bulls - 1, cows, position - 1).ToArray();
 
-                foreach (var otherSolution in solution)
+                foreach (var solution in solutions)
                 {
-                    otherSolution[position] = new[] { valueForPosition };
-                    yield return otherSolution;
+                    solution[position] = valueForPosition;
+                    yield return solution;
                 }
             }
         }
+
+        validValues = validValues.Select(a => a).ToArray();
+        validValues[position] = validValues[position].Except(new[] { guess[position] }).ToArray();
 
         if (cows > 0)
         {
@@ -71,7 +74,15 @@ class Solution
 
         if (bulls + cows < position + 1)
         {
-            throw new NotImplementedException("Testing all other is not implemented yet");
+            var solutions = position == 0
+                ? new[] { Enumerable.Repeat(new int[0], guess.Length).ToArray() }
+                : solve(validValues, guess, bulls, cows, position - 1).ToArray();
+
+            foreach (var solution in solutions)
+            {
+                solution[position] = validValues[position];
+                yield return solution;
+            }
         }
         /*
         While bulls>0
