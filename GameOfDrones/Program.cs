@@ -26,6 +26,7 @@ class Player
         // game loop
         while (true)
         {
+            log_time = null;
             gameLoop(zones, drones, me);
         }
     }
