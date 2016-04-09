@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -33,29 +34,80 @@ class Player
     {
         updateZonesFromConsole(zones);
         updateDronesFromConsole(drones);
-        mapDronesToZones(drones, zones);
+        mapDronesToZones(drones, zones, me);
 
         var myDrones = drones.Where(d => d.Team == me).ToArray();
 
-        var dronesRequiredPerZone = zones.Select(z => z
-            .Drones
-                .Where(d => d.Team != me)
-                .GroupBy(d => d.Team)
-                .Select(grp => grp.Count())
-                .Max()
-            + (z.Team == me ? 0 : 1));
-
-
-
-
-        //var dronesOutsideZones = myDrones.Where(d => d.Zone == null);//.ToArray();
-        //var dronesAtOpponentsZones = myDrones.Where(d => d.Zone != null && d.Zone.Team != me);
-        //var super
+        var commands = solve(myDrones, zones);
+        var solution = flatten(commands).ToDictionary(c => c.Drone.Index, c => c.Destination);
 
         for (int i = 0; i < myDrones.Length; i++)
         {
-            Console.WriteLine(zones[i % zones.Length]);
+            var destination = solution.ContainsKey(i) ? solution[i] : new Point { X = 1000, Y = 500 };
+            Console.WriteLine(destination);
+            //zones[i % zones.Length]
         }
+    }
+
+    private static IEnumerable<Command> flatten(Command command)
+    {
+        var walker = command;
+        while(walker != null)
+        {
+            yield return walker;
+            walker = walker.Next;
+        }
+    }
+
+    static Command solve(IEnumerable<Drone> myDrones, Zone[] zones, bool IsFirstLoop = true)
+    {
+        if (!myDrones.Any())
+            return null;
+
+        var drone = myDrones.First();
+        Command bestCommand = null;
+
+        foreach (var zone in zones.Where(z => z.RequiredDrones > 0))
+        {
+            var oldZoneTurns = zone.Turns;
+            zone.RequiredDrones--;
+
+            var overTakesZone = zone.RequiredDrones == 0;
+            zone.Turns = Math.Max(zone.Turns, drone.SquareDistanceTo(zone) / 10000 - 1);
+            var nextCommand = solve(myDrones.Skip(1), zones, false);
+
+            if (bestCommand == null 
+                || (overTakesZone && !bestCommand.OvertakesZone) 
+                || (overTakesZone && zone.Turns < bestCommand.Turns))
+                bestCommand = new Command
+                {
+                    Drone = drone,
+                    Zone = zone,
+                    Destination = zone, //TODO: Move to the outer rim of the zone
+                    OvertakesZone = overTakesZone,
+                    Turns = overTakesZone ? zone.Turns : 0,
+                    Next = nextCommand
+                };
+
+            zone.RequiredDrones++;
+            zone.Turns = oldZoneTurns;
+        }
+
+        if (bestCommand == null) //There are NO zones to win
+        {
+            //TODO: Also choose this if the best zone still can't be captured
+
+            //log("No zone to win for drone #{0}.", drone.Index);
+            //TODO: Move to a strategic position instead
+            bestCommand = new Command
+            {
+                Drone = drone,
+                Destination = new Point { X = 1000, Y = 500 },
+                Next = solve(myDrones.Skip(1), zones, false)
+            };
+        }
+
+        return bestCommand;
     }
 
     #region Refresh State
@@ -79,7 +131,7 @@ class Player
         }
     }
 
-    private static void mapDronesToZones(Drone[] drones, Zone[] zones)
+    private static void mapDronesToZones(Drone[] drones, Zone[] zones, int me)
     {
         foreach (var d in drones)
             d.Zone = null;
@@ -89,8 +141,28 @@ class Player
             zone.Drones = drones.Where(d => d.SquareDistanceTo(zone) < 10000).ToArray();
             foreach (var d in zone.Drones)
                 d.Zone = zone;
+
+            log("Zone {0} has {1} drones", zone.Index, zone.Drones.Count());
+            zone.RequiredDrones = (zone.Team == me ? 0 : 1)
+                + zone.Drones
+                    .Where(d => d.Team != me)
+                    .GroupBy(d => d.Team)
+                    .Select(grp => grp.Count())
+                    .DefaultIfEmpty(0)
+                    .Max();
         }
     }
+
+    static void log(string format, params object[] args)
+    {
+        if (log_time == null)
+        {
+            log_time = new Stopwatch();
+            log_time.Start();
+        }
+        Console.Error.WriteLine(log_time.ElapsedMilliseconds + " ms: " + format, args);
+    }
+    static Stopwatch log_time = null;
 
     #endregion Refresh State
 
@@ -104,17 +176,17 @@ class Player
             var xinputs = Console.ReadLine().Split(' ');
             int X = int.Parse(xinputs[0]); // corresponds to the position of the center of a zone. A zone is a circle with a radius of 100 units.
             int Y = int.Parse(xinputs[1]);
-            zones[i] = new Zone { X = X, Y = Y };
+            zones[i] = new Zone { Index = i, X = X, Y = Y };
         }
 
         return zones;
     }
 
-    private static Drone[] createDrones(int numberOfPlayers, int dronesPerPlayer)
+    private static Drone[] createDrones(int numberOfTeams, int dronesPerTeam)
     {
-        return Enumerable.Range(0, numberOfPlayers)
-            .SelectMany(p => Enumerable.Repeat(0, dronesPerPlayer)
-            .Select(x => new Drone { Team = p }))
+        return Enumerable.Range(0, numberOfTeams)
+            .SelectMany(team => Enumerable.Range(0, dronesPerTeam)
+            .Select(index => new Drone { Team = team, Index = index }))
             .ToArray();
     }
 
@@ -122,13 +194,27 @@ class Player
 
     #region Helper Classes
 
+    class Command
+    {
+        public Drone Drone { get; set; }
+        public Zone Zone { get; set; }
+        public bool OvertakesZone { get; set; }
+        public int Turns { get; set; }
+        public Point Destination { get; set; }
+        public Command Next { get; set; }
+    }
+
     class Zone : Point
     {
+        public int Index { get; set; }
         public Drone[] Drones { get; set; }
+        public int RequiredDrones { get; set; }
+        public int Turns { get; set; }
     }
 
     class Drone : Point
     {
+        public int Index { get; set; }
         public Zone Zone { get; set; }
     }
 
@@ -137,12 +223,6 @@ class Player
         public int X { get; set; }
         public int Y { get; set; }
         public int? Team { get; set; }
-
-        //public Point(int x, int y)
-        //{
-        //    X = x;
-        //    Y = y;
-        //}
 
         public override string ToString()
         {
