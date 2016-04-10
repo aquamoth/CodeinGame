@@ -19,8 +19,9 @@ class Player
         int me = int.Parse(inputs[1]); // ID of your player (0, 1, 2, or 3)
         int dronesPerPlayer = int.Parse(inputs[2]); // number of drones in each team (3 to 11)
         int Z = int.Parse(inputs[3]); // number of zones on the map (4 to 8)
+        //log("Input: {0}", string.Join(" ", inputs));
 
-        var zones = createZones(Z);
+        var zones = readZonesFromConsole(Z);
         var drones = createDrones(numberOfPlayers, dronesPerPlayer);
 
         // game loop
@@ -40,13 +41,15 @@ class Player
         var myDrones = drones.Where(d => d.Team == me).ToArray();
 
         var commands = solve(myDrones, zones);
-        var solution = flatten(commands).ToDictionary(c => c.Drone.Index, c => c.Destination);
+        var solution = flatten(commands).ToDictionary(c => c.Drone.Index, c => c);
 
         for (int i = 0; i < myDrones.Length; i++)
         {
-            var destination = solution.ContainsKey(i) ? solution[i] : new Point { X = 1000, Y = 500 };
+            var destinationZone = solution.ContainsKey(i) ? solution[i].Zone : null;
+            log("Moving drone #{0} to zone #{1}", i, destinationZone == null ? "-" : destinationZone.Index.ToString());
+
+            var destination = solution.ContainsKey(i) ? solution[i].Destination : new Point { X = 1000, Y = 500 };
             Console.WriteLine(destination);
-            //zones[i % zones.Length]
         }
     }
 
@@ -70,6 +73,7 @@ class Player
 
         foreach (var zone in zones.Where(z => z.RequiredDrones > 0))
         {
+            //log("Testing drone #{0} at zone #{1}", drone.Index, zone.Index);
             var oldZoneTurns = zone.Turns;
             zone.RequiredDrones--;
 
@@ -77,9 +81,26 @@ class Player
             zone.Turns = Math.Max(zone.Turns, drone.SquareDistanceTo(zone) / 10000 - 1);
             var nextCommand = solve(myDrones.Skip(1), zones, false);
 
-            if (bestCommand == null 
-                || (overTakesZone && !bestCommand.OvertakesZone) 
-                || (overTakesZone && zone.Turns < bestCommand.Turns))
+            var isBest = bestCommand == null;
+            if (!isBest)
+            {
+                var bestCommandArray = flatten(bestCommand);
+                var bestOverTakenZones = bestCommandArray.Select(c => c.OvertakesZone).Count();
+
+                var commandArray = flatten(nextCommand);
+                var overTakenZones = commandArray.Select(c => c.OvertakesZone).Count();
+
+                isBest = overTakenZones > bestOverTakenZones;
+                if (overTakenZones == bestOverTakenZones)
+                {
+                    var bestScore = bestCommandArray.Where(c => c.OvertakesZone).Sum(c => c.Turns);
+                    var score = commandArray.Where(c => c.OvertakesZone).Sum(c => c.Turns);
+                    isBest = score > bestScore;
+                }
+            }
+            if (isBest)
+            {
+                //log("Choosing drone #{0} to zone #{1}", drone.Index, zone.Index);
                 bestCommand = new Command
                 {
                     Drone = drone,
@@ -89,7 +110,7 @@ class Player
                     Turns = overTakesZone ? zone.Turns : 0,
                     Next = nextCommand
                 };
-
+            }
             zone.RequiredDrones++;
             zone.Turns = oldZoneTurns;
         }
@@ -100,10 +121,15 @@ class Player
 
             //log("No zone to win for drone #{0}.", drone.Index);
             //TODO: Move to a strategic position instead
+            var centerOfZones = new Point
+            {
+                X = (int)zones.Select(z => z.X).Average(),
+                Y = (int)zones.Select(z => z.Y).Average()
+            };
             bestCommand = new Command
             {
                 Drone = drone,
-                Destination = new Point { X = 1000, Y = 500 },
+                Destination = centerOfZones,
                 Next = solve(myDrones.Skip(1), zones, false)
             };
         }
@@ -113,6 +139,16 @@ class Player
 
     #region Refresh State
 
+    private static void updateZonesFromConsole(Point[] zones)
+    {
+        for (int i = 0; i < zones.Length; i++)
+        {
+            int TID = int.Parse(Console.ReadLine()); // ID of the team controlling the zone (0, 1, 2, or 3) or -1 if it is not controlled. The zones are given in the same order as in the initialization.
+            zones[i].Team = TID;
+            //log("{0}", TID);
+        }
+    }
+
     private static void updateDronesFromConsole(Point[] drones)
     {
         for (int i = 0; i < drones.Length; i++)
@@ -120,15 +156,7 @@ class Player
             var inputs = Console.ReadLine().Split(' ');
             drones[i].X = int.Parse(inputs[0]);
             drones[i].Y = int.Parse(inputs[1]);
-        }
-    }
-
-    private static void updateZonesFromConsole(Point[] zones)
-    {
-        for (int i = 0; i < zones.Length; i++)
-        {
-            int TID = int.Parse(Console.ReadLine()); // ID of the team controlling the zone (0, 1, 2, or 3) or -1 if it is not controlled. The zones are given in the same order as in the initialization.
-            zones[i].Team = TID;
+            //log("{0}", drones[i]);
         }
     }
 
@@ -143,7 +171,6 @@ class Player
             foreach (var d in zone.Drones)
                 d.Zone = zone;
 
-            log("Zone {0} has {1} drones", zone.Index, zone.Drones.Count());
             zone.RequiredDrones = (zone.Team == me ? 0 : 1)
                 + zone.Drones
                     .Where(d => d.Team != me)
@@ -151,6 +178,8 @@ class Player
                     .Select(grp => grp.Count())
                     .DefaultIfEmpty(0)
                     .Max();
+
+            //log("Zone {0} has {1} drones, is controlled by {2} and requires {3} drones", zone.Index, (zone.Drones==null?0:zone.Drones.Count()), zone.Team, zone.RequiredDrones);
         }
     }
 
@@ -169,17 +198,17 @@ class Player
 
     #region Initialize Game
 
-    private static Zone[] createZones(int Z)
+    private static Zone[] readZonesFromConsole(int Z)
     {
         var zones = new Zone[Z];
         for (int i = 0; i < Z; i++)
         {
-            var xinputs = Console.ReadLine().Split(' ');
-            int X = int.Parse(xinputs[0]); // corresponds to the position of the center of a zone. A zone is a circle with a radius of 100 units.
-            int Y = int.Parse(xinputs[1]);
+            var inputs = Console.ReadLine().Split(' ');
+            int X = int.Parse(inputs[0]); // corresponds to the position of the center of a zone. A zone is a circle with a radius of 100 units.
+            int Y = int.Parse(inputs[1]);
             zones[i] = new Zone { Index = i, X = X, Y = Y };
+            //log("{0}", zones[i]);
         }
-
         return zones;
     }
 
