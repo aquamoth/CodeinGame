@@ -70,7 +70,7 @@ namespace NintendoChallenge
             //{
             //    writeDecode(uintToHex((uint)1 << i), "00000000");
             //}
-            writeDecode("c0000000", "00000000");
+            writeDecode("00000009", "00000000");
 
             Console.ReadLine();
         }
@@ -84,14 +84,15 @@ namespace NintendoChallenge
         static void decode(params string[] args)
         {
             var u = hexToUInt(args);
-            foreach (var result in centurianDecoder(u[0], u[1]))
+            foreach (var decodedValue in centurianDecoder(u[0], u[1]))
             {
+                var result = ulong2uints(decodedValue);
                 Console.Write(string.Join(" ", uintToHex(result)) + " => ");
                 encode(new[] { "32" }.Concat(uintToHex(result)).ToArray());
             }
         }
 
-        static IEnumerable<uint[]> centurianDecoder(uint lsb, uint msb)
+        static IEnumerable<ulong> centurianDecoder(uint lsb, uint msb)
         {
             var solutions = new List<uint[]>(new[] { new uint[] { 0, 0 } });
 
@@ -141,8 +142,19 @@ namespace NintendoChallenge
                 }
             }
 
-            return solutions;
+            return solutions.Select(v => uints2ulong(v[0], v[1]));
         }
+
+        static ulong uints2ulong(uint lsb, uint msb)
+        {
+            return (ulong)lsb | (((ulong)msb) << 32);
+        }
+
+        static uint[] ulong2uints(ulong value)
+        {
+            return new uint[] { (uint)(value & 0xffff), (uint)(value >> 32) };
+        }
+
 
         private static IEnumerable<uint[]> flipMsbBitIn(uint[] solution, int msbBit)
         {
