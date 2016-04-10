@@ -94,35 +94,35 @@ namespace NintendoChallenge
 
         static IEnumerable<ulong> centurianDecoder(uint lsb, uint msb)
         {
-            var solutions = new List<uint[]>(new[] { new uint[] { 0, 0 } });
+            var solutions = new List<ulong>(new[] { 0UL });
 
-            //For each bit in msb
-            //Bit 31 can never be set!
-            for (int bit = 30; bit >= 0; bit--)
+            ////For each bit in msb
+            ////Bit 31 can never be set!
+            //for (int bit = 30; bit >= 0; bit--)
+            //{
+            //    var mask = ((uint)1 << bit);
+            //    var expectedBitValue = msb & mask;
+            //    if (expectedBitValue != 0)
+            //    {
+            //        var newSolutions = new List<uint[]>();
+            //        foreach (var solution in solutions)
+            //        {
+            //            //Find all ways to manipulate the solution to solve for this bit
+            //            newSolutions.AddRange(flipMsbBitIn(solution, bit));
+            //        }
+            //        solutions = newSolutions;
+            //    }
+            //}
+
+
+            //For each bit
+            for (int bit = 0; bit < 64; bit++)
             {
-                var mask = ((uint)1 << bit);
-                var expectedBitValue = msb & mask;
-                if (expectedBitValue != 0)
-                {
-                    var newSolutions = new List<uint[]>();
-                    foreach (var solution in solutions)
-                    {
-                        //Find all ways to manipulate the solution to solve for this bit
-                        newSolutions.AddRange(flipMsbBitIn(solution, bit));
-                    }
-                    solutions = newSolutions;
-                }
-            }
-
-
-            //For each bit in lsb
-            for (int bit = 31; bit >= 0; bit--)
-            {
-                var mask = ((uint)1 << bit);
+                var mask = ((ulong)1 << bit);
                 var expectedBitValue = lsb & mask;
                 if (expectedBitValue != 0)
                 {
-                    var newSolutions = new List<uint[]>();
+                    var newSolutions = new List<ulong>();
                     foreach (var solution in solutions)
                     {
                         //Find all ways to manipulate the solution to solve for this bit
@@ -133,16 +133,17 @@ namespace NintendoChallenge
 
                             //TODO: What side-effects would this incur? Find remedies for all before accepting this as an answer
 
-                            var v0 = solution[0] | mask0;
-                            var v1 = solution[1] | mask1;
-                            newSolutions.Add(new[] { v0, v1 });
+                            var parts = ulong2uints(solution);
+                            var v0 = parts[0] | mask0;
+                            var v1 = parts[1] | mask1;
+                            newSolutions.Add(uints2ulong(v0, v1));
                         }
                     }
                     solutions = newSolutions;
                 }
             }
 
-            return solutions.Select(v => uints2ulong(v[0], v[1]));
+            return solutions;
         }
 
         static ulong uints2ulong(uint lsb, uint msb)
