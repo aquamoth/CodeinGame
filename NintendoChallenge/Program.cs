@@ -11,73 +11,23 @@ namespace NintendoChallenge
         static void Main(string[] args)
         {
             testEncoder();
-
-            //writeEncode(args);
-
-            //writeEncode(new[] { "32", "e5", "83" });
-
-            //writeEncode(new[] { "32", "00000000", "00000000" });
-            //writeEncode(new[] { "32", "00000000", "00000001" });
-            //writeEncode(new[] { "32", "00000001", "00000001" });
-            //writeEncode(new[] { "32", "00000001", "00000000" });
-            //writeEncode(new[] { "32", "00000002", "00000001" });
-            //writeEncode(new[] { "32", "00000001", "00000002" });
-
-            //writeEncode(new[] { "32", "00000004", "00000001" });
-            //writeEncode(new[] { "32", "00000002", "00000002" });
-            //writeEncode(new[] { "32", "00000001", "00000004" });
-
-            //writeEncode(new[] { "32", "00000008", "00000001" });
-            //writeEncode(new[] { "32", "00000004", "00000002" });
-            //writeEncode(new[] { "32", "00000002", "00000004" });
-            //writeEncode(new[] { "32", "00000001", "00000008" });
-
-            //writeEncode(new[] { "32", "00000010", "00000001" });
-            //writeEncode(new[] { "32", "00000008", "00000002" });
-            //writeEncode(new[] { "32", "00000004", "00000004" });
-            //writeEncode(new[] { "32", "00000002", "00000008" });
-            //writeEncode(new[] { "32", "00000001", "00000010" });
-
-            //writeEncode(new[] { "32", "00000014", "00000001" });
-            //writeEncode(new[] { "32", "0000000a", "00000002" });
-            //writeEncode(new[] { "32", "00000005", "00000004" });
-            //writeEncode(new[] { "32", "00000005", "10000004" });
-
-
-
-            //writeEncode(new[] { "32", "00000011", "00000001" });
-            //writeEncode(new[] { "32", "00000011", "00000010" });
-            //writeEncode(new[] { "32", "00000011", "00000011" });
-            //writeEncode(new[] { "32", "11000011", "00000010" });
-            //writeEncode(new[] { "32", "11000011", "00000100" });
-            ////writeEncode(new[] { "16", "00010001", "00000010" });
-            ////writeEncode(new[] { "16", "00010001", "01010101" });
-            ////writeEncode(new[] { "32", "ffffffff", "ffffffff" });
-
-            //Console.WriteLine("WriteEncode");
-            //writeEncode(new[] { "32", "80000000", "80000000" });
-            //writeEncode(new[] { "32", "80000000", "40000000" });
-            //writeEncode(new[] { "32", "40000000", "80000000" });
-            //writeEncode(new[] { "32", "80000000", "c0000000" });
-            //writeEncode(new[] { "32", "c0000000", "80000000" });
-
-
-            Console.Error.WriteLine("Testing low bits");
-            for (int i = 0; i < 32; i++)
-            {
-                testDecoder(0U, 1U << i);
-            }
-            Console.Error.WriteLine("Testing high bits");
-            for (int i = 32; i < 64; i++)
-            {
-                testDecoder(1U << i, 0U);
-            }
+            testDecoder();
 
             //writeDecode("00000009", "00000000");
             //writeDecode("0000ae47", "00000000");
 
             //writeDecode("00000020", "00000049");
             Console.ReadLine();
+        }
+
+        private static void testDecoder()
+        {
+            for (int i = 0; i < 32; i++)
+            {
+                testDecoder(0U, 1U << i);
+                testDecoder(1U << i, 0U);
+                //testDecoder(1U << i, 1U << i);
+            }
         }
 
         private static void testDecoder(uint lsb, uint msb)
