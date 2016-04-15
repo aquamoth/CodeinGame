@@ -26,8 +26,10 @@ namespace NintendoChallenge
             {
                 testDecoder(0U, 1U << i);
                 testDecoder(1U << i, 0U);
-                //testDecoder(1U << i, 1U << i);
+                testDecoder(1U << i, 1U << i);
             }
+
+            testDecoder(0x00000000U, 0x0000000aU);
         }
 
         private static void testDecoder(uint lsb, uint msb)
@@ -44,7 +46,7 @@ namespace NintendoChallenge
                 else
                     passedCounter++;
             }
-            if(failedCounter>0)
+            if (failedCounter > 0 || passedCounter == 0)
             {
                 Console.Error.WriteLine("{0} tests passed and {1} failed", passedCounter, failedCounter);
             }
@@ -72,8 +74,11 @@ namespace NintendoChallenge
             var solutions = new List<ulong>(new[] { 0UL });
             var encodedValue = uints2ulong(lsb, msb);
 
+            ////Encode high bits, allowing artifacts in the low bit spectrum that needs to be compensated later
+            //solutions = centurianDecoder_highbits(solutions, encodedValue);
+
+
             solutions = centurianDecoder_lowbits(solutions, encodedValue);
-            solutions = centurianDecoder_highbits(solutions, encodedValue);
 
             return solutions;
         }
@@ -81,7 +86,7 @@ namespace NintendoChallenge
         private static List<ulong> centurianDecoder_lowbits(List<ulong> solutions, ulong encodedValue)
         {
             //For each bit
-            for (byte bit = 0; bit < 32; bit++)
+            for (byte bit = 0; bit < 64; bit++)
             {
                 var mask = ((ulong)1 << bit);
                 var expectedBitValue = encodedValue & mask;
@@ -93,7 +98,7 @@ namespace NintendoChallenge
                         var lowestSetBit = lowestSetBitOf(solution, bit);
 
                         //Find all ways to manipulate the solution to solve for this bit
-                        for (int lowBitToSet = 0; lowBitToSet <= bit; lowBitToSet++)
+                        for (int lowBitToSet = Math.Max(0, bit - 32 + 1); lowBitToSet <= bit; lowBitToSet++)
                         {
                             var highBitToSet = bit - lowBitToSet;
                             if (lowBitToSet > highBitToSet)
@@ -128,7 +133,7 @@ namespace NintendoChallenge
                     var newSolutions = new List<ulong>();
                     foreach (var solution in solutions)
                     {
-                        var lowestSetBit = lowestSetBitOf(solution, bit);
+                        var lowestSetBit = lowestSetBitOf(solution & 0xffffffff00000000, bit);
 
                         //Find all ways to manipulate the solution to solve for this bit
                         for (int lowBitToSet = 0; lowBitToSet < 32; lowBitToSet++)
@@ -145,14 +150,6 @@ namespace NintendoChallenge
 
                             if ((lowestSetBit + lowBitToSet < bit) && (solution & lowBitValue) == 0)
                                 continue;
-
-
-                            //if (newSolutions.Count==15)
-                            //{
-                            //    var lowHex = hexOf(lowBitValue);
-                            //    var highHex = hexOf(highBitValue);
-                            //    var x = 0;
-                            //}
 
                             newSolutions.Add(solution | highBitValue | lowBitValue);
                         }
