@@ -204,14 +204,16 @@ interface DijkstraNode extends CostNode {
 class Dijkstra {
     readonly graph: {[hash:number]: DijkstraNode};
     readonly width: number;
+    readonly debug: boolean;
     
     private from: Point;
     private player: Point;
     private playerHash: number;
     private unvisited: DijkstraNode[];
 
-    constructor(graph: {[hash:number]: CostNode}, width: number, from: Point, player?: Point) {
-        
+    constructor(graph: {[hash:number]: CostNode}, width: number, from: Point, player?: Point, debug?: boolean) {
+        this.debug = debug || false;
+
         this.graph = {};
         Object.keys(graph)
             .forEach(hash => {
@@ -240,6 +242,8 @@ class Dijkstra {
         this.playerHash = player.getHash(this.width);
         this.from = from;
         this.unvisited = [fromNode];
+
+        if(this.debug) console.error(`reset graph: (${from}), (${player})`);
     }
 
     public pathTo(to: Point){
@@ -251,6 +255,7 @@ class Dijkstra {
         if(toNode.path)
             return toNode.path;
 
+        if(this.debug) console.error(`Calculating path to (${toNode.pos})`);
         while(this.unvisited.length>0) {
             const currentNode = this.unvisited.pop();
             currentNode.visited = true;
@@ -259,23 +264,30 @@ class Dijkstra {
                 console.error(`No path from ${this.from} to ${currentNode.pos}`)
             }
             else {
+                if(this.debug) console.error(`Testing ${currentNode}`);
                 for(const node of currentNode.neighbours){
                     const hash = node.pos.getHash(this.width);
                     const neighbour = this.graph[hash];
                     if(!neighbour.visited && hash !== this.playerHash) {
                         const tentativeDistance = currentNode.distance + neighbour.cost;
+                        if(this.debug) console.error(`  Neighbour ${neighbour} distance ${tentativeDistance}`);
                         if(!neighbour.path || neighbour.distance > tentativeDistance) {
                             neighbour.distance = tentativeDistance;
                             neighbour.path = [...currentNode.path, hash];
+                            if(this.debug) console.error(`  Assigned improved path ${neighbour.path}`);
                         }
 
-                        if(!neighbour.path)
+                        if(!neighbour.path){
+                            if(this.debug) console.error(`  Pushing neighbour for calculation`);
                             this.unvisited.push(neighbour);
+                        }
                     }
                 }
 
-                if(currentNode === toNode)
+                if(currentNode === toNode) {
+                    if(this.debug) console.error(`Reached sought node: ${currentNode.path}`);
                     return currentNode.path;
+                }
             }
         }
 
@@ -404,27 +416,49 @@ while (true) {
         .filter(pellet => pellet.value >= 10)
         .filter(pellet => !myPacs.some(pac => pellet.pos.equals(pac.target)));
 
-
-
-
-
-    //Assign super pellet to closest pacs
     let assignmentsLeft = Math.min(untargetedSuperPellets.length, pendingPacs.length);
     if(assignmentsLeft>0) {
-    // while (untargetedSuperPellets.length>0 && pendingPacs.length>0) {
         const costGraph = costGraphFrom(map.getGraph(), pellets);
 
 
-        let pelletPaths : {[id:number]: object} = {};
+        let pelletPaths : {[id:number]: number[][]} = {};
         for(const pac of pendingPacs){
-            const bfs = new Dijkstra(costGraph, map.width, pac.getLocation());
+            const bfs = new Dijkstra(costGraph, map.width, pac.getLocation(), null, pac.id === 1);
             const paths = untargetedSuperPellets.map(pellet => bfs.pathTo(pellet.pos));
             pelletPaths[pac.id] = paths;
         }
 
+
         do{
 
-            //TODO: Assign closes pacs
+
+            const nearest = Object.keys(pelletPaths)
+                .map(pacId => ({
+                    pacId: +pacId, 
+                    distances: pelletPaths[+pacId]
+                        .map(path=> path ? path.length: Number.MAX_SAFE_INTEGER)
+                }))
+                .map(x=> ({
+                    pacId: x.pacId,
+                    pellet: x.distances.reduce(
+                        (best, dist, index) => best.dist < dist ? best : ({index, dist}), 
+                        {index: -1, dist: Number.MAX_SAFE_INTEGER}
+                    )
+                }))
+                .reduce(
+                    (best, curr)=>best.pellet.dist < curr.pellet.dist ? best : curr, 
+                    {pacId: -1, pellet: {index: -1, dist:Number.MAX_SAFE_INTEGER}}
+                );
+
+
+            const pellet = untargetedSuperPellets[nearest.pellet.index];
+            const pac = myPacs[nearest.pacId];
+            console.error(`Pac ${pac.id} targets closest super pellet at ${pellet.pos}, dist = ${nearest.pellet.dist}`)
+            pac.target = pellet.pos;
+            commands.push(`MOVE ${pac.id} ${pac.target}`);
+            pac.clearState();
+
+            untargetedSuperPellets.splice(nearest.pellet.index, 1);            
 
             assignmentsLeft--;
         }
