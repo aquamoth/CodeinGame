@@ -1,5 +1,11 @@
 const MAX_COLLISIONS = 2;
 
+enum PacType {
+    ROCK = 0,
+    PAPER = 1,
+    SCISSORS = 2
+}
+
 type Pellet = {
     pos: Point,
     value: number
@@ -107,6 +113,11 @@ class GameArea {
         return this.graph.hasOwnProperty(hash) ? this.graph[hash] : null;
     }
 
+    public distance(from: Point, to: Point) {
+        return Math.abs(to.x-from.x) % (this.width/2) 
+            + Math.abs(to.y-from.y);
+    }
+
     private normalize(pos: Point) {
         let x = pos.x;
         while(x<0) x+= this.width;
@@ -127,7 +138,7 @@ type PacState = {
     pacId: number, 
     mine: boolean,
     pos: Point,
-    typeId: string,
+    typeId: PacType,
     speedTurnsLeft: number,
     abilityCooldown: number,
 }
@@ -176,6 +187,10 @@ class Pacman {
 
     public getLocation() {
         return this.currentState.pos;
+    }
+
+    public getType() {
+        return this.currentState.typeId;
     }
 
     public isColliding() {
@@ -252,6 +267,7 @@ class Dijkstra {
     }
 
     public pathTo(to: Point){
+
         const hash = to.getHash(this.width);
         const toNode = this.graph[hash];
         if(!toNode/*this.graph.hasOwnProperty(hash)*/)
@@ -262,10 +278,22 @@ class Dijkstra {
 
         if(this.debug) console.error(`Calculating path to (${toNode.pos})`);
         while(this.unvisited.length>0) {
-            const info = this.unvisited.map(x=>({ pos: x.pos, cost: x.cost, distance: x.distance}));
+            const info = this.unvisited.map(node => ({ x: node.pos.x, y: node.pos.y, cost: node.cost, distance: node.distance }));
             //if(this.debug) console.error(`STACK: ${JSON.stringify(info)}`);
 
-            const currentNode = this.unvisited.shift();
+            // const currentNode = this.unvisited.shift();
+            const currentNode = this.unvisited.reduce((prev, next) => { 
+                    const nextCost = next.distance + map.distance(next.pos, to);
+                    return prev.cost <= nextCost 
+                        ? prev 
+                        : { cost: nextCost, node: next }
+                }, 
+                {cost:Number.MAX_SAFE_INTEGER, node: <DijkstraNode>null}
+            ).node;
+
+            this.unvisited = this.unvisited.filter(node => node != currentNode);
+            //if(this.debug) console.error(`  ${JSON.stringify(currentNode.pos)}`);
+
             currentNode.visited = true;
 
             if(!currentNode.path){
@@ -347,6 +375,8 @@ let myPacs: Pacman[] = undefined;
 
 // game loop
 while (true) {
+    const startTime = Date.now();
+
     var inputs: string[] = readline().split(' ');
     const myScore: number = parseInt(inputs[0]);
     const opponentScore: number = parseInt(inputs[1]);
@@ -371,22 +401,49 @@ while (true) {
 
     myPacs.forEach(pac=>pac.clearIfDead());
 
+    const myLocations = Object.keys(myPacs)
+        .map(id => myPacs[+id].getLocation())
+        .filter(pos => !!pos);
 
 
     let commands = [];
 
 
-    //TODO: Target opponents close by
-        // else if(opponents.length>0) {
-        //     const opponent = opponents[pac.pacId % opponents.length];
-        //     console.error(`Pac ${pac.pacId} hunting opponent ${opponent.pacId} at (${opponent.location})`);
-        //     pacState.target = opponent.location;
-        //     commands.push(`MOVE ${pac.pacId} ${opponent.location}`);
-        // }
+    let pendingPacs = myPacs.filter(pac=>pac.awaitingCommand());
+    for(const pac of pendingPacs) {
+        const pos = pac.getLocation();
+        const opponentDists = opponentStates
+            .map(o=>({o, dist: map.distance(o.pos, pos)}));
+        
+        if(pac.id === 0)
+            console.error(`Opponents ${JSON.stringify(opponentDists.map(x=>({dist: x.dist, pos: x.o.pos})))}`)
+        const closeOpponents = opponentDists
+            .filter(o=>o.dist<3);
 
+        if(closeOpponents.length>0)
+        {
+            console.error(`Pac ${pac.id} has ${closeOpponents.length} close opponents`);
+            const closest = closeOpponents.sort(o=>o.dist)[0];
+            const huntMode = (closest.o.typeId-pac.getType() + 3) % 3;
+            if(huntMode === 2){
+                console.error(`Pac ${pac.id} attacks opponent ${closest.o.pacId}`);
+                commands.push(`MOVE ${pac.id} ${closest.o.pos} ATTACK ${closest.o.pacId}`);
+                pac.clearState();
+            }
+            else if(closest.dist > 1 && pac.hasAbility){
+                console.error(`Pac ${pac.id} prepares to attack ${closest.o.pacId}`);
+                const newType = PacType[(closest.o.typeId + 1) % 3];
+                commands.push(`SWITCH ${pac.id} ${newType}`);
+                pac.clearState();
+            }
+            else {
+                console.error(`Pac ${pac.id} SHOULD avoid ${closest.o.pacId}`);
+            }
+        }
+    }
 
     //Avoid deadlocks
-    let pendingPacs = myPacs.filter(pac=>pac.awaitingCommand());
+    pendingPacs = myPacs.filter(pac=>pac.awaitingCommand());
     for (const pac of pendingPacs) {
         const command = considerAvoidanceRoutine(pac);
         if (command) {
@@ -413,7 +470,7 @@ while (true) {
                 commands.push(`SPEED ${pac.id}`);
             } else {
                 console.error(`Pac ${pac.id} continuing to target at (${pac.target})`);
-                commands.push(`MOVE ${pac.id} ${pac.target}`);
+                commands.push(`MOVE ${pac.id} ${pac.target} SUPER`);
             }
             pac.clearState();
         }
@@ -425,12 +482,12 @@ while (true) {
     const untargetedSuperPellets = pellets
         .filter(pellet => pellet.value >= 10)
         .filter(pellet => !myPacs.some(pac => pellet.pos.equals(pac.target)));
-    console.error(`Super pellets: ${JSON.stringify(untargetedSuperPellets.map(p=>p.pos))}`)
+    console.error(`${Date.now()-startTime}ms: Super pellets: ${JSON.stringify(untargetedSuperPellets.map(p=>p.pos))}`);
 
     let assignmentsLeft = Math.min(untargetedSuperPellets.length, pendingPacs.length);
     if(assignmentsLeft>0) {
         //console.error(`Assigning ${assignmentsLeft} super pellets among pacs ${pendingPacs.map(pac=>pac.id)}`);
-        const costGraph = costGraphFrom(map.getGraph(), pellets);
+        const costGraph = costGraphFrom(map.getGraph(), pellets, myLocations, map.width);
 
         let pelletPaths : {[id:number]: number[][]} = {};
         for(const pac of pendingPacs){
@@ -463,7 +520,7 @@ while (true) {
             const pac = myPacs.filter(pac=>pac.id === nearest.pacId)[0];
             console.error(`Pac ${pac.id} targets closest super pellet at ${pellet.pos}, dist = ${nearest.pellet.dist}`);
             pac.target = pellet.pos;
-            commands.push(`MOVE ${pac.id} ${pac.target}`);
+            commands.push(`MOVE ${pac.id} ${pac.target} SUPER (NEW)`);
             pac.clearState();
             delete pelletPaths[pac.id];
 
@@ -475,13 +532,15 @@ while (true) {
 
 
     pendingPacs = myPacs.filter(pac=>pac.awaitingCommand());
+    if(pendingPacs.length>0)
+        console.error(`${Date.now()-startTime}ms: Assigning fallback route for ${pendingPacs.length} pacs`);
     for (const pac of pendingPacs) {
         //TODO: each pac should consider the best route to eat max pellets without crashing
         if (pellets.length>0){
             const pellet = pellets[(pac.id * 10) % pellets.length];
             console.error(`Moving ${pac.id} to pellet (${pellet.pos})`);
             pac.target = pellet.pos;
-            commands.push(`MOVE ${pac.id} ${pellet.pos}`);
+            commands.push(`MOVE ${pac.id} ${pellet.pos} SCAVANGE`);
         } else {
             console.error(`Pac ${pac.id} sees no opponents or pellets. Moving freely.`);
             let p = map.getRandomPoint();
@@ -489,19 +548,22 @@ while (true) {
             // const node = map.getNode(pac.location);
             // const p = node.neighbours[0].p;
             pac.target = p;
-            commands.push(`MOVE ${pac.id} ${p}`);
+            commands.push(`MOVE ${pac.id} ${p} SEARCHING`);
         }
     }
 
+    //console.error(`${Date.now()-startTime}ms: Submitting ${commands.length} commands`);
     console.log(commands.join(' | '));
 }
 
 
-function costGraphFrom(graph: Graph, pellets: Pellet[]){
+function costGraphFrom(graph: Graph, pellets: Pellet[], myLocations: Point[], graphWidth: number){
     const costGraph: {[hash:number]: CostNode} = {};
-
-    //TODO: Reduce cost for known pellets
     Object.keys(graph).map(hash => costGraph[+hash] = {...graph[+hash], cost:1});
+    
+    pellets.forEach(pellet => costGraph[pellet.pos.getHash(graphWidth)].cost -= pellet.value/4);
+    myLocations.forEach(pos => costGraph[pos.getHash(graphWidth)].cost += 5);
+
     return costGraph;
 }
 
@@ -554,7 +616,7 @@ function loadPacsFromInput(){
         const mine: boolean = inputs[1] !== '0'; // true if this pac is yours
         const x: number = parseInt(inputs[2]); // position in the grid
         const y: number = parseInt(inputs[3]); // position in the grid
-        const typeId: string = inputs[4]; // unused in wood leagues
+        const typeName: string = inputs[4]; // unused in wood leagues
         const speedTurnsLeft: number = parseInt(inputs[5]); // unused in wood leagues
         const abilityCooldown: number = parseInt(inputs[6]); // unused in wood leagues
 
@@ -562,7 +624,7 @@ function loadPacsFromInput(){
             pacId, 
             mine, 
             pos: new Point(x, y),
-            typeId, 
+            typeId: PacType[typeName], 
             speedTurnsLeft, 
             abilityCooldown 
         };
