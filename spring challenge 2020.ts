@@ -137,15 +137,17 @@ class Pacman {
     public readonly id: number;
     private currentState: PacState;
 
-    private previous: Point[];
-    public target: Point;
+    private previous: Point;
+    private collisionTurns: number;
     public avoidanceTurns: number;
+
+    public target: Point;
 
     constructor(id: number){
         this.id = id;
         this.currentState = null;
 
-        this.previous = [];
+        this.previous = new Point(0,0);
         this.target = null;
         this.avoidanceTurns = 0;
     }
@@ -158,12 +160,18 @@ class Pacman {
         this.currentState = null;
     }
 
+    public clearIfDead() {
+        if(this.currentState === null && this.target !== null) {
+            console.error(`Pac ${this.id} is DEAD! Removing target.`);
+            this.target = null;
+        }
+    }
+
     public setState(state: PacState) {
         if(this.currentState !== null)
             throw "Pac should not set state twice!";
     
         this.currentState = state;
-        this.previous.push(state.pos);
     }
 
     public getLocation() {
@@ -171,14 +179,11 @@ class Pacman {
     }
 
     public isColliding() {
-        if (this.previous.length <= MAX_COLLISIONS)
-            return false;
-
-        const last = this.previous.shift();
-
         const current = this.currentState.pos;
-        return (last.x === current.x)
-            && (last.y === current.y);
+        const hasMoved = (this.previous.x !== current.x) || (this.previous.y !== current.y);
+        this.collisionTurns = hasMoved ? 0 : this.collisionTurns + 1;
+        
+        return this.collisionTurns > MAX_COLLISIONS;
     }
 
     public hasAbility() {
@@ -243,7 +248,7 @@ class Dijkstra {
         this.from = from;
         this.unvisited = [fromNode];
 
-        if(this.debug) console.error(`reset graph: (${from}), (${player})`);
+        //if(this.debug) console.error(`reset graph: (${from}), (${player})`);
     }
 
     public pathTo(to: Point){
@@ -257,35 +262,39 @@ class Dijkstra {
 
         if(this.debug) console.error(`Calculating path to (${toNode.pos})`);
         while(this.unvisited.length>0) {
-            const currentNode = this.unvisited.pop();
+            const info = this.unvisited.map(x=>({ pos: x.pos, cost: x.cost, distance: x.distance}));
+            //if(this.debug) console.error(`STACK: ${JSON.stringify(info)}`);
+
+            const currentNode = this.unvisited.shift();
             currentNode.visited = true;
 
             if(!currentNode.path){
                 console.error(`No path from ${this.from} to ${currentNode.pos}`)
             }
             else {
-                if(this.debug) console.error(`Testing ${currentNode}`);
+                //if(this.debug) console.error(`Testing ${currentNode.neighbours.length} neighbours for ${JSON.stringify(currentNode.pos)}`);
                 for(const node of currentNode.neighbours){
                     const hash = node.pos.getHash(this.width);
                     const neighbour = this.graph[hash];
                     if(!neighbour.visited && hash !== this.playerHash) {
                         const tentativeDistance = currentNode.distance + neighbour.cost;
-                        if(this.debug) console.error(`  Neighbour ${neighbour} distance ${tentativeDistance}`);
-                        if(!neighbour.path || neighbour.distance > tentativeDistance) {
+                        //if(this.debug) console.error(`  Neighbour ${ JSON.stringify({...neighbour, neighbours:undefined }) } distance ${tentativeDistance}`);
+                        const isVisited = neighbour.path;
+                        if(!isVisited || neighbour.distance > tentativeDistance) {
                             neighbour.distance = tentativeDistance;
                             neighbour.path = [...currentNode.path, hash];
-                            if(this.debug) console.error(`  Assigned improved path ${neighbour.path}`);
+                            //if(this.debug) console.error(`  Assigned ${isVisited?'improved ': ''}path ${neighbour.path}`);
                         }
 
-                        if(!neighbour.path){
-                            if(this.debug) console.error(`  Pushing neighbour for calculation`);
+                        if(!isVisited){
+                            //if(this.debug) console.error(`  Pushing neighbour for calculation`);
                             this.unvisited.push(neighbour);
                         }
                     }
                 }
 
                 if(currentNode === toNode) {
-                    if(this.debug) console.error(`Reached sought node: ${currentNode.path}`);
+                    //if(this.debug) console.error(`Reached sought node: ${currentNode.path}`);
                     return currentNode.path;
                 }
             }
@@ -360,6 +369,7 @@ while (true) {
     for(const state of myPacStates)
         myPacs[state.pacId].setState(state);
 
+    myPacs.forEach(pac=>pac.clearIfDead());
 
 
 
@@ -380,6 +390,7 @@ while (true) {
     for (const pac of pendingPacs) {
         const command = considerAvoidanceRoutine(pac);
         if (command) {
+            console.error(`Pac ${pac.id} avoiding deadlock`);
             commands.push(command);
             pac.clearState();
         }
@@ -404,7 +415,6 @@ while (true) {
                 console.error(`Pac ${pac.id} continuing to target at (${pac.target})`);
                 commands.push(`MOVE ${pac.id} ${pac.target}`);
             }
-
             pac.clearState();
         }
     }
@@ -415,11 +425,12 @@ while (true) {
     const untargetedSuperPellets = pellets
         .filter(pellet => pellet.value >= 10)
         .filter(pellet => !myPacs.some(pac => pellet.pos.equals(pac.target)));
+    console.error(`Super pellets: ${JSON.stringify(untargetedSuperPellets.map(p=>p.pos))}`)
 
     let assignmentsLeft = Math.min(untargetedSuperPellets.length, pendingPacs.length);
     if(assignmentsLeft>0) {
+        //console.error(`Assigning ${assignmentsLeft} super pellets among pacs ${pendingPacs.map(pac=>pac.id)}`);
         const costGraph = costGraphFrom(map.getGraph(), pellets);
-
 
         let pelletPaths : {[id:number]: number[][]} = {};
         for(const pac of pendingPacs){
@@ -428,10 +439,7 @@ while (true) {
             pelletPaths[pac.id] = paths;
         }
 
-
         do{
-
-
             const nearest = Object.keys(pelletPaths)
                 .map(pacId => ({
                     pacId: +pacId, 
@@ -449,31 +457,19 @@ while (true) {
                     (best, curr)=>best.pellet.dist < curr.pellet.dist ? best : curr, 
                     {pacId: -1, pellet: {index: -1, dist:Number.MAX_SAFE_INTEGER}}
                 );
-
+            //console.error(`nearest: ${JSON.stringify(nearest)}`);
 
             const pellet = untargetedSuperPellets[nearest.pellet.index];
-            const pac = myPacs[nearest.pacId];
-            console.error(`Pac ${pac.id} targets closest super pellet at ${pellet.pos}, dist = ${nearest.pellet.dist}`)
+            const pac = myPacs.filter(pac=>pac.id === nearest.pacId)[0];
+            console.error(`Pac ${pac.id} targets closest super pellet at ${pellet.pos}, dist = ${nearest.pellet.dist}`);
             pac.target = pellet.pos;
             commands.push(`MOVE ${pac.id} ${pac.target}`);
             pac.clearState();
-
-            untargetedSuperPellets.splice(nearest.pellet.index, 1);            
+            delete pelletPaths[pac.id];
 
             assignmentsLeft--;
         }
         while(assignmentsLeft>0);
-
-
-
-
-
-        // console.error(`Assigning super pellet at (${pellet.pos}) to pac ${pac.id}`);
-        // pac.target = pellet.pos;
-
-        // const command = `MOVE ${pac.id} ${pac.target}`;
-        // commands.push(command);
-        // pac.clearState();
     }
 
 
@@ -489,7 +485,7 @@ while (true) {
         } else {
             console.error(`Pac ${pac.id} sees no opponents or pellets. Moving freely.`);
             let p = map.getRandomPoint();
-            pac.avoidanceTurns = 7;
+            //pac.avoidanceTurns = 7;
             // const node = map.getNode(pac.location);
             // const p = node.neighbours[0].p;
             pac.target = p;
