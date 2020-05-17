@@ -407,9 +407,7 @@ while (true) {
 
     myPacs.forEach(pac=>pac.clearIfDead());
 
-    const myLocations = Object.keys(myPacs)
-        .map(id => myPacs[+id].getLocation())
-        .filter(pos => !!pos);
+    const pacLocations = visiblePacStates.map(x=>x.pos);
 
 
     let commands = [];
@@ -493,7 +491,7 @@ while (true) {
     let assignmentsLeft = Math.min(untargetedSuperPellets.length, pendingPacs.length);
     if(assignmentsLeft>0) {
         //console.error(`Assigning ${assignmentsLeft} super pellets among pacs ${pendingPacs.map(pac=>pac.id)}`);
-        const costGraph = costGraphFrom(map.getGraph(), pellets, myLocations, map.width);
+        const costGraph = costGraphFrom(map.getGraph(), pellets, pacLocations, map.width);
 
         let pelletPaths : {[id:number]: number[][]} = {};
         for(const pac of pendingPacs){
