@@ -97,14 +97,18 @@ class GameArea {
 
     public getGraph() { return this.graph; }
 
+    public getRandomSector(pacIndex: number, parts: number) {
+        const keys = Object.keys(this.graph);
+        const size = keys.length / parts;
+        const keyIndex = Math.trunc(Math.random() * size + pacIndex * size);
+        const key = keys[keyIndex];
+        const node = this.graph[+key];
+        //console.error(`${keys.length} keys => ${size} size. keys[${keyIndex}] = ${key}. node = ${node}`);
+        return node.pos;
+    }
+
     public getRandomPoint() {
-        let pos: Point;
-        do{
-            let x = Math.round(Math.random() * map.width);
-            let y = Math.round(Math.random() * map.height);
-            pos = new Point(x, y);
-        } while(!map.getNode(pos));
-        return pos;
+        return this.getRandomSector(0, 1);
     }
 
     public getNode(pos: Point) {
@@ -146,16 +150,17 @@ type PacState = {
 
 class Pacman {
     public readonly id: number;
-    private currentState: PacState;
+    public isAlive: boolean;
+    public target: Point;
 
+    private currentState: PacState;
     private previous: Point;
     private collisionTurns: number;
     public avoidanceTurns: number;
 
-    public target: Point;
-
     constructor(id: number){
         this.id = id;
+        this.isAlive = true;
         this.currentState = null;
 
         this.previous = new Point(0,0);
@@ -164,7 +169,7 @@ class Pacman {
     }
 
     public awaitingCommand(): boolean {
-        return this.currentState !== null;
+        return this.isAlive && this.currentState !== null;
     }
 
     public clearState() {
@@ -172,8 +177,9 @@ class Pacman {
     }
 
     public clearIfDead() {
-        if(this.currentState === null && this.target !== null) {
-            console.error(`Pac ${this.id} is DEAD! Removing target.`);
+        if(this.isAlive && this.currentState === null) {
+            console.error(`Pac ${this.id} is DEAD!`);
+            this.isAlive = false;
             this.target = null;
         }
     }
@@ -534,22 +540,17 @@ while (true) {
     pendingPacs = myPacs.filter(pac=>pac.awaitingCommand());
     if(pendingPacs.length>0)
         console.error(`${Date.now()-startTime}ms: Assigning fallback route for ${pendingPacs.length} pacs`);
-    for (const pac of pendingPacs) {
+    for (var index=0;index<  pendingPacs.length; index++) {
+        const pac = pendingPacs[index];
+
         //TODO: each pac should consider the best route to eat max pellets without crashing
-        if (pellets.length>0){
-            const pellet = pellets[(pac.id * 10) % pellets.length];
-            console.error(`Moving ${pac.id} to pellet (${pellet.pos})`);
-            pac.target = pellet.pos;
-            commands.push(`MOVE ${pac.id} ${pellet.pos} SCAVANGE`);
-        } else {
-            console.error(`Pac ${pac.id} sees no opponents or pellets. Moving freely.`);
-            let p = map.getRandomPoint();
-            //pac.avoidanceTurns = 7;
-            // const node = map.getNode(pac.location);
-            // const p = node.neighbours[0].p;
-            pac.target = p;
-            commands.push(`MOVE ${pac.id} ${p} SEARCHING`);
-        }
+
+        const alivePacs = myPacs.filter(pac=>pac.isAlive).length;
+        const p = map.getRandomSector(index, alivePacs);
+
+        pac.target = p;
+        commands.push(`MOVE ${pac.id} ${p} SCAN`);
+        pac.clearState();
     }
 
     //console.error(`${Date.now()-startTime}ms: Submitting ${commands.length} commands`);
